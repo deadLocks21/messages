@@ -18,4 +18,6 @@ class RequestSmsAccessUseCase {
 
   Future<SmsAccess> requestDefaultSmsApp() =>
       _permissions.requestDefaultSmsApp();
+
+  Future<void> openSystemSettings() => _permissions.openSystemSettings();
 }

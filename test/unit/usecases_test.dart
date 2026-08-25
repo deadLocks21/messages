@@ -2,9 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:messages/core/application/usecases/delete_conversation.usecase.dart';
 import 'package:messages/core/application/usecases/send_message.usecase.dart';
 import 'package:messages/core/application/usecases/start_conversation.usecase.dart';
+import 'package:messages/core/application/usecases/sync_notification_settings.usecase.dart';
 import 'package:messages/core/application/usecases/update_conversation_flags.usecase.dart';
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
 import 'package:messages/core/domain/model/enums.dart';
+import 'package:messages/core/application/services/contact_directory.service.dart';
+import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
+import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
 import 'package:messages/infrastructure/preferences/in_memory.conversation_preferences.repository.dart';
 import 'package:messages/infrastructure/preferences/in_memory.draft.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.conversation.repository.dart';
@@ -17,11 +21,19 @@ void main() {
   late InMemorySmsStore store;
   late InMemoryDraftRepository drafts;
   late InMemoryConversationPreferencesRepository preferences;
+  late InMemoryNotificationGateway notifications;
+  late SyncNotificationSettingsUseCase syncNotifications;
 
   setUp(() {
     store = InMemorySmsStore();
     drafts = InMemoryDraftRepository();
     preferences = InMemoryConversationPreferencesRepository();
+    notifications = InMemoryNotificationGateway();
+    syncNotifications = SyncNotificationSettingsUseCase(
+      directory: ContactDirectoryService(InMemoryContactRepository()),
+      preferences: preferences,
+      notifications: notifications,
+    );
   });
 
   tearDown(() => store.dispose());
@@ -71,7 +83,12 @@ void main() {
   group('UpdateConversationFlagsUseCase', () {
     late UpdateConversationFlagsUseCase usecase;
 
-    setUp(() => usecase = UpdateConversationFlagsUseCase(preferences));
+    setUp(
+      () => usecase = UpdateConversationFlagsUseCase(
+        preferences: preferences,
+        notifications: syncNotifications,
+      ),
+    );
 
     test('épingler puis dépingler ne laisse rien derrière', () async {
       await usecase.togglePinned('thread-1');
@@ -105,7 +122,10 @@ void main() {
       final threadId = store.threadIdFor([Build.address('+33612345678')]);
       store.insert(Build.message(threadId: threadId));
       await drafts.save(threadId, 'à jeter');
-      await UpdateConversationFlagsUseCase(preferences).togglePinned(threadId);
+      await UpdateConversationFlagsUseCase(
+        preferences: preferences,
+        notifications: syncNotifications,
+      ).togglePinned(threadId);
 
       await DeleteConversationUseCase(
         conversations: InMemoryConversationRepository(store),

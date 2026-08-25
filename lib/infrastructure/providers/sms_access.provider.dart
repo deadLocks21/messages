@@ -27,6 +27,11 @@ class SmsAccessController extends _$SmsAccessController {
     return access;
   }
 
+  /// Ouvre les réglages système. Utilisé quand une demande de permission ne
+  /// produit plus rien (refus définitif).
+  Future<void> openSystemSettings() =>
+      ref.read(requestSmsAccessUseCaseProvider).openSystemSettings();
+
   Future<SmsAccess> requestDefaultSmsApp() async {
     final access = await ref
         .read(requestSmsAccessUseCaseProvider)

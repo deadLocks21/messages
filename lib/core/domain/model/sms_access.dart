@@ -1,18 +1,27 @@
 /// Ce que l'app a le droit de faire avec les SMS, à un instant donné.
 ///
 /// Android sépare deux choses : les **permissions runtime** (lire/envoyer des
-/// SMS, lire les contacts) et le **rôle d'application SMS par défaut**. Sans le
-/// rôle, une app peut lire le stock mais ni y écrire ni recevoir `SMS_DELIVER`.
+/// SMS, lire les contacts, publier des notifications) et le **rôle
+/// d'application SMS par défaut**. Sans le rôle, une app peut lire le stock mais
+/// ni y écrire ni recevoir `SMS_DELIVER`.
 class SmsAccess {
   final bool canReadSms;
   final bool canSendSms;
   final bool canReadContacts;
+
+  /// Notifications réellement publiables : `POST_NOTIFICATIONS` accordée
+  /// (Android 13+) **et** notifications de l'app non désactivées dans les
+  /// réglages système. Les deux se contrôlent au même endroit côté utilisateur,
+  /// autant les présenter comme un seul état.
+  final bool canNotify;
+
   final bool isDefaultSmsApp;
 
   const SmsAccess({
     required this.canReadSms,
     required this.canSendSms,
     required this.canReadContacts,
+    required this.canNotify,
     required this.isDefaultSmsApp,
   });
 
@@ -21,6 +30,7 @@ class SmsAccess {
     canReadSms: false,
     canSendSms: false,
     canReadContacts: false,
+    canNotify: false,
     isDefaultSmsApp: false,
   );
 
@@ -29,6 +39,7 @@ class SmsAccess {
     canReadSms: true,
     canSendSms: true,
     canReadContacts: true,
+    canNotify: true,
     isDefaultSmsApp: true,
   );
 
@@ -44,12 +55,14 @@ class SmsAccess {
     bool? canReadSms,
     bool? canSendSms,
     bool? canReadContacts,
+    bool? canNotify,
     bool? isDefaultSmsApp,
   }) {
     return SmsAccess(
       canReadSms: canReadSms ?? this.canReadSms,
       canSendSms: canSendSms ?? this.canSendSms,
       canReadContacts: canReadContacts ?? this.canReadContacts,
+      canNotify: canNotify ?? this.canNotify,
       isDefaultSmsApp: isDefaultSmsApp ?? this.isDefaultSmsApp,
     );
   }
@@ -62,9 +75,15 @@ class SmsAccess {
           canReadSms == other.canReadSms &&
           canSendSms == other.canSendSms &&
           canReadContacts == other.canReadContacts &&
+          canNotify == other.canNotify &&
           isDefaultSmsApp == other.isDefaultSmsApp;
 
   @override
-  int get hashCode =>
-      Object.hash(canReadSms, canSendSms, canReadContacts, isDefaultSmsApp);
+  int get hashCode => Object.hash(
+    canReadSms,
+    canSendSms,
+    canReadContacts,
+    canNotify,
+    isDefaultSmsApp,
+  );
 }

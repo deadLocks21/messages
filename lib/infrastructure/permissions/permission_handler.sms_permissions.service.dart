@@ -21,7 +21,14 @@ class PermissionHandlerSmsPermissionsService implements SmsPermissionsService {
 
   @override
   Future<SmsAccess> requestPermissions() async {
-    final statuses = await [Permission.sms, Permission.contacts].request();
+    // Les notifications sont demandées dans la même salve : une app SMS qui
+    // n'avertit de rien n'a pas d'intérêt, et Android 13+ exige un accord
+    // explicite. Un refus ne bloque rien — l'app reste lisible, silencieuse.
+    final statuses = await [
+      Permission.sms,
+      Permission.contacts,
+      Permission.notification,
+    ].request();
     return _merge(
       sms: statuses[Permission.sms]?.isGranted ?? false,
       contacts: statuses[Permission.contacts]?.isGranted ?? false,
@@ -37,15 +44,24 @@ class PermissionHandlerSmsPermissionsService implements SmsPermissionsService {
     return current.copyWith(isDefaultSmsApp: afterRole.isDefaultSmsApp);
   }
 
+  @override
+  Future<void> openSystemSettings() => openAppSettings();
+
   /// `Permission.sms` couvre `READ_SMS`, `SEND_SMS` et `RECEIVE_SMS` : Android
   /// les regroupe dans le même groupe de permissions, il n'y a donc qu'un seul
   /// verdict à propager aux deux drapeaux.
+  ///
+  /// `canNotify` vient du natif plutôt que de `permission_handler` : seul
+  /// `areNotificationsEnabled()` couvre à la fois la permission runtime
+  /// (Android 13+) et la désactivation des notifications depuis les réglages
+  /// système, qui ne passe par aucune permission.
   Future<SmsAccess> _merge({required bool sms, required bool contacts}) async {
     final native = await _channel.checkAccess();
     return SmsAccess(
       canReadSms: sms,
       canSendSms: sms,
       canReadContacts: contacts,
+      canNotify: native.canNotify,
       isDefaultSmsApp: native.isDefaultSmsApp,
     );
   }

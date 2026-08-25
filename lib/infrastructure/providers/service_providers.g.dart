@@ -533,7 +533,58 @@ final class UpdateConversationFlagsUseCaseProvider
 }
 
 String _$updateConversationFlagsUseCaseHash() =>
-    r'91beb940f31dbfacf923e1618eda0ed54ba6cc67';
+    r'df99917132fe7eacfc9673179a745d7dc7bf34bf';
+
+@ProviderFor(syncNotificationSettingsUseCase)
+final syncNotificationSettingsUseCaseProvider =
+    SyncNotificationSettingsUseCaseProvider._();
+
+final class SyncNotificationSettingsUseCaseProvider
+    extends
+        $FunctionalProvider<
+          SyncNotificationSettingsUseCase,
+          SyncNotificationSettingsUseCase,
+          SyncNotificationSettingsUseCase
+        >
+    with $Provider<SyncNotificationSettingsUseCase> {
+  SyncNotificationSettingsUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'syncNotificationSettingsUseCaseProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$syncNotificationSettingsUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<SyncNotificationSettingsUseCase> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  SyncNotificationSettingsUseCase create(Ref ref) {
+    return syncNotificationSettingsUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SyncNotificationSettingsUseCase value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SyncNotificationSettingsUseCase>(
+        value,
+      ),
+    );
+  }
+}
+
+String _$syncNotificationSettingsUseCaseHash() =>
+    r'8d197e8bc6bbc1c3ffbbb3c058a6add467471aa7';
 
 @ProviderFor(saveDraftUseCase)
 final saveDraftUseCaseProvider = SaveDraftUseCaseProvider._();

@@ -37,14 +37,15 @@ class WelcomePage extends ConsumerWidget {
               const SizedBox(height: 12),
               Text(
                 'Messages a besoin d\'accéder à vos SMS et à vos contacts pour '
-                'afficher vos conversations.',
+                'afficher vos conversations, et de vous notifier à leur '
+                'arrivée.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: colors.textMuted, height: 1.4),
               ),
               const SizedBox(height: 32),
               _Step(
                 index: 1,
-                label: 'Autoriser l\'accès aux SMS et aux contacts',
+                label: 'Autoriser SMS, contacts et notifications',
                 done: access.canReadSms,
               ),
               const SizedBox(height: 12),

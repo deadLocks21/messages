@@ -3,9 +3,12 @@ import 'package:messages/core/domain/services/conversation.repository.dart';
 import 'package:messages/core/domain/services/conversation_preferences.repository.dart';
 import 'package:messages/core/domain/services/draft.repository.dart';
 import 'package:messages/core/domain/services/message.repository.dart';
+import 'package:messages/core/domain/services/notification.gateway.dart';
 import 'package:messages/core/domain/services/sms_permissions.service.dart';
 import 'package:messages/core/domain/services/theme.repository.dart';
 import 'package:messages/infrastructure/contacts/flutter_contacts.contact.repository.dart';
+import 'package:messages/infrastructure/notifications/android.notification.gateway.dart';
+import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
 import 'package:messages/infrastructure/permissions/in_memory.sms_permissions.service.dart';
 import 'package:messages/infrastructure/permissions/permission_handler.sms_permissions.service.dart';
 import 'package:messages/infrastructure/preferences/shared_preferences.conversation_preferences.repository.dart';
@@ -55,6 +58,14 @@ SmsPermissionsService smsPermissionsService(Ref ref) {
   // Hors Android, tout est permis : la démo ne doit pas buter sur un écran
   // d'autorisations qui n'aurait rien à demander.
   return InMemorySmsPermissionsService();
+}
+
+@Riverpod(keepAlive: true)
+NotificationGateway notificationGateway(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidNotificationGateway(ref.watch(smsChannelProvider));
+  }
+  return InMemoryNotificationGateway();
 }
 
 /// Les réglages locaux (épinglage, brouillons, thème) sont persistés de la même

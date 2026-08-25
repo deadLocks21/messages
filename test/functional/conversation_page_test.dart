@@ -80,12 +80,7 @@ void main() {
 
   testWidgets('sans le rôle d\'app par défaut, la rédaction est bloquée', (tester) async {
     final (device, threadId) = deviceWithThread(
-      access: const SmsAccess(
-        canReadSms: true,
-        canSendSms: true,
-        canReadContacts: true,
-        isDefaultSmsApp: false,
-      ),
+      access: SmsAccess.full.copyWith(isDefaultSmsApp: false),
     );
 
     await pumpPage(tester, ConversationPage(threadId: threadId), device: device);

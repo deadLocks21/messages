@@ -18,12 +18,7 @@ void main() {
 
   testWidgets('une fois les permissions accordées, il demande le rôle', (tester) async {
     final device = TestDevice(
-      access: const SmsAccess(
-        canReadSms: true,
-        canSendSms: true,
-        canReadContacts: true,
-        isDefaultSmsApp: false,
-      ),
+      access: SmsAccess.full.copyWith(isDefaultSmsApp: false),
     );
 
     await pumpPage(tester, const WelcomePage(), device: device);

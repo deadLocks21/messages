@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:messages/core/domain/model/contact.dart';
 import 'package:messages/core/domain/model/sms_access.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
+import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
 import 'package:messages/infrastructure/permissions/in_memory.sms_permissions.service.dart';
 import 'package:messages/infrastructure/preferences/in_memory.conversation_preferences.repository.dart';
 import 'package:messages/infrastructure/preferences/in_memory.draft.repository.dart';
@@ -28,16 +29,25 @@ class TestDevice {
   final InMemoryConversationPreferencesRepository preferences;
   final InMemorySmsPermissionsService permissions;
   final InMemoryThemeRepository theme;
+  final InMemoryNotificationGateway notifications;
 
   TestDevice({
     List<Contact> contacts = const [],
     SmsAccess access = SmsAccess.full,
+
+    /// Ce qu'accordera la prochaine demande de permissions. Permet de simuler
+    /// un refus, y compris définitif.
+    SmsAccess? grantedOnRequest,
   }) : store = InMemorySmsStore(),
        contacts = InMemoryContactRepository(contacts),
        drafts = InMemoryDraftRepository(),
        preferences = InMemoryConversationPreferencesRepository(),
-       permissions = InMemorySmsPermissionsService(initial: access),
-       theme = InMemoryThemeRepository();
+       permissions = InMemorySmsPermissionsService(
+         initial: access,
+         grantedOnRequest: grantedOnRequest,
+       ),
+       theme = InMemoryThemeRepository(),
+       notifications = InMemoryNotificationGateway();
 }
 
 /// Monte [home] dans un `MaterialApp` thémé, sur le device fourni.
@@ -88,6 +98,7 @@ Future<void> _pump(WidgetTester tester, TestDevice device, Widget child) async {
         ),
         themeRepositoryProvider.overrideWithValue(device.theme),
         smsPermissionsServiceProvider.overrideWithValue(device.permissions),
+        notificationGatewayProvider.overrideWithValue(device.notifications),
       ],
       child: child,
     ),

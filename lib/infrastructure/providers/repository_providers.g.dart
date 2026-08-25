@@ -206,6 +206,54 @@ final class SmsPermissionsServiceProvider
 String _$smsPermissionsServiceHash() =>
     r'b83b0f592191e44e5b749d04aaf139c5314a4c10';
 
+@ProviderFor(notificationGateway)
+final notificationGatewayProvider = NotificationGatewayProvider._();
+
+final class NotificationGatewayProvider
+    extends
+        $FunctionalProvider<
+          NotificationGateway,
+          NotificationGateway,
+          NotificationGateway
+        >
+    with $Provider<NotificationGateway> {
+  NotificationGatewayProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'notificationGatewayProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$notificationGatewayHash();
+
+  @$internal
+  @override
+  $ProviderElement<NotificationGateway> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  NotificationGateway create(Ref ref) {
+    return notificationGateway(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(NotificationGateway value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<NotificationGateway>(value),
+    );
+  }
+}
+
+String _$notificationGatewayHash() =>
+    r'475499c4927501d05c9d6662d638737366abad28';
+
 /// Les réglages locaux (épinglage, brouillons, thème) sont persistés de la même
 /// façon sur toutes les plateformes : `shared_preferences` a une implémentation
 /// partout, doublure inutile.

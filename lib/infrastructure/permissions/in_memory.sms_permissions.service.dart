@@ -26,9 +26,17 @@ class InMemorySmsPermissionsService implements SmsPermissionsService {
       canReadSms: grantedOnRequest.canReadSms,
       canSendSms: grantedOnRequest.canSendSms,
       canReadContacts: grantedOnRequest.canReadContacts,
+      canNotify: grantedOnRequest.canNotify,
     );
     return _access;
   }
+
+  /// Nombre d'ouvertures demandées — les tests s'en servent pour vérifier le
+  /// repli sur les réglages système.
+  int openSettingsCount = 0;
+
+  @override
+  Future<void> openSystemSettings() async => openSettingsCount++;
 
   @override
   Future<SmsAccess> requestDefaultSmsApp() async {

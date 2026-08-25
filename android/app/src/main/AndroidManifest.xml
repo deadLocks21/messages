@@ -70,6 +70,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- Actions des notifications (réponse directe, marquer comme lu).
+             Déclaré au manifeste : il doit répondre même app non lancée. -->
+        <receiver
+            android:name=".NotificationActionReceiver"
+            android:exported="false"/>
+
         <!-- Composant 4/4 : réponse rapide depuis l'écran d'appel entrant. -->
         <service
             android:name=".HeadlessSmsSendService"

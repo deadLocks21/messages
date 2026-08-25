@@ -25,14 +25,42 @@ void main() {
     expect(await device.theme.get(), AppThemeMode.dark);
   });
 
+  testWidgets('notifications coupées : un bouton propose de les activer', (tester) async {
+    final device = TestDevice(
+      access: SmsAccess.full.copyWith(canNotify: false),
+    );
+
+    await pumpPage(tester, const SettingsPage(), device: device);
+
+    expect(
+      find.text('Désactivées : aucun message reçu ne sera signalé.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('enableNotifications')));
+    await tester.pumpAndSettle();
+
+    expect((await device.permissions.check()).canNotify, isTrue);
+    expect(device.permissions.openSettingsCount, 0);
+  });
+
+  testWidgets('un refus définitif renvoie vers les réglages système', (tester) async {
+    // La demande ne rend plus rien : c'est le signe d'un refus définitif.
+    final device = TestDevice(
+      access: SmsAccess.full.copyWith(canNotify: false),
+      grantedOnRequest: SmsAccess.full.copyWith(canNotify: false),
+    );
+
+    await pumpPage(tester, const SettingsPage(), device: device);
+    await tester.tap(find.byKey(const Key('enableNotifications')));
+    await tester.pumpAndSettle();
+
+    expect(device.permissions.openSettingsCount, 1);
+  });
+
   testWidgets('sans le rôle par défaut, un bouton le propose', (tester) async {
     final device = TestDevice(
-      access: const SmsAccess(
-        canReadSms: true,
-        canSendSms: true,
-        canReadContacts: true,
-        isDefaultSmsApp: false,
-      ),
+      access: SmsAccess.full.copyWith(isDefaultSmsApp: false),
     );
 
     await pumpPage(tester, const SettingsPage(), device: device);

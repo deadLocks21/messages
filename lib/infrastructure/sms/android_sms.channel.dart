@@ -104,6 +104,17 @@ class AndroidSmsChannel {
   Future<void> deleteMessage(String messageId) =>
       _invoke<void>('deleteMessage', {'id': messageId});
 
+  // ------------------------------------------------------ notifications
+
+  /// Fils en sourdine, relus par le récepteur `SMS_DELIVER` au moment de
+  /// notifier.
+  Future<void> setMutedThreads(Set<String> threadIds) =>
+      _invoke<void>('setMutedThreads', {'threadIds': threadIds.toList()});
+
+  /// Annuaire `clé d'adresse → nom`, pour que la notification porte un nom.
+  Future<void> setNotificationDirectory(Map<String, String> namesByAddressKey) =>
+      _invoke<void>('setNotificationDirectory', {'names': namesByAddressKey});
+
   // --------------------------------------------------------- permissions
 
   Future<SmsAccess> checkAccess() async => _access(await _invoke('checkAccess'));
@@ -186,6 +197,7 @@ class AndroidSmsChannel {
       canReadSms: data['canReadSms'] == true,
       canSendSms: data['canSendSms'] == true,
       canReadContacts: data['canReadContacts'] == true,
+      canNotify: data['canNotify'] == true,
       isDefaultSmsApp: data['isDefaultSmsApp'] == true,
     );
   }

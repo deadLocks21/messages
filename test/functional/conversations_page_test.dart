@@ -60,12 +60,7 @@ void main() {
 
   testWidgets('un bandeau réclame le rôle d\'app SMS par défaut', (tester) async {
     final device = TestDevice(
-      access: const SmsAccess(
-        canReadSms: true,
-        canSendSms: true,
-        canReadContacts: true,
-        isDefaultSmsApp: false,
-      ),
+      access: SmsAccess.full.copyWith(isDefaultSmsApp: false),
     );
 
     await pumpPage(tester, const ConversationsPage(), device: device);

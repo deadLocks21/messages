@@ -64,6 +64,25 @@ port `ComposeRequestSource` (`initial()` pour l'intent de lancement, `requests`
 pour ceux reçus à chaud). `MessagesApp` résout le fil, dépose le texte fourni
 comme **brouillon** — jamais comme envoi — et pousse l'écran du fil.
 
+## Notifications : pousser avant, pas demander pendant
+
+Le récepteur `SMS_DELIVER` s'exécute **sans moteur Dart** la plupart du temps :
+au moment de notifier, il ne peut demander à l'app ni si le fil est en sourdine,
+ni comment s'appelle l'expéditeur. Ces deux informations lui sont donc poussées à
+l'avance par le port `NotificationGateway` (`setMutedThreads`, `setDirectory`) et
+persistées côté natif dans son propre `SharedPreferences` — jamais en lisant
+celui du plugin `shared_preferences`, dont le format est un détail
+d'implémentation.
+
+- `SyncNotificationSettingsUseCase.execute()` republie tout au démarrage et à
+  chaque retour au premier plan ; `publishMutedThreads()` seul suffit après un
+  basculement de sourdine (inutile de relire le carnet d'adresses).
+- L'annuaire est indexé par `Address.key`. `NotificationSettings.addressKey`
+  côté Kotlin **doit rester aligné** sur cette normalisation, sinon plus aucun
+  numéro n'est nommé.
+- Le contenu affiché (`MessagingStyle`) est relu du stock au moment de notifier :
+  le provider est déjà la source de vérité, l'app n'en tient pas de copie.
+
 ## Permissions & rôle d'app SMS par défaut
 
 - `SmsAccess` (Domain) agrège : permissions runtime SMS, permission Contacts, rôle SMS par

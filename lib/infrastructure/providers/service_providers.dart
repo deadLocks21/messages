@@ -11,6 +11,7 @@ import 'package:messages/core/application/usecases/resend_message.usecase.dart';
 import 'package:messages/core/application/usecases/save_draft.usecase.dart';
 import 'package:messages/core/application/usecases/send_message.usecase.dart';
 import 'package:messages/core/application/usecases/start_conversation.usecase.dart';
+import 'package:messages/core/application/usecases/sync_notification_settings.usecase.dart';
 import 'package:messages/core/application/usecases/update_conversation_flags.usecase.dart';
 import 'package:messages/infrastructure/providers/repository_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -80,7 +81,16 @@ DeleteConversationUseCase deleteConversationUseCase(Ref ref) =>
 @Riverpod(keepAlive: true)
 UpdateConversationFlagsUseCase updateConversationFlagsUseCase(Ref ref) =>
     UpdateConversationFlagsUseCase(
-      ref.watch(conversationPreferencesRepositoryProvider),
+      preferences: ref.watch(conversationPreferencesRepositoryProvider),
+      notifications: ref.watch(syncNotificationSettingsUseCaseProvider),
+    );
+
+@Riverpod(keepAlive: true)
+SyncNotificationSettingsUseCase syncNotificationSettingsUseCase(Ref ref) =>
+    SyncNotificationSettingsUseCase(
+      directory: ref.watch(contactDirectoryServiceProvider),
+      preferences: ref.watch(conversationPreferencesRepositoryProvider),
+      notifications: ref.watch(notificationGatewayProvider),
     );
 
 @Riverpod(keepAlive: true)

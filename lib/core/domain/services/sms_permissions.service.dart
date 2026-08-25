@@ -13,4 +13,9 @@ abstract interface class SmsPermissionsService {
   /// Ouvre la demande de rôle « application SMS par défaut » et rend l'état
   /// résultant une fois la boîte de dialogue fermée.
   Future<SmsAccess> requestDefaultSmsApp();
+
+  /// Ouvre la fiche de l'app dans les réglages système. Seul recours quand une
+  /// permission a été refusée définitivement : Android ne réaffiche plus la
+  /// boîte de dialogue.
+  Future<void> openSystemSettings();
 }

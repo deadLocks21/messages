@@ -38,6 +38,7 @@ class SmsDeliverReceiver : BroadcastReceiver() {
             threadId = message["threadId"] as? String ?: "",
             address = address,
             body = body,
+            timestamp = timestamp,
         )
     }
 }

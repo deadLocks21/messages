@@ -162,6 +162,7 @@ void main() {
           'canReadSms': true,
           'canSendSms': true,
           'canReadContacts': false,
+          'canNotify': false,
           'isDefaultSmsApp': false,
         },
       });
@@ -171,6 +172,21 @@ void main() {
       expect(access.canBrowse, isTrue);
       expect(access.canCompose, isFalse);
       expect(access.canReadContacts, isFalse);
+      expect(access.canNotify, isFalse);
+    });
+
+    test('pousse les fils en sourdine et l\'annuaire au natif', () async {
+      final calls = <String, Object?>{};
+      mock({
+        'setMutedThreads': (call) => calls['muted'] = call.arguments['threadIds'],
+        'setNotificationDirectory': (call) => calls['names'] = call.arguments['names'],
+      });
+
+      await channel.setMutedThreads({'42'});
+      await channel.setNotificationDirectory({'612345678': 'Camille'});
+
+      expect(calls['muted'], ['42']);
+      expect(calls['names'], {'612345678': 'Camille'});
     });
 
     test('consomme la demande de rédaction du lancement', () async {

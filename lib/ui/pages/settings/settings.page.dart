@@ -72,6 +72,28 @@ class SettingsPage extends ConsumerWidget {
                   ),
           ),
           ListTile(
+            key: const Key('notificationsTile'),
+            leading: Icon(
+              access?.canNotify == true
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_off_outlined,
+              color: access?.canNotify == true ? colors.accent : colors.danger,
+            ),
+            title: const Text('Notifications'),
+            subtitle: Text(
+              access?.canNotify == true
+                  ? 'Vous êtes averti des nouveaux messages.'
+                  : 'Désactivées : aucun message reçu ne sera signalé.',
+            ),
+            trailing: access?.canNotify == true
+                ? null
+                : TextButton(
+                    key: const Key('enableNotifications'),
+                    onPressed: () => _enableNotifications(ref),
+                    child: const Text('Activer'),
+                  ),
+          ),
+          ListTile(
             key: const Key('permissionsTile'),
             leading: Icon(
               access?.canReadSms == true
@@ -103,6 +125,16 @@ class SettingsPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Une permission refusée définitivement ne redemande plus rien : au bout du
+  /// deuxième refus, Android n'affiche plus la boîte de dialogue et le seul
+  /// recours est la fiche de l'app dans les réglages.
+  Future<void> _enableNotifications(WidgetRef ref) async {
+    final controller = ref.read(smsAccessControllerProvider.notifier);
+    final access = await controller.requestPermissions();
+    if (access.canNotify) return;
+    await controller.openSystemSettings();
   }
 
   String _permissionsLabel(bool? sms, bool? contacts) {

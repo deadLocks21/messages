@@ -38,6 +38,15 @@ Future<void> main() async {
     logger.error('sms.access_check_failed', error: e, stack: stack);
   }
 
+  // Le récepteur SMS notifie sans moteur Dart : il lui faut l'annuaire et les
+  // fils en sourdine *avant* le premier message reçu. Best-effort — une
+  // plateforme sans canal natif n'a rien à publier.
+  try {
+    await container.read(syncNotificationSettingsUseCaseProvider).execute();
+  } catch (e, stack) {
+    logger.error('notifications.sync_failed', error: e, stack: stack);
+  }
+
   logger.info('app.started');
 
   runApp(
@@ -112,6 +121,8 @@ class _MessagesAppState extends ConsumerState<MessagesApp>
         // Android, et des messages ont pu arriver pendant notre absence.
         ref.read(smsAccessControllerProvider.notifier).refresh();
         ref.invalidate(conversationsProvider);
+        // Un contact a pu être ajouté ou renommé pendant notre absence.
+        ref.read(syncNotificationSettingsUseCaseProvider).execute();
       case AppLifecycleState.paused:
         logger.info('app.paused');
         logger.flush();

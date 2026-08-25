@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Telephony
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
@@ -109,14 +110,19 @@ class SmsBridge(
 
                 "markThreadRead" -> {
                     requireDefaultSmsApp()
-                    store.markThreadRead(call.argument<String>("threadId")!!)
+                    val threadId = call.argument<String>("threadId")!!
+                    store.markThreadRead(threadId)
+                    // Lire le fil dans l'app rend sa notification caduque.
+                    SmsNotifications.cancel(activity, threadId)
                     SmsEventBus.emitChanged()
                     result.success(null)
                 }
 
                 "deleteThread" -> {
                     requireDefaultSmsApp()
-                    store.deleteThread(call.argument<String>("threadId")!!)
+                    val threadId = call.argument<String>("threadId")!!
+                    store.deleteThread(threadId)
+                    SmsNotifications.cancel(activity, threadId)
                     SmsEventBus.emitChanged()
                     result.success(null)
                 }
@@ -162,6 +168,22 @@ class SmsBridge(
                 "consumeLaunchRequest" -> {
                     result.success(launchRequest)
                     launchRequest = null
+                }
+
+                "setMutedThreads" -> {
+                    NotificationSettings.setMutedThreads(
+                        activity,
+                        call.argument<List<String>>("threadIds")!!.toSet(),
+                    )
+                    result.success(null)
+                }
+
+                "setNotificationDirectory" -> {
+                    NotificationSettings.setDirectory(
+                        activity,
+                        call.argument<Map<String, String>>("names")!!,
+                    )
+                    result.success(null)
                 }
 
                 "checkAccess" -> result.success(access())
@@ -268,6 +290,10 @@ class SmsBridge(
         "canReadSms" to granted(android.Manifest.permission.READ_SMS),
         "canSendSms" to granted(android.Manifest.permission.SEND_SMS),
         "canReadContacts" to granted(android.Manifest.permission.READ_CONTACTS),
+        // `areNotificationsEnabled` couvre d'un coup la permission runtime
+        // (API 33+) et la désactivation depuis les réglages système, qui ne
+        // passe par aucune permission.
+        "canNotify" to NotificationManagerCompat.from(activity).areNotificationsEnabled(),
         "isDefaultSmsApp" to isDefaultSmsApp(),
     )
 

@@ -17,7 +17,11 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 | **Envoi** | SMS simple et multi-parties (compteur de segments), envoi optimiste, accusés de dépôt et de remise, renvoi d'un échec. |
 | **Réception** | `SMS_DELIVER` → écriture dans le stock + notification + rafraîchissement live de l'UI. |
 | **Rédaction** | Sélecteur de contacts (nom ou numéro), numéro libre, brouillons persistés, transfert d'un message. |
-| **Système** | Demande des permissions puis du rôle **application SMS par défaut**, ouverture depuis une notification ou un lien `sms:`, thème clair/sombre. |
+| **Notifications** | `MessagingStyle` (fil des derniers échanges, nom du contact), **réponse directe** et **marquer comme lu** depuis le volet, groupement + résumé, sourdine par fil respectée, annulation quand le fil est lu dans l'app. |
+| **Système** | Demande des permissions (SMS, contacts, notifications) puis du rôle **application SMS par défaut**, ouverture depuis une notification ou un lien `sms:`, thème clair/sombre. |
+
+Reste à faire : notifier les **échecs d'envoi** (« Message non envoyé »), et
+couvrir le Kotlin par des tests instrumentés — `flutter_test` ne l'atteint pas.
 
 Hors périmètre : **MMS** et **RCS**. Les composants Android exigés par le rôle
 d'app par défaut existent (`MmsDeliverReceiver`, `HeadlessSmsSendService`), mais
