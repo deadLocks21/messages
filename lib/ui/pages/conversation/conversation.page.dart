@@ -1,0 +1,313 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:messages/core/application/dtos/conversation.dto.dart';
+import 'package:messages/core/application/dtos/conversation_timeline.dto.dart';
+import 'package:messages/core/application/dtos/message.dto.dart';
+import 'package:messages/core/application/usecases/save_draft.usecase.dart';
+import 'package:messages/core/domain/exceptions/sms.exception.dart';
+import 'package:messages/infrastructure/providers/service_providers.dart';
+import 'package:messages/infrastructure/providers/sms_access.provider.dart';
+import 'package:messages/ui/pages/conversation/widgets/conversation_menu.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/message_bubble.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/message_composer.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/message_options.sheet.dart';
+import 'package:messages/ui/pages/conversation/widgets/timeline_separator.widget.dart';
+import 'package:messages/ui/providers/conversation_providers.dart';
+import 'package:messages/ui/router/app_router.dart';
+import 'package:messages/ui/theme/app_colors.dart';
+import 'package:messages/ui/widgets/avatar.widget.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+/// Un fil de discussion : l'en-tête de l'interlocuteur, les bulles, le champ de
+/// rédaction.
+///
+/// L'ouverture marque le fil comme lu, et le brouillon en cours est restitué
+/// puis re-sauvegardé à la sortie.
+class ConversationPage extends ConsumerStatefulWidget {
+  const ConversationPage({super.key, required this.threadId});
+
+  final String threadId;
+
+  @override
+  ConsumerState<ConversationPage> createState() => _ConversationPageState();
+}
+
+class _ConversationPageState extends ConsumerState<ConversationPage> {
+  final TextEditingController _composer = TextEditingController();
+  final ScrollController _scroll = ScrollController();
+
+  /// Capturé à l'init : `dispose` ne doit pas lire un `Ref` déjà démonté.
+  late final SaveDraftUseCase _saveDraft;
+
+  bool _draftRestored = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _saveDraft = ref.read(saveDraftUseCaseProvider);
+    // Le marquage « lu » touche le stock : hors de la phase de build.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _markRead());
+  }
+
+  @override
+  void dispose() {
+    // Fire-and-forget : le fil est déjà en train de disparaître, personne
+    // n'attend le résultat.
+    _saveDraft.execute(widget.threadId, _composer.text);
+    _composer.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _markRead() async {
+    await ref
+        .read(markConversationReadUseCaseProvider)
+        .execute(widget.threadId);
+    if (!mounted) return;
+    ref.invalidate(conversationsProvider);
+    ref.invalidate(unreadConversationCountProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final conversationAsync = ref.watch(conversationProvider(widget.threadId));
+    final timelineAsync = ref.watch(
+      conversationTimelineProvider(widget.threadId),
+    );
+    final access = ref.watch(smsAccessControllerProvider).value;
+    final canSend = access?.canCompose ?? false;
+
+    // Le brouillon n'est restitué qu'une fois, et jamais par-dessus une saisie
+    // en cours.
+    final draft = ref.watch(draftProvider(widget.threadId)).value;
+    if (!_draftRestored && draft != null && _composer.text.isEmpty) {
+      _draftRestored = true;
+      _composer.text = draft;
+    }
+
+    final conversation = conversationAsync.value;
+
+    return Scaffold(
+      backgroundColor: colors.background,
+      appBar: _appBar(context, conversation),
+      body: Column(
+        children: [
+          Expanded(
+            child: timelineAsync.when(
+              skipLoadingOnReload: true,
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(child: Text('Erreur : $error')),
+              data: (timeline) => timeline.isEmpty
+                  ? const _EmptyThread()
+                  : _Timeline(
+                      timeline: timeline,
+                      controller: _scroll,
+                      onLongPress: _onMessageAction,
+                      onRetry: _resend,
+                    ),
+            ),
+          ),
+          MessageComposer(
+            controller: _composer,
+            enabled: canSend,
+            onSend: _send,
+            onAttach: _onAttach,
+          ),
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _appBar(BuildContext context, ConversationDto? conversation) {
+    final colors = context.appColors;
+    final title = conversation?.title ?? '';
+    final address = conversation?.addresses.firstOrNull;
+
+    return AppBar(
+      titleSpacing: 0,
+      title: Row(
+        children: [
+          if (conversation != null) ...[
+            Avatar(avatar: conversation.avatar, size: 34),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: colors.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        if (address != null)
+          IconButton(
+            key: const Key('callRecipient'),
+            tooltip: 'Appeler',
+            icon: const Icon(Icons.call_outlined),
+            onPressed: () => _call(address),
+          ),
+        if (conversation != null)
+          ConversationMenu(
+            conversation: conversation,
+            onDeleted: () => context.pop(),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _send(String body) async {
+    final conversation = ref.read(conversationProvider(widget.threadId)).value;
+    final recipients = conversation?.addresses ?? const <String>[];
+    if (recipients.isEmpty) {
+      _announce('Destinataire inconnu pour ce fil.');
+      return;
+    }
+
+    // Le champ se vide tout de suite : l'envoi est optimiste, l'état de la
+    // bulle dira la suite.
+    _composer.clear();
+    try {
+      await ref
+          .read(sendMessageUseCaseProvider)
+          .execute(recipients: recipients, body: body);
+    } on SmsException catch (e) {
+      _composer.text = body;
+      _announce(e.message);
+      return;
+    }
+    if (!mounted) return;
+    ref.invalidate(conversationTimelineProvider(widget.threadId));
+    ref.invalidate(conversationsProvider);
+    _scrollToBottom();
+  }
+
+  Future<void> _resend(MessageDto message) async {
+    try {
+      await ref.read(resendMessageUseCaseProvider).execute(message.id);
+    } on SmsException catch (e) {
+      _announce(e.message);
+      return;
+    }
+    if (!mounted) return;
+    ref.invalidate(conversationTimelineProvider(widget.threadId));
+  }
+
+  Future<void> _onMessageAction(MessageDto message) async {
+    final action = await MessageOptionsSheet.show(context, message);
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case MessageAction.copy:
+        await MessageOptionsSheet.copy(message);
+        _announce('Message copié');
+      case MessageAction.forward:
+        await context.push(AppRoutes.newConversation, extra: message.body);
+      case MessageAction.delete:
+        await ref.read(deleteMessageUseCaseProvider).execute(message.id);
+        if (!mounted) return;
+        ref.invalidate(conversationTimelineProvider(widget.threadId));
+        ref.invalidate(conversationsProvider);
+      case MessageAction.resend:
+        await _resend(message);
+    }
+  }
+
+  /// Les MMS ne sont pas pris en charge : on le dit franchement plutôt que
+  /// d'offrir un bouton qui ne fait rien.
+  void _onAttach() => _announce('Les pièces jointes (MMS) ne sont pas gérées.');
+
+  Future<void> _call(String address) async {
+    final uri = Uri(scheme: 'tel', path: address);
+    if (!await launchUrl(uri)) {
+      _announce('Aucune application d\'appel disponible.');
+    }
+  }
+
+  void _scrollToBottom() {
+    if (!_scroll.hasClients) return;
+    // La liste est inversée : le bas, c'est l'offset zéro.
+    _scroll.animateTo(
+      0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _announce(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+/// Le fil, du plus récent (en bas) au plus ancien. `reverse: true` fait
+/// démarrer la vue sur le dernier message et garde la position quand le clavier
+/// s'ouvre.
+class _Timeline extends StatelessWidget {
+  const _Timeline({
+    required this.timeline,
+    required this.controller,
+    required this.onLongPress,
+    required this.onRetry,
+  });
+
+  final ConversationTimelineDto timeline;
+  final ScrollController controller;
+  final ValueChanged<MessageDto> onLongPress;
+  final ValueChanged<MessageDto> onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = timeline.entries;
+
+    return ListView.builder(
+      key: const Key('timeline'),
+      controller: controller,
+      reverse: true,
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        final entry = entries[entries.length - 1 - index];
+        return switch (entry) {
+          TimelineSeparator(:final at) => TimelineSeparatorLabel(at: at),
+          TimelineMessage() => MessageBubble(
+            entry: entry,
+            onLongPress: () => onLongPress(entry.message),
+            onRetry: entry.message.status.hasFailed
+                ? () => onRetry(entry.message)
+                : null,
+          ),
+        };
+      },
+    );
+  }
+}
+
+class _EmptyThread extends StatelessWidget {
+  const _EmptyThread();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Text(
+          'Aucun message pour l\'instant.\nÉcrivez le premier.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: colors.textMuted),
+        ),
+      ),
+    );
+  }
+}

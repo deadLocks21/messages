@@ -1,0 +1,145 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:messages/core/application/usecases/delete_conversation.usecase.dart';
+import 'package:messages/core/application/usecases/send_message.usecase.dart';
+import 'package:messages/core/application/usecases/start_conversation.usecase.dart';
+import 'package:messages/core/application/usecases/update_conversation_flags.usecase.dart';
+import 'package:messages/core/domain/exceptions/sms.exception.dart';
+import 'package:messages/core/domain/model/enums.dart';
+import 'package:messages/infrastructure/preferences/in_memory.conversation_preferences.repository.dart';
+import 'package:messages/infrastructure/preferences/in_memory.draft.repository.dart';
+import 'package:messages/infrastructure/sms/in_memory.conversation.repository.dart';
+import 'package:messages/infrastructure/sms/in_memory.message.repository.dart';
+import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
+
+import '../builders/builders.dart';
+
+void main() {
+  late InMemorySmsStore store;
+  late InMemoryDraftRepository drafts;
+  late InMemoryConversationPreferencesRepository preferences;
+
+  setUp(() {
+    store = InMemorySmsStore();
+    drafts = InMemoryDraftRepository();
+    preferences = InMemoryConversationPreferencesRepository();
+  });
+
+  tearDown(() => store.dispose());
+
+  group('SendMessageUseCase', () {
+    late SendMessageUseCase usecase;
+
+    setUp(() {
+      usecase = SendMessageUseCase(
+        messages: InMemoryMessageRepository(store),
+        drafts: drafts,
+      );
+    });
+
+    test('envoie et rend un message en cours d\'envoi', () async {
+      final sent = await usecase.execute(
+        recipients: ['+33612345678'],
+        body: '  Coucou  ',
+      );
+
+      expect(sent.body, 'Coucou');
+      expect(sent.status, MessageStatus.sending);
+      expect(sent.isOutgoing, isTrue);
+    });
+
+    test('efface le brouillon du fil', () async {
+      final threadId = store.threadIdFor([Build.address('+33612345678')]);
+      await drafts.save(threadId, 'texte en cours');
+
+      await usecase.execute(recipients: ['+33612345678'], body: 'Coucou');
+
+      expect(await drafts.get(threadId), isNull);
+    });
+
+    test('refuse un message vide ou sans destinataire', () async {
+      expect(
+        () => usecase.execute(recipients: ['+33612345678'], body: '   '),
+        throwsA(isA<MessageSendFailedException>()),
+      );
+      expect(
+        () => usecase.execute(recipients: const [], body: 'Coucou'),
+        throwsA(isA<MessageSendFailedException>()),
+      );
+    });
+  });
+
+  group('UpdateConversationFlagsUseCase', () {
+    late UpdateConversationFlagsUseCase usecase;
+
+    setUp(() => usecase = UpdateConversationFlagsUseCase(preferences));
+
+    test('épingler puis dépingler ne laisse rien derrière', () async {
+      await usecase.togglePinned('thread-1');
+      expect((await preferences.listAll()).single.pinned, isTrue);
+
+      await usecase.togglePinned('thread-1');
+      expect(await preferences.listAll(), isEmpty);
+    });
+
+    test('épingler un fil archivé le sort des archives', () async {
+      await usecase.toggleArchived('thread-1');
+      await usecase.togglePinned('thread-1');
+
+      final preference = (await preferences.listAll()).single;
+      expect(preference.pinned, isTrue);
+      expect(preference.archived, isFalse);
+    });
+
+    test('la sourdine est indépendante', () async {
+      await usecase.togglePinned('thread-1');
+      await usecase.toggleMuted('thread-1');
+
+      final preference = (await preferences.listAll()).single;
+      expect(preference.pinned, isTrue);
+      expect(preference.muted, isTrue);
+    });
+  });
+
+  group('DeleteConversationUseCase', () {
+    test('supprime le fil, ses réglages et son brouillon', () async {
+      final threadId = store.threadIdFor([Build.address('+33612345678')]);
+      store.insert(Build.message(threadId: threadId));
+      await drafts.save(threadId, 'à jeter');
+      await UpdateConversationFlagsUseCase(preferences).togglePinned(threadId);
+
+      await DeleteConversationUseCase(
+        conversations: InMemoryConversationRepository(store),
+        preferences: preferences,
+        drafts: drafts,
+      ).execute(threadId);
+
+      expect(store.conversations(), isEmpty);
+      expect(await preferences.listAll(), isEmpty);
+      expect(await drafts.get(threadId), isNull);
+    });
+  });
+
+  group('StartConversationUseCase', () {
+    test('rend le fil du destinataire, en le créant au besoin', () async {
+      final usecase = StartConversationUseCase(
+        InMemoryConversationRepository(store),
+      );
+
+      final threadId = await usecase.execute(['06 12 34 56 78']);
+
+      expect(threadId, isNotEmpty);
+      expect(await usecase.execute(['+33612345678']), threadId);
+    });
+
+    test('refuse une liste sans destinataire exploitable', () {
+      final usecase = StartConversationUseCase(
+        InMemoryConversationRepository(store),
+      );
+
+      expect(
+        () => usecase.execute(const ['  ']),
+        throwsA(isA<MessageSendFailedException>()),
+      );
+    });
+  });
+}
