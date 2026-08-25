@@ -33,7 +33,19 @@ Future<void> main() async {
   // Best-effort — une plateforme sans canal SMS ne doit pas bloquer le
   // démarrage.
   try {
-    await container.read(smsAccessControllerProvider.future);
+    final access = await container.read(smsAccessControllerProvider.future);
+    // Tracé au démarrage : c'est ce que voit l'app, et c'est la première chose
+    // à comparer aux réglages Android quand elle se croit bridée à tort.
+    logger.info(
+      'sms.access',
+      attrs: {
+        'sms.read': access.canReadSms,
+        'sms.send': access.canSendSms,
+        'sms.contacts': access.canReadContacts,
+        'sms.notify': access.canNotify,
+        'sms.default_app': access.isDefaultSmsApp,
+      },
+    );
   } catch (e, stack) {
     logger.error('sms.access_check_failed', error: e, stack: stack);
   }

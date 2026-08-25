@@ -260,27 +260,53 @@ class SmsBridge(
         pendingRoleResult?.success(access())
         pendingRoleResult = result
 
-        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val roleManager = activity.getSystemService(RoleManager::class.java)
-            roleManager?.createRequestRoleIntent(RoleManager.ROLE_SMS)
-        } else {
-            @Suppress("DEPRECATION")
-            Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT).putExtra(
-                Telephony.Sms.Intents.EXTRA_PACKAGE_NAME,
-                activity.packageName,
-            )
-        }
-
-        if (intent == null) {
-            pendingRoleResult = null
-            result.success(access())
-            return
-        }
-        activity.startActivityForResult(intent, ROLE_REQUEST_CODE)
+        activity.startActivityForResult(roleRequestIntent(), ROLE_REQUEST_CODE)
     }
 
-    private fun isDefaultSmsApp(): Boolean =
-        Telephony.Sms.getDefaultSmsPackage(activity) == activity.packageName
+    /**
+     * Comment demander le rôle : `RoleManager` depuis Android 10, sinon
+     * l'intent historique. Un appareil sans téléphonie n'expose pas `ROLE_SMS`
+     * — on retombe alors aussi sur l'intent, qui sait refuser proprement.
+     */
+    private fun roleRequestIntent(): Intent {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = activity.getSystemService(RoleManager::class.java)
+            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_SMS)) {
+                return roleManager.createRequestRoleIntent(RoleManager.ROLE_SMS)
+            }
+        }
+        @Suppress("DEPRECATION")
+        return Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT).putExtra(
+            Telephony.Sms.Intents.EXTRA_PACKAGE_NAME,
+            activity.packageName,
+        )
+    }
+
+    /**
+     * L'app tient-elle le rôle SMS ?
+     *
+     * `getDefaultSmsPackage()` lit `Settings.Secure.SMS_DEFAULT_APPLICATION`,
+     * que `RoleManager` met à jour de façon **asynchrone** : juste après la
+     * boîte de dialogue de rôle, il désigne encore l'application précédente. On
+     * a donc pu répondre « non » à Dart alors que le rôle venait d'être accordé
+     * — d'où un bandeau « définissez Messages par défaut » qui ne partait plus.
+     *
+     * Depuis Android 10, `isRoleHeld` est la source de vérité et se met à jour
+     * avec le rôle. Les deux signaux sont **positifs** : l'un ou l'autre suffit,
+     * un désaccord voulant seulement dire que le plus lent n'a pas rattrapé.
+     */
+    private fun isDefaultSmsApp(): Boolean {
+        val byPackage =
+            Telephony.Sms.getDefaultSmsPackage(activity) == activity.packageName
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return byPackage
+
+        val roleManager = activity.getSystemService(RoleManager::class.java)
+            ?: return byPackage
+        val byRole = runCatching {
+            roleManager.isRoleHeld(RoleManager.ROLE_SMS)
+        }.getOrDefault(false)
+        return byPackage || byRole
+    }
 
     private fun granted(permission: String): Boolean =
         ContextCompat.checkSelfPermission(activity, permission) ==
