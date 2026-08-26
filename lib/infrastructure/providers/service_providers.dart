@@ -57,11 +57,15 @@ SearchService searchService(Ref ref) => SearchService(
 SendMessageUseCase sendMessageUseCase(Ref ref) => SendMessageUseCase(
   messages: ref.watch(messageRepositoryProvider),
   drafts: ref.watch(draftRepositoryProvider),
+  configuration: ref.watch(mmsConfigurationProvider),
 );
 
 @Riverpod(keepAlive: true)
-PickAttachmentsUseCase pickAttachmentsUseCase(Ref ref) =>
-    PickAttachmentsUseCase(ref.watch(attachmentPickerProvider));
+PickAttachmentsUseCase pickAttachmentsUseCase(Ref ref) => PickAttachmentsUseCase(
+  picker: ref.watch(attachmentPickerProvider),
+  compressor: ref.watch(attachmentCompressorProvider),
+  configuration: ref.watch(mmsConfigurationProvider),
+);
 
 @Riverpod(keepAlive: true)
 ResendMessageUseCase resendMessageUseCase(Ref ref) =>

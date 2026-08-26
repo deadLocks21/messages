@@ -543,13 +543,11 @@ class MmsStore(private val context: Context) {
      */
     private fun writePduFile(transactionId: String, pdu: ByteArray): Uri {
         val directory = File(context.cacheDir, "mms").apply { mkdirs() }
-        // Les envois précédents n'ont plus lieu d'être : le cache n'est pas un
-        // journal.
-        directory.listFiles()?.forEach { file ->
-            if (System.currentTimeMillis() - file.lastModified() > STALE_PDU_MS) {
-                file.delete()
-            }
-        }
+        sweepStale(directory)
+        // Les photos prises et les images compressées vivent au même endroit :
+        // un envoi est le bon moment pour faire le ménage, puisqu'il prouve
+        // qu'une rédaction s'achève.
+        sweepStale(File(context.cacheDir, "captures"))
         val file = File(directory, "$transactionId.pdu")
         file.writeBytes(pdu)
         return FileProvider.getUriForFile(
@@ -557,6 +555,20 @@ class MmsStore(private val context: Context) {
             "${context.packageName}.fileprovider",
             file,
         )
+    }
+
+    /**
+     * Efface les fichiers temporaires trop vieux pour être encore utiles.
+     *
+     * Le seuil est large à dessein : une rédaction en cours peut durer, et
+     * supprimer sous les pieds de l'utilisateur la photo qu'il vient de
+     * joindre serait pire que quelques kilooctets gardés une journée de trop.
+     */
+    private fun sweepStale(directory: File) {
+        val now = System.currentTimeMillis()
+        directory.listFiles()?.forEach { file ->
+            if (now - file.lastModified() > STALE_PDU_MS) file.delete()
+        }
     }
 
     private fun smsManager(subscriptionId: Int?): SmsManager {

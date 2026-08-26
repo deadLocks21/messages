@@ -289,7 +289,7 @@ final class SendMessageUseCaseProvider
 }
 
 String _$sendMessageUseCaseHash() =>
-    r'34609b06b38a1dc388a408f18814014a8019055a';
+    r'd8700e087fe077a56df979cbfa79ffa76fc9a0ba';
 
 @ProviderFor(pickAttachmentsUseCase)
 final pickAttachmentsUseCaseProvider = PickAttachmentsUseCaseProvider._();
@@ -337,7 +337,7 @@ final class PickAttachmentsUseCaseProvider
 }
 
 String _$pickAttachmentsUseCaseHash() =>
-    r'7dee50166473f9e884213a7b0205e7c0ec082541';
+    r'afa8273a38aef3808a781853798f5a784929bb59';
 
 @ProviderFor(resendMessageUseCase)
 final resendMessageUseCaseProvider = ResendMessageUseCaseProvider._();

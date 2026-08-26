@@ -20,6 +20,12 @@ class AndroidAttachmentRepository implements AttachmentRepository {
       _channel.readAttachmentUri(draft.uri);
 
   @override
-  Future<void> discardDraft(AttachmentDraft draft) =>
-      _channel.discardAttachment(draft.uri);
+  Future<void> discardDraft(AttachmentDraft draft) async {
+    // Une image compressée laisse deux fichiers derrière elle : l'original
+    // choisi et la version allégée. Les deux sont à nous, les deux partent.
+    await _channel.discardAttachment(draft.uri);
+    if (draft.sourceUri != draft.uri) {
+      await _channel.discardAttachment(draft.sourceUri);
+    }
+  }
 }

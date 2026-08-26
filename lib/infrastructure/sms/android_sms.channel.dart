@@ -136,6 +136,35 @@ class AndroidSmsChannel {
   Future<void> discardAttachment(String uri) =>
       _invoke<void>('discardAttachment', {'uri': uri});
 
+  /// Taille maximale d'un MMS selon la configuration opérateur, en octets.
+  /// Null quand le système ne publie rien d'exploitable.
+  Future<int?> mmsMaxMessageSize() =>
+      _invoke<int>('mmsMaxMessageSize');
+
+  /// Réduit une image pour qu'elle tienne sous [targetBytes].
+  ///
+  /// Part de `sourceUri` — l'original — et non de ce qui a déjà été compressé.
+  /// Rend `null` quand la cible est hors d'atteinte.
+  Future<AttachmentDraft?> compressAttachment(
+    AttachmentDraft draft, {
+    required int targetBytes,
+  }) async {
+    final raw = await _invoke<Map<Object?, Object?>>('compressAttachment', {
+      'uri': draft.sourceUri,
+      'mimeType': draft.mimeType,
+      'targetBytes': targetBytes,
+    });
+    if (raw == null) return null;
+    final data = _map(raw);
+    return draft.compressedTo(
+      uri: data['uri'] as String,
+      byteSize: (data['byteSize'] as int?) ?? 0,
+      mimeType: data['mimeType'] as String?,
+      width: data['width'] as int?,
+      height: data['height'] as int?,
+    );
+  }
+
   // ------------------------------------------------------ notifications
 
   /// Fils en sourdine, relus par le récepteur `SMS_DELIVER` au moment de
@@ -217,6 +246,7 @@ class AndroidSmsChannel {
   Map<String, Object?> _draftToWire(AttachmentDraft draft) => {
     'id': draft.id,
     'uri': draft.uri,
+    'sourceUri': draft.sourceUri,
     'mimeType': draft.mimeType,
     'fileName': draft.fileName,
     'byteSize': draft.byteSize,
@@ -227,6 +257,7 @@ class AndroidSmsChannel {
   AttachmentDraft _draft(Map<String, Object?> data) => AttachmentDraft(
     id: data['id'] as String,
     uri: data['uri'] as String,
+    sourceUri: data['sourceUri'] as String?,
     mimeType: (data['mimeType'] as String?) ?? 'application/octet-stream',
     fileName: (data['fileName'] as String?) ?? 'Pièce jointe',
     byteSize: (data['byteSize'] as int?) ?? 0,
@@ -310,7 +341,11 @@ class AndroidSmsChannel {
         'not_default_sms_app' => const NotDefaultSmsAppException(),
         'permission_denied' => const SmsPermissionDeniedException(),
         'not_found' => const MessageNotFoundException(),
-        'attachment_too_large' => const AttachmentTooLargeException(),
+        // Le natif refuse sans connaître la limite négociée côté Dart : on
+        // annonce le repli, faute de mieux.
+        'attachment_too_large' => AttachmentTooLargeException(
+          MmsLimits.fallback,
+        ),
         'attachment_unavailable' => const AttachmentUnavailableException(),
         _ => MessageSendFailedException(e.message),
       };

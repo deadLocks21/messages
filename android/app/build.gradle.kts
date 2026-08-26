@@ -42,6 +42,11 @@ dependencies {
     // NotificationCompat + registerReceiver(RECEIVER_NOT_EXPORTED) + vérification
     // des permissions : utilisés par le pont SMS.
     implementation("androidx.core:core-ktx:1.13.1")
+
+    // Orientation EXIF des photos. Ré-encoder une image sans la lire renverrait
+    // les portraits couchés : `BitmapFactory` ignore l'orientation, la caméra
+    // l'écrit pourtant dans les métadonnées plutôt que dans les pixels.
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }
 
 flutter {

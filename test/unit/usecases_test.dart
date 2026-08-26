@@ -12,6 +12,7 @@ import 'package:messages/infrastructure/notifications/in_memory.notification.gat
 import 'package:messages/infrastructure/preferences/in_memory.conversation_preferences.repository.dart';
 import 'package:messages/infrastructure/preferences/in_memory.draft.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.conversation.repository.dart';
+import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
 import 'package:messages/infrastructure/sms/in_memory.message.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 
@@ -45,6 +46,7 @@ void main() {
       usecase = SendMessageUseCase(
         messages: InMemoryMessageRepository(store),
         drafts: drafts,
+        configuration: InMemoryMmsConfiguration(),
       );
     });
 

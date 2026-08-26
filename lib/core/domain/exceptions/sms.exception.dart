@@ -1,3 +1,5 @@
+import 'package:messages/core/domain/model/attachment.dart';
+
 /// Erreurs métier du stock SMS. Toutes portent un message affichable tel quel :
 /// c'est la couche application qui décide de l'exposer ou de la traduire.
 sealed class SmsException implements Exception {
@@ -33,15 +35,21 @@ class MessageNotFoundException extends SmsException {
   const MessageNotFoundException() : super('Ce message n\'existe plus.');
 }
 
-/// Le MMS dépasse ce que le réseau accepte de porter
-/// ([AttachmentLimits.maxTotalBytes]).
+/// Le MMS dépasse ce que l'opérateur accepte de porter.
+///
+/// Le message annonce la limite **réellement lue** plutôt qu'un chiffre
+/// générique : « trop lourd » sans dire de combien ne dit pas quoi faire.
 class AttachmentTooLargeException extends SmsException {
-  const AttachmentTooLargeException()
-    : super('Pièces jointes trop lourdes : allégez-les avant d\'envoyer.');
+  final MmsLimits limits;
+
+  AttachmentTooLargeException(this.limits)
+    : super(
+        'Pièces jointes trop lourdes : votre opérateur limite les MMS à '
+        '${(limits.maxTotalBytes / 1024).round()} Ko.',
+      );
 }
 
-/// Trop de pièces jointes pour un seul message
-/// ([AttachmentLimits.maxCount]).
+/// Trop de pièces jointes pour un seul message ([MmsLimits.maxCount]).
 class TooManyAttachmentsException extends SmsException {
   const TooManyAttachmentsException()
     : super('Trop de pièces jointes pour un seul message.');

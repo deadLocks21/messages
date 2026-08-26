@@ -278,16 +278,34 @@ final class ConversationTimelineFamily extends $Family
 }
 
 /// Nombre de fils non lus — pastille de la puce « Non lus ».
+///
+/// Dérivé de la liste déjà construite, jamais recalculé : la reconstruire pour
+/// n'en tirer qu'un entier coûtait un second parcours complet du stock et une
+/// seconde lecture du carnet d'adresses, à chaque démarrage et à chaque
+/// changement. Le filtre « non lues » est exactement « non archivé et non lu »,
+/// donc compter sur la liste « tous » donne le même nombre.
 
 @ProviderFor(unreadConversationCount)
 final unreadConversationCountProvider = UnreadConversationCountProvider._();
 
 /// Nombre de fils non lus — pastille de la puce « Non lus ».
+///
+/// Dérivé de la liste déjà construite, jamais recalculé : la reconstruire pour
+/// n'en tirer qu'un entier coûtait un second parcours complet du stock et une
+/// seconde lecture du carnet d'adresses, à chaque démarrage et à chaque
+/// changement. Le filtre « non lues » est exactement « non archivé et non lu »,
+/// donc compter sur la liste « tous » donne le même nombre.
 
 final class UnreadConversationCountProvider
     extends $FunctionalProvider<AsyncValue<int>, int, FutureOr<int>>
     with $FutureModifier<int>, $FutureProvider<int> {
   /// Nombre de fils non lus — pastille de la puce « Non lus ».
+  ///
+  /// Dérivé de la liste déjà construite, jamais recalculé : la reconstruire pour
+  /// n'en tirer qu'un entier coûtait un second parcours complet du stock et une
+  /// seconde lecture du carnet d'adresses, à chaque démarrage et à chaque
+  /// changement. Le filtre « non lues » est exactement « non archivé et non lu »,
+  /// donc compter sur la liste « tous » donne le même nombre.
   UnreadConversationCountProvider._()
     : super(
         from: null,
@@ -314,7 +332,7 @@ final class UnreadConversationCountProvider
 }
 
 String _$unreadConversationCountHash() =>
-    r'73aca43b3cabc67e1e5e9b08bcc141fd9ba69ce1';
+    r'f7651883404d59ea80c885eb376962435a8eb465';
 
 /// Contacts proposés par le sélecteur de destinataires, filtrés par la saisie.
 

@@ -1,5 +1,7 @@
 import 'package:messages/core/domain/services/attachment.repository.dart';
+import 'package:messages/core/domain/services/attachment_compressor.service.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
+import 'package:messages/core/domain/services/mms_configuration.service.dart';
 import 'package:messages/core/domain/services/contact.repository.dart';
 import 'package:messages/core/domain/services/conversation.repository.dart';
 import 'package:messages/core/domain/services/conversation_preferences.repository.dart';
@@ -9,8 +11,12 @@ import 'package:messages/core/domain/services/notification.gateway.dart';
 import 'package:messages/core/domain/services/sms_permissions.service.dart';
 import 'package:messages/core/domain/services/theme.repository.dart';
 import 'package:messages/infrastructure/attachments/android.attachment.repository.dart';
+import 'package:messages/infrastructure/attachments/android.attachment_compressor.service.dart';
 import 'package:messages/infrastructure/attachments/android.attachment_picker.service.dart';
+import 'package:messages/infrastructure/attachments/android.mms_configuration.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment.repository.dart';
+import 'package:messages/infrastructure/attachments/in_memory.attachment_compressor.service.dart';
+import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
 import 'package:messages/infrastructure/contacts/flutter_contacts.contact.repository.dart';
 import 'package:messages/infrastructure/notifications/android.notification.gateway.dart';
 import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
@@ -61,6 +67,24 @@ AttachmentPicker attachmentPicker(Ref ref) {
     return AndroidAttachmentPicker(ref.watch(smsChannelProvider));
   }
   return ref.watch(inMemoryAttachmentPickerProvider);
+}
+
+@Riverpod(keepAlive: true)
+AttachmentCompressor attachmentCompressor(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidAttachmentCompressor(ref.watch(smsChannelProvider));
+  }
+  return InMemoryAttachmentCompressor(ref.watch(inMemorySmsStoreProvider));
+}
+
+/// Configuration MMS de l'opérateur. `keepAlive` : c'est ce qui fait tenir le
+/// cache — la limite est lue une fois pour toute la session.
+@Riverpod(keepAlive: true)
+MmsConfiguration mmsConfiguration(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidMmsConfiguration(ref.watch(smsChannelProvider));
+  }
+  return InMemoryMmsConfiguration();
 }
 
 @Riverpod(keepAlive: true)

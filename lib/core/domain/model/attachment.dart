@@ -24,15 +24,63 @@ enum AttachmentKind {
       this == AttachmentKind.image || this == AttachmentKind.video;
 }
 
-/// Bornes d'un MMS.
+/// Bornes d'un MMS, telles que les fixe l'opérateur.
 ///
-/// Le réseau plafonne la taille du PDU ; les opérateurs français acceptent
-/// couramment 300 Ko, rarement plus de 600 Ko. On s'arrête à 600 Ko de contenu
-/// utile — au-delà, l'envoi partirait pour échouer silencieusement côté MMSC,
-/// ce qui est le pire des retours pour l'utilisateur.
-abstract final class AttachmentLimits {
-  static const maxTotalBytes = 600 * 1024;
+/// Ce plafond n'est pas une constante du protocole : chaque opérateur pose le
+/// sien, et Android le publie dans sa configuration. Le deviner conduisait à
+/// comprimer trop (photos dégradées pour rien) ou trop peu (message accepté
+/// par personne). Il est donc **lu**, et [fallback] ne sert que lorsque la
+/// configuration ne dit rien.
+class MmsLimits {
+  /// Taille maximale du message complet, enveloppe comprise.
+  final int maxTotalBytes;
+
+  const MmsLimits({required this.maxTotalBytes})
+    : assert(maxTotalBytes > 0, 'maxTotalBytes must be positive');
+
+  /// Valeur par défaut d'AOSP, retenue quand l'opérateur ne publie rien.
+  /// Volontairement basse : mieux vaut un message qui passe qu'une photo nette
+  /// que personne ne reçoit.
+  static const fallback = MmsLimits(maxTotalBytes: 300 * 1024);
+
+  /// Garde-fous contre une configuration aberrante — une valeur nulle,
+  /// négative ou fantaisiste ne doit pas rendre l'envoi impossible ni faire
+  /// exploser la mémoire.
+  static const minPlausibleBytes = 64 * 1024;
+  static const maxPlausibleBytes = 5 * 1024 * 1024;
+
+  /// Nombre de pièces jointes par message. Ce plafond-là est le nôtre : rien
+  /// dans le protocole ne l'impose, mais dix parties dans un MMS ne laissent
+  /// déjà plus grand-chose à chacune.
   static const maxCount = 10;
+
+  /// Marge laissée à l'enveloppe du MMS : en-têtes, SMIL de présentation,
+  /// légende. Le contenu utile vise donc un peu moins que [maxTotalBytes],
+  /// faute de quoi un message pile à la limite la dépasserait une fois encodé.
+  static const envelopeBytes = 8 * 1024;
+
+  /// Ce qui reste réellement pour les pièces jointes.
+  int get contentBytes => maxTotalBytes - envelopeBytes;
+
+  /// Ramène une valeur lue de la configuration dans le domaine du plausible.
+  factory MmsLimits.fromCarrier(int? maxTotalBytes) {
+    if (maxTotalBytes == null ||
+        maxTotalBytes < minPlausibleBytes ||
+        maxTotalBytes > maxPlausibleBytes) {
+      return fallback;
+    }
+    return MmsLimits(maxTotalBytes: maxTotalBytes);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MmsLimits &&
+          runtimeType == other.runtimeType &&
+          maxTotalBytes == other.maxTotalBytes;
+
+  @override
+  int get hashCode => maxTotalBytes.hashCode;
 }
 
 /// Une pièce jointe **déjà dans le stock** : une partie de MMS
@@ -86,8 +134,16 @@ class AttachmentDraft {
   final String id;
 
   /// URI opaque (`content://…` ou `file://…`) comprise par la seule
-  /// infrastructure.
+  /// infrastructure. C'est **ce qui sera envoyé**.
   final String uri;
+
+  /// Ce que l'utilisateur a choisi, avant toute compression.
+  ///
+  /// Alléger une image déjà allégée dégraderait un peu plus à chaque fois : en
+  /// ajoutant une troisième photo, les deux premières seraient recompressées
+  /// à partir de leur version compressée. On repart donc toujours de
+  /// l'original, qui reste désigné ici.
+  final String sourceUri;
   final String mimeType;
   final String fileName;
   final int byteSize;
@@ -97,17 +153,66 @@ class AttachmentDraft {
   AttachmentDraft({
     required this.id,
     required this.uri,
+    String? sourceUri,
     required this.mimeType,
     required this.fileName,
     this.byteSize = 0,
     this.width,
     this.height,
-  }) : assert(id != '', 'id cannot be empty'),
+  }) : sourceUri = sourceUri ?? uri,
+       assert(id != '', 'id cannot be empty'),
        assert(uri != '', 'uri cannot be empty'),
        assert(mimeType != '', 'mimeType cannot be empty'),
        assert(byteSize >= 0, 'byteSize cannot be negative');
 
   AttachmentKind get kind => AttachmentKind.fromMimeType(mimeType);
+
+  /// Cette pièce jointe peut-elle être allégée ?
+  ///
+  /// Seules les images. Une vidéo demanderait un ré-encodage complet, un PDF
+  /// n'a rien de superflu à jeter : pour eux, trop lourd veut dire trop lourd.
+  bool get isCompressible => kind == AttachmentKind.image;
+
+  /// La même pièce jointe, allégée : nouveau fichier, même identité.
+  ///
+  /// Le type peut changer — ré-encoder produit du JPEG quel que soit
+  /// l'original — et le nom suit, sinon le MMS annoncerait un `.png` contenant
+  /// du JPEG.
+  AttachmentDraft compressedTo({
+    required String uri,
+    required int byteSize,
+    String? mimeType,
+    int? width,
+    int? height,
+  }) {
+    final type = mimeType ?? this.mimeType;
+    return AttachmentDraft(
+      id: id,
+      uri: uri,
+      sourceUri: sourceUri,
+      mimeType: type,
+      fileName: type == this.mimeType
+          ? fileName
+          : _renamedFor(fileName, type),
+      byteSize: byteSize,
+      width: width ?? this.width,
+      height: height ?? this.height,
+    );
+  }
+
+  /// Le même nom, avec l'extension du nouveau type.
+  static String _renamedFor(String fileName, String mimeType) {
+    final extension = switch (mimeType) {
+      'image/jpeg' => 'jpg',
+      'image/png' => 'png',
+      'image/webp' => 'webp',
+      _ => null,
+    };
+    if (extension == null) return fileName;
+    final dot = fileName.lastIndexOf('.');
+    final stem = dot > 0 ? fileName.substring(0, dot) : fileName;
+    return '$stem.$extension';
+  }
 
   @override
   bool operator ==(Object other) =>

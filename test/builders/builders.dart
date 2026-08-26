@@ -77,6 +77,8 @@ abstract final class Build {
     String mimeType = 'image/png',
     String fileName = 'IMG_0001.png',
     int byteSize = 2048,
+    int? width,
+    int? height,
   }) {
     _sequence++;
     return AttachmentDraft(
@@ -85,6 +87,8 @@ abstract final class Build {
       mimeType: mimeType,
       fileName: fileName,
       byteSize: byteSize,
+      width: width,
+      height: height,
     );
   }
 }

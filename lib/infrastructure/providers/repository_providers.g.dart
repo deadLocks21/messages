@@ -205,6 +205,108 @@ final class AttachmentPickerProvider
 
 String _$attachmentPickerHash() => r'38874b0feae8689fc3185a17ee28ddc32e2f0799';
 
+@ProviderFor(attachmentCompressor)
+final attachmentCompressorProvider = AttachmentCompressorProvider._();
+
+final class AttachmentCompressorProvider
+    extends
+        $FunctionalProvider<
+          AttachmentCompressor,
+          AttachmentCompressor,
+          AttachmentCompressor
+        >
+    with $Provider<AttachmentCompressor> {
+  AttachmentCompressorProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'attachmentCompressorProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$attachmentCompressorHash();
+
+  @$internal
+  @override
+  $ProviderElement<AttachmentCompressor> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  AttachmentCompressor create(Ref ref) {
+    return attachmentCompressor(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AttachmentCompressor value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AttachmentCompressor>(value),
+    );
+  }
+}
+
+String _$attachmentCompressorHash() =>
+    r'2a1cf244af1f7ae3c43406f6076b83fc2c3469d6';
+
+/// Configuration MMS de l'opérateur. `keepAlive` : c'est ce qui fait tenir le
+/// cache — la limite est lue une fois pour toute la session.
+
+@ProviderFor(mmsConfiguration)
+final mmsConfigurationProvider = MmsConfigurationProvider._();
+
+/// Configuration MMS de l'opérateur. `keepAlive` : c'est ce qui fait tenir le
+/// cache — la limite est lue une fois pour toute la session.
+
+final class MmsConfigurationProvider
+    extends
+        $FunctionalProvider<
+          MmsConfiguration,
+          MmsConfiguration,
+          MmsConfiguration
+        >
+    with $Provider<MmsConfiguration> {
+  /// Configuration MMS de l'opérateur. `keepAlive` : c'est ce qui fait tenir le
+  /// cache — la limite est lue une fois pour toute la session.
+  MmsConfigurationProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'mmsConfigurationProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$mmsConfigurationHash();
+
+  @$internal
+  @override
+  $ProviderElement<MmsConfiguration> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  MmsConfiguration create(Ref ref) {
+    return mmsConfiguration(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(MmsConfiguration value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<MmsConfiguration>(value),
+    );
+  }
+}
+
+String _$mmsConfigurationHash() => r'b5a4b51e00f111fc9f62d3343cc48b8ce4a41f56';
+
 @ProviderFor(contactRepository)
 final contactRepositoryProvider = ContactRepositoryProvider._();
 

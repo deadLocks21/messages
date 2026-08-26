@@ -52,7 +52,7 @@ final class SmsAccessControllerProvider
 }
 
 String _$smsAccessControllerHash() =>
-    r'79f80fa3a14a2a1bd42d15280088c89265c1917e';
+    r'477851647073b2c210936b92aea16d2a7300bd7a';
 
 /// État courant des autorisations SMS. `keepAlive` : c'est lui qui pilote la
 /// redirection du routeur, il doit survivre aux écrans.

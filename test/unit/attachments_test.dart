@@ -6,6 +6,8 @@ import 'package:messages/core/application/usecases/send_message.usecase.dart';
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
 import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
+import 'package:messages/infrastructure/attachments/in_memory.attachment_compressor.service.dart';
+import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_picker.service.dart';
 import 'package:messages/infrastructure/attachments/sample_image.dart';
 import 'package:messages/infrastructure/preferences/in_memory.draft.repository.dart';
@@ -95,7 +97,11 @@ void main() {
     setUp(() {
       store = InMemorySmsStore();
       picker = InMemoryAttachmentPicker(store);
-      usecase = PickAttachmentsUseCase(picker);
+      usecase = PickAttachmentsUseCase(
+        picker: picker,
+        compressor: InMemoryAttachmentCompressor(store),
+        configuration: InMemoryMmsConfiguration(),
+      );
     });
 
     test('ajoute la sélection au plateau existant', () async {
@@ -126,11 +132,14 @@ void main() {
       expect(after, current);
     });
 
-    test('refuse un plateau trop lourd', () async {
-      // Un plateau déjà à la limite : la moindre pièce de plus le fait
-      // basculer.
+    test('refuse quand rien de compressible ne peut libérer de place', () async {
+      // Un fichier — non compressible — occupe déjà tout le budget.
       final current = [
-        Build.draft(byteSize: AttachmentLimits.maxTotalBytes),
+        Build.draft(
+          mimeType: 'application/pdf',
+          fileName: 'gros.pdf',
+          byteSize: MmsLimits.fallback.maxTotalBytes,
+        ),
       ];
 
       expect(
@@ -141,7 +150,7 @@ void main() {
 
     test('refuse trop de pièces jointes', () async {
       final current = List.generate(
-        AttachmentLimits.maxCount,
+        MmsLimits.maxCount,
         (i) => Build.draft(id: 'draft-$i', byteSize: 10),
       );
 
@@ -161,6 +170,7 @@ void main() {
       usecase = SendMessageUseCase(
         messages: InMemoryMessageRepository(store),
         drafts: InMemoryDraftRepository(),
+        configuration: InMemoryMmsConfiguration(),
       );
     });
 
@@ -189,7 +199,7 @@ void main() {
           recipients: const ['+33612345678'],
           body: 'Tiens',
           attachments: [
-            Build.draft(byteSize: AttachmentLimits.maxTotalBytes + 1),
+            Build.draft(byteSize: MmsLimits.fallback.maxTotalBytes + 1),
           ],
         ),
         throwsA(isA<AttachmentTooLargeException>()),

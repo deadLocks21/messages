@@ -4,6 +4,7 @@ import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/services/draft.repository.dart';
 import 'package:messages/core/domain/services/message.repository.dart';
+import 'package:messages/core/domain/services/mms_configuration.service.dart';
 
 /// Envoie un message — SMS, ou MMS dès qu'il porte des pièces jointes — et
 /// nettoie le brouillon du fil.
@@ -14,12 +15,15 @@ import 'package:messages/core/domain/services/message.repository.dart';
 class SendMessageUseCase {
   final MessageRepository _messages;
   final DraftRepository _drafts;
+  final MmsConfiguration _configuration;
 
   const SendMessageUseCase({
     required MessageRepository messages,
     required DraftRepository drafts,
+    required MmsConfiguration configuration,
   }) : _messages = messages,
-       _drafts = drafts;
+       _drafts = drafts,
+       _configuration = configuration;
 
   Future<MessageDto> execute({
     required List<String> recipients,
@@ -33,12 +37,17 @@ class SendMessageUseCase {
     if (text.isEmpty && attachments.isEmpty) {
       throw const MessageSendFailedException('Message vide');
     }
-    if (attachments.length > AttachmentLimits.maxCount) {
+    if (attachments.length > MmsLimits.maxCount) {
       throw const TooManyAttachmentsException();
     }
-    if (attachments.fold<int>(0, (sum, a) => sum + a.byteSize) >
-        AttachmentLimits.maxTotalBytes) {
-      throw const AttachmentTooLargeException();
+    if (attachments.isNotEmpty) {
+      // Dernier filet : le plateau a normalement déjà été ajusté au budget,
+      // mais rien n'oblige un appelant à passer par là.
+      final limits = await _configuration.limits();
+      if (attachments.fold<int>(0, (sum, a) => sum + a.byteSize) >
+          limits.contentBytes) {
+        throw AttachmentTooLargeException(limits);
+      }
     }
     final addresses = recipients
         .map(Address.tryParse)

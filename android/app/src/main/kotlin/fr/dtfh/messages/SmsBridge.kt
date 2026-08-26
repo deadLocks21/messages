@@ -253,6 +253,26 @@ class SmsBridge(
                     result.success(null)
                 }
 
+                "mmsMaxMessageSize" -> result.success(MmsConfig.maxMessageSize(activity))
+
+                "compressAttachment" -> {
+                    val mimeType = call.argument<String>("mimeType").orEmpty()
+                    // Seules les images se rééchantillonnent. Une vidéo
+                    // demanderait un ré-encodage complet, un PDF n'a rien de
+                    // superflu à jeter : le refus est franc.
+                    if (!mimeType.startsWith("image/")) {
+                        result.success(null)
+                        return
+                    }
+                    result.success(
+                        ImageCompressor.compress(
+                            activity,
+                            Uri.parse(call.argument<String>("uri")!!),
+                            call.argument<Int>("targetBytes")!!,
+                        )
+                    )
+                }
+
                 "deleteMessage" -> {
                     requireDefaultSmsApp()
                     val deleted = store.deleteMessage(call.argument<String>("id")!!)
