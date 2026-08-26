@@ -1,0 +1,22 @@
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+
+  # Android — icône adaptative (Android 8.0+) : bulle bleue sur fond blanc,
+  # comme l'icône de Google Messages sur un écran d'accueil.
+  android: true
+  adaptive_icon_background: "assets/icon/app_icon_background.png"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  adaptive_icon_foreground_inset: 0
+
+  ios: true
+  remove_alpha_ios: true
+
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#FFFFFF"
+    theme_color: "#1A73E8"
