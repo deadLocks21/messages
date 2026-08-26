@@ -32,8 +32,13 @@ void main() {
     );
   });
 
-  int totalOf(List<AttachmentDraft> drafts) =>
-      drafts.fold(0, (sum, d) => sum + d.byteSize);
+  /// Chaque pièce part seule dans son message : c'est **chacune** qui doit
+  /// tenir dans le budget, pas leur somme.
+  void expectEachFitsBudget(List<AttachmentDraft> drafts) {
+    for (final draft in drafts) {
+      expect(draft.byteSize, lessThanOrEqualTo(MmsLimits.fallback.contentBytes));
+    }
+  }
 
   group('Compression des pièces jointes', () {
     test('une photo d\'appareil est ramenée dans le budget', () async {
@@ -41,7 +46,7 @@ void main() {
       // était refusée telle quelle, sans recours.
       final fitted = await usecase.fitToBudget([cameraPhoto()]);
 
-      expect(totalOf(fitted), lessThanOrEqualTo(MmsLimits.fallback.contentBytes));
+      expectEachFitsBudget(fitted);
       expect(fitted.single.byteSize, lessThan(cameraPhoto().byteSize));
     });
 
@@ -62,7 +67,10 @@ void main() {
       expect(fitted.single.byteSize, petite.byteSize);
     });
 
-    test('le budget se partage entre plusieurs photos', () async {
+    test('chaque photo dispose du budget entier', () async {
+      // Elles partiront dans trois messages distincts : le budget ne se
+      // partage pas, et aucune n'est dégradée pour faire de la place aux
+      // autres.
       final fitted = await usecase.fitToBudget([
         cameraPhoto(),
         cameraPhoto(),
@@ -70,7 +78,20 @@ void main() {
       ]);
 
       expect(fitted, hasLength(3));
-      expect(totalOf(fitted), lessThanOrEqualTo(MmsLimits.fallback.contentBytes));
+      expectEachFitsBudget(fitted);
+    });
+
+    test('ajouter une photo n\'en dégrade pas les précédentes', () async {
+      // C'était le prix du budget partagé : la troisième photo obligeait à
+      // recomprimer les deux premières. Elles ne se gênent plus.
+      final une = await usecase.fitToBudget([cameraPhoto()]);
+      final trois = await usecase.fitToBudget([
+        ...une,
+        cameraPhoto(),
+        cameraPhoto(),
+      ]);
+
+      expect(trois.first.byteSize, une.single.byteSize);
     });
 
     test('on repart toujours de l\'original, jamais du déjà compressé', () async {
@@ -98,7 +119,7 @@ void main() {
 
       final resultatPdf = fitted.firstWhere((d) => d.mimeType == 'application/pdf');
       expect(resultatPdf.byteSize, pdf.byteSize);
-      expect(totalOf(fitted), lessThanOrEqualTo(MmsLimits.fallback.contentBytes));
+      expectEachFitsBudget(fitted);
     });
 
     test('un fichier seul trop lourd est refusé — rien à comprimer', () async {
@@ -121,7 +142,7 @@ void main() {
         current: [cameraPhoto(), cameraPhoto()],
       );
 
-      expect(totalOf(fitted), lessThanOrEqualTo(MmsLimits.fallback.contentBytes));
+      expectEachFitsBudget(fitted);
     });
   });
 }

@@ -181,9 +181,9 @@ void main() {
         attachments: [Build.draft(mimeType: 'image/png')],
       );
 
-      expect(sent.body, '');
-      expect(sent.attachments, hasLength(1));
-      expect(sent.attachments.single.kind, AttachmentKind.image);
+      expect(sent.single.body, '');
+      expect(sent.single.attachments, hasLength(1));
+      expect(sent.single.attachments.single.kind, AttachmentKind.image);
     });
 
     test('un message vraiment vide reste refusé', () async {
@@ -216,11 +216,45 @@ void main() {
         attachments: drafts,
       );
 
-      final stored = store.byId(sent.id)!;
+      final stored = store.byId(sent.single.id)!;
       expect(stored.isMms, isTrue);
       // Le contenu suit la pièce jointe jusque dans le stock : c'est lui que
       // l'UI relira pour la vignette de la bulle.
       expect(store.bytesOf(stored.attachments.single.id), isNotNull);
+    });
+
+    test('chaque pièce jointe part dans son propre message', () async {
+      // Le budget d'un MMS est fixe : regrouper trois photos diviserait leur
+      // qualité par trois. Séparées, chacune en dispose entièrement.
+      final sent = await usecase.execute(
+        recipients: const ['+33612345678'],
+        body: 'Les vacances',
+        attachments: [
+          Build.draft(id: 'a', mimeType: 'image/jpeg'),
+          Build.draft(id: 'b', mimeType: 'image/jpeg'),
+          Build.draft(id: 'c', mimeType: 'image/jpeg'),
+        ],
+      );
+
+      expect(sent, hasLength(3));
+      for (final message in sent) {
+        expect(message.attachments, hasLength(1));
+      }
+      // La légende accompagne le premier, une seule fois : la répéter
+      // donnerait l'impression d'un bégaiement.
+      expect(sent.first.body, 'Les vacances');
+      expect(sent.skip(1).map((m) => m.body), everyElement(isEmpty));
+    });
+
+    test('une pièce jointe unique reste un seul message', () async {
+      final sent = await usecase.execute(
+        recipients: const ['+33612345678'],
+        body: 'Regarde',
+        attachments: [Build.draft(mimeType: 'image/jpeg')],
+      );
+
+      expect(sent, hasLength(1));
+      expect(sent.single.body, 'Regarde');
     });
 
     test('le fil annonce la nature du dernier MMS', () async {

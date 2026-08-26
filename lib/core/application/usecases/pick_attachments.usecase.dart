@@ -47,48 +47,40 @@ class PickAttachmentsUseCase {
     return fitToBudget(merged);
   }
 
-  /// Fait entrer le plateau dans le budget d'un MMS, en allégeant ce qui peut
-  /// l'être.
+  /// Fait entrer chaque pièce jointe dans le budget d'un MMS, en allégeant ce
+  /// qui peut l'être.
   ///
-  /// La répartition est simple et explicable : ce qui ne se comprime pas est
-  /// pris tel quel, et le reste du budget se partage à parts égales entre les
-  /// images. Une image déjà sous sa part n'est pas touchée — inutile de
-  /// dégrader une vignette qui tenait déjà.
+  /// Chaque pièce part dans **son propre message** (cf. [SendMessageUseCase]) :
+  /// le budget ne se partage donc pas, chacune en dispose entièrement. C'est
+  /// tout l'intérêt du découpage — trois photos gardent chacune la qualité
+  /// qu'elles auraient eue seules, au lieu d'un tiers.
+  ///
+  /// Une pièce déjà sous le budget n'est pas touchée : inutile de dégrader ce
+  /// qui tenait déjà.
   Future<List<AttachmentDraft>> fitToBudget(List<AttachmentDraft> drafts) async {
     // La limite est celle de l'opérateur, pas une constante : c'est elle qui
     // détermine combien de qualité chaque image peut garder.
     final limits = await _configuration.limits();
     final budget = limits.contentBytes;
-    if (_totalOf(drafts) <= budget) return drafts;
 
-    final compressible = drafts.where((d) => d.isCompressible).toList();
-    if (compressible.isEmpty) throw AttachmentTooLargeException(limits);
-
-    final fixed = _totalOf(drafts.where((d) => !d.isCompressible));
-    final remaining = budget - fixed;
-    // Ce qui ne se comprime pas mange déjà tout : rien à négocier.
-    if (remaining <= 0) throw AttachmentTooLargeException(limits);
-
-    final share = remaining ~/ compressible.length;
     final fitted = <AttachmentDraft>[];
     for (final draft in drafts) {
-      if (!draft.isCompressible || draft.byteSize <= share) {
+      if (draft.byteSize <= budget) {
         fitted.add(draft);
         continue;
       }
-      final compressed = await _compressor.compress(draft, targetBytes: share);
-      if (compressed == null) throw AttachmentTooLargeException(limits);
-      fitted.add(compressed);
-    }
+      // Ni une vidéo ni un PDF ne s'allègent : pour eux, trop lourd veut dire
+      // trop lourd.
+      if (!draft.isCompressible) throw AttachmentTooLargeException(limits);
 
-    // La compression vise une cible sans la garantir au kilooctet près : on
-    // vérifie le total plutôt que de faire confiance à chaque pièce.
-    if (_totalOf(fitted) > budget) {
-      throw AttachmentTooLargeException(limits);
+      final compressed = await _compressor.compress(draft, targetBytes: budget);
+      if (compressed == null) throw AttachmentTooLargeException(limits);
+      // La compression vise une cible sans la garantir au kilooctet près.
+      if (compressed.byteSize > budget) {
+        throw AttachmentTooLargeException(limits);
+      }
+      fitted.add(compressed);
     }
     return fitted;
   }
-
-  int _totalOf(Iterable<AttachmentDraft> drafts) =>
-      drafts.fold<int>(0, (sum, a) => sum + a.byteSize);
 }

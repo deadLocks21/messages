@@ -74,12 +74,18 @@ void main() {
       expect(genereux.single.byteSize, greaterThan(avare.single.byteSize));
     });
 
-    test('chaque plateau respecte la limite annoncée', () async {
+    test('chaque pièce respecte la limite annoncée', () async {
+      // Chacune part dans son message : c'est pièce par pièce que la limite
+      // s'applique, pas sur le total du plateau.
       for (final octets in [300 * 1024, 600 * 1024, 2 * 1024 * 1024]) {
         configuration.value = MmsLimits.fromCarrier(octets);
         final fitted = await usecase.fitToBudget([photo(), photo()]);
-        final total = fitted.fold<int>(0, (sum, d) => sum + d.byteSize);
-        expect(total, lessThanOrEqualTo(configuration.value.contentBytes));
+        for (final draft in fitted) {
+          expect(
+            draft.byteSize,
+            lessThanOrEqualTo(configuration.value.contentBytes),
+          );
+        }
       }
     });
 

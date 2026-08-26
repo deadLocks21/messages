@@ -46,12 +46,15 @@ class AttachmentTray extends _$AttachmentTray {
     await ref.read(attachmentRepositoryProvider).discardDraft(draft);
   }
 
-  /// Envoie le message avec le plateau, puis le vide.
+  /// Envoie le plateau, puis le vide.
+  ///
+  /// Plusieurs pièces jointes donnent plusieurs messages, un par pièce — c'est
+  /// [SendMessageUseCase] qui découpe. D'où la liste en retour.
   ///
   /// Le plateau n'est vidé qu'**après** un envoi accepté : une erreur laisse
   /// les pièces jointes en place, prêtes pour une nouvelle tentative, comme le
   /// texte que la page remet dans le champ.
-  Future<MessageDto> send({
+  Future<List<MessageDto>> send({
     required List<String> recipients,
     required String body,
   }) async {

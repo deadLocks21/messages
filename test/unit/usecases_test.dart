@@ -56,9 +56,11 @@ void main() {
         body: '  Coucou  ',
       );
 
-      expect(sent.body, 'Coucou');
-      expect(sent.status, MessageStatus.sending);
-      expect(sent.isOutgoing, isTrue);
+      // Sans pièce jointe, il n'y a rien à découper : un seul message.
+      expect(sent, hasLength(1));
+      expect(sent.single.body, 'Coucou');
+      expect(sent.single.status, MessageStatus.sending);
+      expect(sent.single.isOutgoing, isTrue);
     });
 
     test('efface le brouillon du fil', () async {

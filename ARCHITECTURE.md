@@ -61,8 +61,21 @@ Un message sans pièce jointe suit la voie SMS d'avant, inchangée.
 - Les **octets ne traversent pas le canal** avec les messages : une pièce jointe
   se décrit (type, nom, poids, dimensions) et ne se lit qu'à l'affichage de sa
   vignette, une par une.
-- La taille est contrôlée **à la sélection** (`AttachmentLimits`), pas à
-  l'envoi : un refus du MMSC arriverait trop tard pour être réparable.
+- **Une pièce jointe par message.** Le budget d'un MMS est fixe : regrouper
+  trois photos partagerait ce budget et diviserait leur qualité par trois.
+  Elles partent donc en trois MMS, chacune disposant du budget entier. Le prix
+  est assumé — le MMS est souvent facturé à l'unité. La légende accompagne le
+  premier message, une seule fois.
+- La taille est contrôlée **à la sélection**, pas à l'envoi : un refus du MMSC
+  arriverait trop tard pour être réparable. Les images trop lourdes sont
+  **allégées** (`ImageCompressor` : qualité JPEG d'abord, dimensions ensuite,
+  orientation EXIF respectée) ; une vidéo ou un PDF ne s'allègent pas et sont
+  refusés franchement.
+- Le plafond n'est pas une constante du protocole : il est **lu** dans la
+  configuration opérateur (`MmsConfig`) et mis en cache, avec repli sur les
+  300 Ko d'AOSP. Attention à ce qu'il signifie — c'est la limite de *notre*
+  réseau pour l'émission ; celui du destinataire a la sienne et transcodera le
+  média s'il est plus strict, sans que nous en soyons informés.
 - La **réception** de MMS n'est pas gérée : `WAP_PUSH_DELIVER` ne porte qu'une
   notification de dépôt à décoder puis à télécharger auprès du MMSC. Ce qui est
   déjà dans `content://mms` s'affiche, en revanche.
