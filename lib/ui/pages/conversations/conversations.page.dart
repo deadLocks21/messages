@@ -2,21 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:messages/core/application/dtos/conversation.dto.dart';
-import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/infrastructure/providers/service_providers.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
 import 'package:messages/ui/pages/conversations/widgets/conversation_tile.widget.dart';
 import 'package:messages/ui/pages/conversations/widgets/default_app_banner.widget.dart';
-import 'package:messages/ui/pages/conversations/widgets/messages_search_bar.widget.dart';
+import 'package:messages/ui/pages/conversations/widgets/messages_app_bar.widget.dart';
 import 'package:messages/ui/providers/conversation_providers.dart';
 import 'package:messages/ui/router/app_router.dart';
 import 'package:messages/ui/theme/app_colors.dart';
+import 'package:messages/ui/widgets/content_panel.widget.dart';
 
-/// Écran d'accueil : barre de recherche, filtres « Tous / Non lus », liste des
-/// fils et bouton « Démarrer un chat ».
+/// Écran d'accueil : la barre du haut, la liste des fils dans son panneau, et
+/// le bouton « Démarrer une discussion ».
 ///
-/// L'appui long ouvre le mode sélection (archiver, épingler, supprimer…), comme
-/// dans Google Messages.
+/// Les filtres ne sont pas ici mais dans l'écran de recherche, comme dans
+/// Google Messages. L'appui long ouvre le mode sélection (archiver, épingler,
+/// supprimer…).
 class ConversationsPage extends ConsumerStatefulWidget {
   const ConversationsPage({super.key});
 
@@ -25,7 +26,6 @@ class ConversationsPage extends ConsumerStatefulWidget {
 }
 
 class _ConversationsPageState extends ConsumerState<ConversationsPage> {
-  ConversationFilter _filter = ConversationFilter.all;
   final Set<String> _selection = {};
 
   bool get _selecting => _selection.isNotEmpty;
@@ -33,31 +33,22 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final conversationsAsync = ref.watch(conversationsProvider(filter: _filter));
+    final conversationsAsync = ref.watch(conversationsProvider());
     final access = ref.watch(smsAccessControllerProvider).value;
 
     return Scaffold(
-      appBar: _selecting ? _selectionAppBar(context) : null,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // En sélection, la barre de recherche et les filtres laissent la
-            // place à la barre d'actions : c'est le fil sélectionné qui compte.
-            if (!_selecting) ...[
-              const MessagesSearchBar(),
-              if (access != null && !access.canCompose) const DefaultAppBanner(),
-              _FilterChips(
-                filter: _filter,
-                onChanged: (filter) => setState(() {
-                  _filter = filter;
-                  _selection.clear();
-                }),
-              ),
-            ],
-            Expanded(
+      backgroundColor: colors.background,
+      // En sélection, la barre du haut laisse la place à la barre d'actions :
+      // c'est le fil sélectionné qui compte.
+      appBar: _selecting ? _selectionAppBar(context) : const MessagesAppBar(),
+      body: Column(
+        children: [
+          if (!_selecting && access != null && !access.canCompose)
+            const DefaultAppBanner(),
+          Expanded(
+            child: ContentPanel(
               child: RefreshIndicator(
-                onRefresh: () async =>
-                    ref.invalidate(conversationsProvider(filter: _filter)),
+                onRefresh: () async => ref.invalidate(conversationsProvider),
                 child: conversationsAsync.when(
                   // Un SMS reçu recharge la liste : sans ceci elle clignoterait
                   // à chaque événement du stock.
@@ -65,9 +56,9 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (error, _) => _ErrorState(error: '$error'),
                   data: (conversations) => conversations.isEmpty
-                      ? _EmptyState(filter: _filter)
+                      ? const _EmptyState()
                       : ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 96),
+                          padding: const EdgeInsets.only(top: 8, bottom: 104),
                           itemCount: conversations.length,
                           itemBuilder: (context, index) {
                             final conversation = conversations[index];
@@ -82,18 +73,17 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       floatingActionButton: _selecting
           ? null
           : FloatingActionButton.extended(
               key: const Key('startChat'),
               onPressed: () => context.push(AppRoutes.newConversation),
-              icon: const Icon(Icons.chat_bubble_outline),
-              label: const Text('Démarrer un chat'),
+              icon: const Icon(Icons.chat_bubble_outline, size: 22),
+              label: const Text('Démarrer une discussion'),
             ),
-      backgroundColor: colors.background,
     );
   }
 
@@ -221,66 +211,12 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
   }
 }
 
-/// Puces de filtre. Google Messages en affiche deux par défaut ; la pastille de
-/// « Non lus » reprend le nombre de fils concernés.
-class _FilterChips extends ConsumerWidget {
-  const _FilterChips({required this.filter, required this.onChanged});
-
-  final ConversationFilter filter;
-  final ValueChanged<ConversationFilter> onChanged;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final unread = ref.watch(unreadConversationCountProvider).value ?? 0;
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: Wrap(
-          spacing: 8,
-          children: [
-            ChoiceChip(
-              key: const Key('filterAll'),
-              label: const Text('Tous'),
-              selected: filter == ConversationFilter.all,
-              onSelected: (_) => onChanged(ConversationFilter.all),
-            ),
-            ChoiceChip(
-              key: const Key('filterUnread'),
-              label: Text(unread == 0 ? 'Non lus' : 'Non lus · $unread'),
-              selected: filter == ConversationFilter.unread,
-              onSelected: (_) => onChanged(ConversationFilter.unread),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.filter});
-
-  final ConversationFilter filter;
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final (title, subtitle) = switch (filter) {
-      ConversationFilter.unread => (
-        'Tout est lu',
-        'Les nouveaux messages apparaîtront ici.',
-      ),
-      ConversationFilter.archived => (
-        'Aucune conversation archivée',
-        'Les fils archivés sont retirés de la liste principale.',
-      ),
-      ConversationFilter.all => (
-        'Aucune conversation',
-        'Appuyez sur « Démarrer un chat » pour envoyer votre premier message.',
-      ),
-    };
 
     // La liste doit rester tirable pour rafraîchir, même vide.
     return ListView(
@@ -293,13 +229,14 @@ class _EmptyState extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         Text(
-          title,
+          'Aucune conversation',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
         Text(
-          subtitle,
+          'Appuyez sur « Démarrer une discussion » pour envoyer votre premier '
+          'message.',
           textAlign: TextAlign.center,
           style: TextStyle(color: colors.textMuted),
         ),
@@ -327,7 +264,11 @@ class _ErrorState extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
-        Text(error, textAlign: TextAlign.center, style: TextStyle(color: colors.textMuted)),
+        Text(
+          error,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: colors.textMuted),
+        ),
       ],
     );
   }

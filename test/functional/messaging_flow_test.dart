@@ -62,7 +62,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Je suis en bas'), findsOneWidget);
-    expect(find.text('Non lus · 1'), findsOneWidget);
+    final threadId = device.store.threadIdFor([Build.address('+33612345678')]);
+    expect(find.byKey(Key('unreadBadge_$threadId')), findsOneWidget);
   });
 
   testWidgets('démarrer une conversation depuis le sélecteur de contacts', (tester) async {

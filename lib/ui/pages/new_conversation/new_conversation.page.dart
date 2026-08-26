@@ -37,29 +37,22 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final suggestionsAsync = ref.watch(contactSuggestionsProvider(_query.text));
+    final searching = _query.text.trim().isNotEmpty;
 
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
+        toolbarHeight: 64,
         title: Text(
-          widget.forwardedBody == null ? 'Nouvelle conversation' : 'Transférer à',
+          widget.forwardedBody == null ? 'Nouveau chat' : 'Transférer à',
         ),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-            child: TextField(
-              key: const Key('recipientField'),
-              controller: _query,
-              autofocus: true,
-              keyboardType: TextInputType.text,
-              onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                hintText: 'À : nom ou numéro',
-                prefixIcon: Icon(Icons.person_add_alt),
-              ),
-            ),
+          const SizedBox(height: 4),
+          _RecipientField(
+            controller: _query,
+            onChanged: (_) => setState(() {}),
           ),
           if (widget.forwardedBody != null)
             _ForwardPreview(body: widget.forwardedBody!),
@@ -69,13 +62,14 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Center(child: Text('Erreur : $error')),
               data: (contacts) => contacts.isEmpty
-                  ? _NoContacts(hasQuery: _query.text.trim().isNotEmpty)
-                  : ListView.builder(
-                      itemCount: contacts.length,
-                      itemBuilder: (context, index) => ContactTile(
-                        contact: contacts[index],
-                        onTap: () => _pick(contacts[index]),
-                      ),
+                  ? _NoContacts(hasQuery: searching)
+                  : _ContactList(
+                      contacts: contacts,
+                      // Les intertitres alphabétiques n'ont de sens que sur le
+                      // carnet entier : une recherche rend déjà une liste
+                      // courte, l'app d'origine les masque alors.
+                      grouped: !searching,
+                      onPick: _pick,
                     ),
             ),
           ),
@@ -109,6 +103,166 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> {
   }
 }
 
+/// Le champ « À : » de l'app d'origine — une pilule pleine, le libellé collé
+/// devant la saisie.
+class _RecipientField extends StatelessWidget {
+  const _RecipientField({required this.controller, required this.onChanged});
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 58),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          children: [
+            Text(
+              'À :',
+              style: TextStyle(color: colors.textPrimary, fontSize: 17),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: TextField(
+                key: const Key('recipientField'),
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.text,
+                onChanged: onChanged,
+                style: TextStyle(color: colors.textPrimary, fontSize: 17),
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: 'Saisissez un nom ou un numéro',
+                  hintStyle: TextStyle(color: colors.textMuted, fontSize: 17),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Le carnet, éventuellement coupé par des intertitres alphabétiques.
+class _ContactList extends StatelessWidget {
+  const _ContactList({
+    required this.contacts,
+    required this.grouped,
+    required this.onPick,
+  });
+
+  final List<ContactDto> contacts;
+  final bool grouped;
+  final ValueChanged<ContactDto> onPick;
+
+  /// Les accents ne créent pas de section à part : « Émile » se range sous E,
+  /// comme dans le carnet Android.
+  static const _accents = {
+    'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A', 'Å': 'A',
+    'Ç': 'C',
+    'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
+    'Ì': 'I', 'Í': 'I', 'Î': 'I', 'Ï': 'I',
+    'Ñ': 'N',
+    'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O',
+    'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U',
+    'Ý': 'Y', 'Ÿ': 'Y',
+  };
+
+  static String _fold(String value) => value
+      .toUpperCase()
+      .split('')
+      .map((c) => _accents[c] ?? c)
+      .join();
+
+  /// Lettre de classement d'un contact. Tout ce qui ne commence pas par une
+  /// lettre — les numéros courts, les expéditeurs numériques — tombe sous
+  /// « # », en fin de liste comme dans le carnet Android.
+  static String _sectionOf(ContactDto contact) {
+    final name = _fold(contact.displayName.trim());
+    if (name.isEmpty) return '#';
+    final letter = name[0];
+    return RegExp(r'[A-Z]').hasMatch(letter) ? letter : '#';
+  }
+
+  /// Ordre alphabétique, « # » relégué en fin de liste : sans ça les
+  /// intertitres se répéteraient au fil du carnet.
+  static int _byName(ContactDto a, ContactDto b) {
+    final sectionA = _sectionOf(a);
+    final sectionB = _sectionOf(b);
+    if (sectionA != sectionB) {
+      if (sectionA == '#') return 1;
+      if (sectionB == '#') return -1;
+    }
+    return _fold(a.displayName).compareTo(_fold(b.displayName));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!grouped) {
+      return ListView.builder(
+        padding: const EdgeInsets.only(bottom: 24),
+        itemCount: contacts.length,
+        itemBuilder: (context, index) => ContactTile(
+          contact: contacts[index],
+          onTap: () => onPick(contacts[index]),
+        ),
+      );
+    }
+
+    // Une liste plate d'entrées déjà résolues : la section n'est écrite que
+    // lorsqu'elle change, ce qui évite de reconstruire des sous-listes.
+    final sorted = [...contacts]..sort(_byName);
+    final rows = <Widget>[];
+    String? section;
+    for (final contact in sorted) {
+      final current = _sectionOf(contact);
+      if (current != section) {
+        section = current;
+        rows.add(_SectionHeader(current, key: Key('contactSection_$current')));
+      }
+      rows.add(ContactTile(contact: contact, onTap: () => onPick(contact)));
+    }
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 24),
+      children: rows,
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.letter, {super.key});
+
+  final String letter;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 14, 24, 8),
+      child: Text(
+        letter,
+        style: TextStyle(color: colors.textPrimary, fontSize: 15),
+      ),
+    );
+  }
+}
+
 class _ForwardPreview extends StatelessWidget {
   const _ForwardPreview({required this.body});
 
@@ -118,11 +272,11 @@ class _ForwardPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceAlt,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
@@ -133,7 +287,7 @@ class _ForwardPreview extends StatelessWidget {
               body,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: colors.textMuted, fontSize: 13),
+              style: TextStyle(color: colors.textMuted, fontSize: 14),
             ),
           ),
         ],

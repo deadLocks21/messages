@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/ui/pages/search/search.page.dart';
 
 import '../builders/builders.dart';
@@ -43,6 +44,38 @@ void main() {
 
     expect(find.text('Conversations'), findsOneWidget);
     expect(find.text('Camille'), findsWidgets);
+  });
+
+  testWidgets('le filtre « Non lues » masque les fils déjà lus', (tester) async {
+    final device = TestDevice();
+    final lu = device.store.threadIdFor([Build.address('0611111111')]);
+    device.store.insert(
+      Build.message(threadId: lu, address: '0611111111', body: 'Déjà lu'),
+    );
+    device.store.receive(
+      from: Address.parse('0622222222'),
+      body: 'Pas encore lu',
+    );
+
+    await pumpPage(tester, const SearchPage(), device: device);
+    await tester.tap(find.byKey(const Key('filterUnread')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pas encore lu'), findsOneWidget);
+    expect(find.text('Déjà lu'), findsNothing);
+  });
+
+  testWidgets('taper une requête retire le filtre actif', (tester) async {
+    await pumpPage(tester, const SearchPage(), device: deviceWithHistory());
+    await tester.tap(find.byKey(const Key('filterUnread')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('activeFilterPill')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('searchField')), 'cinéma');
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('activeFilterPill')), findsNothing);
+    expect(find.textContaining('cinéma', findRichText: true), findsWidgets);
   });
 
   testWidgets('sans correspondance, l\'écran le dit', (tester) async {

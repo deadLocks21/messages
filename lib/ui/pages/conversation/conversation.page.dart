@@ -17,6 +17,7 @@ import 'package:messages/ui/providers/conversation_providers.dart';
 import 'package:messages/ui/router/app_router.dart';
 import 'package:messages/ui/theme/app_colors.dart';
 import 'package:messages/ui/widgets/avatar.widget.dart';
+import 'package:messages/ui/widgets/content_panel.widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Un fil de discussion : l'en-tête de l'interlocuteur, les bulles, le champ de
@@ -92,30 +93,34 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     return Scaffold(
       backgroundColor: colors.background,
       appBar: _appBar(context, conversation),
-      body: Column(
-        children: [
-          Expanded(
-            child: timelineAsync.when(
-              skipLoadingOnReload: true,
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Erreur : $error')),
-              data: (timeline) => timeline.isEmpty
-                  ? const _EmptyThread()
-                  : _Timeline(
-                      timeline: timeline,
-                      controller: _scroll,
-                      onLongPress: _onMessageAction,
-                      onRetry: _resend,
-                    ),
+      // Le fil et son champ de rédaction vivent dans le même panneau, posé sur
+      // le fond pêche : c'est la mise en page de l'app d'origine.
+      body: ContentPanel(
+        child: Column(
+          children: [
+            Expanded(
+              child: timelineAsync.when(
+                skipLoadingOnReload: true,
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(child: Text('Erreur : $error')),
+                data: (timeline) => timeline.isEmpty
+                    ? const _EmptyThread()
+                    : _Timeline(
+                        timeline: timeline,
+                        controller: _scroll,
+                        onLongPress: _onMessageAction,
+                        onRetry: _resend,
+                      ),
+              ),
             ),
-          ),
-          MessageComposer(
-            controller: _composer,
-            enabled: canSend,
-            onSend: _send,
-            onAttach: _onAttach,
-          ),
-        ],
+            MessageComposer(
+              controller: _composer,
+              enabled: canSend,
+              onSend: _send,
+              onAttach: _onAttach,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -126,12 +131,13 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     final address = conversation?.addresses.firstOrNull;
 
     return AppBar(
-      titleSpacing: 0,
+      toolbarHeight: 64,
+      titleSpacing: 4,
       title: Row(
         children: [
           if (conversation != null) ...[
-            Avatar(avatar: conversation.avatar, size: 34),
-            const SizedBox(width: 12),
+            Avatar(avatar: conversation.avatar, size: 40),
+            const SizedBox(width: 16),
           ],
           Expanded(
             child: Text(
@@ -139,8 +145,8 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
+                fontSize: 21,
+                fontWeight: FontWeight.w400,
                 color: colors.textPrimary,
               ),
             ),
@@ -152,7 +158,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
           IconButton(
             key: const Key('callRecipient'),
             tooltip: 'Appeler',
-            icon: const Icon(Icons.call_outlined),
+            icon: const Icon(Icons.call_outlined, size: 26),
             onPressed: () => _call(address),
           ),
         if (conversation != null)

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:messages/ui/theme/app_colors.dart';
 
-/// Champ de rédaction : pièce jointe, texte, envoi.
+/// Champ de rédaction : une pilule pleine — pièce jointe et texte — flanquée
+/// du bouton d'envoi rond, comme dans Google Messages.
 ///
-/// Le bouton d'envoi n'apparaît qu'une fois quelque chose tapé, et le compteur
-/// de segments SMS ne s'affiche qu'au-delà d'un message — comme Google
-/// Messages, qui ne montre `n/2` que quand le découpage devient réel.
+/// Le bouton d'envoi ne s'active qu'une fois quelque chose tapé, et le compteur
+/// de segments SMS ne s'affiche qu'au-delà d'un message — comme l'app
+/// d'origine, qui ne montre `n/2` que quand le découpage devient réel.
 class MessageComposer extends StatefulWidget {
   const MessageComposer({
     super.key,
@@ -62,65 +63,84 @@ class _MessageComposerState extends State<MessageComposer> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            IconButton(
-              key: const Key('composerAttach'),
-              tooltip: 'Joindre',
-              icon: const Icon(Icons.add),
-              color: colors.textMuted,
-              onPressed: widget.onAttach,
-            ),
             Expanded(
               child: Container(
+                constraints: const BoxConstraints(minHeight: 56),
                 decoration: BoxDecoration(
                   color: colors.surfaceAlt,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(28),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Column(
+                padding: const EdgeInsets.only(left: 6, right: 18),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(
-                      key: const Key('composerField'),
-                      controller: widget.controller,
-                      enabled: widget.enabled,
-                      minLines: 1,
-                      maxLines: 5,
-                      textCapitalization: TextCapitalization.sentences,
-                      keyboardType: TextInputType.multiline,
-                      style: TextStyle(color: colors.textPrimary, fontSize: 16),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        hintText: widget.enabled
-                            ? 'Message texte'
-                            : 'Envoi indisponible',
-                        hintStyle: TextStyle(color: colors.textMuted),
+                    IconButton(
+                      key: const Key('composerAttach'),
+                      tooltip: 'Joindre',
+                      icon: const Icon(Icons.add_circle_outline, size: 26),
+                      color: colors.textPrimary,
+                      onPressed: widget.onAttach,
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            key: const Key('composerField'),
+                            controller: widget.controller,
+                            enabled: widget.enabled,
+                            minLines: 1,
+                            maxLines: 5,
+                            textCapitalization: TextCapitalization.sentences,
+                            keyboardType: TextInputType.multiline,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 17,
+                            ),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
+                              hintText: widget.enabled
+                                  ? 'Message texte'
+                                  : 'Envoi indisponible',
+                              hintStyle: TextStyle(
+                                color: colors.textMuted,
+                                fontSize: 17,
+                              ),
+                            ),
+                          ),
+                          if (segments > 1)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                '${segments * MessageComposer.concatenatedSegmentLength - text.length}/$segments',
+                                key: const Key('segmentCounter'),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colors.textMuted,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    if (segments > 1)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          '${segments * MessageComposer.concatenatedSegmentLength - text.length}/$segments',
-                          key: const Key('segmentCounter'),
-                          style: TextStyle(fontSize: 11, color: colors.textMuted),
-                        ),
-                      ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 10),
             _SendButton(
               enabled: canSend,
               onPressed: () => widget.onSend(widget.controller.text),
@@ -132,6 +152,8 @@ class _MessageComposerState extends State<MessageComposer> {
   }
 }
 
+/// Le disque à droite de la pilule. Plein et ambré dès qu'il y a quelque chose
+/// à envoyer, effacé sinon.
 class _SendButton extends StatelessWidget {
   const _SendButton({required this.enabled, required this.onPressed});
 
@@ -141,6 +163,7 @@ class _SendButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+
     return Material(
       color: enabled ? colors.accent : colors.surfaceAlt,
       shape: const CircleBorder(),
@@ -149,11 +172,11 @@ class _SendButton extends StatelessWidget {
         key: const Key('sendMessage'),
         onTap: enabled ? onPressed : null,
         child: SizedBox(
-          height: 48,
-          width: 48,
+          height: 56,
+          width: 56,
           child: Icon(
             Icons.send,
-            size: 20,
+            size: 22,
             color: enabled ? colors.onAccent : colors.textMuted,
           ),
         ),

@@ -25,6 +25,7 @@ class MessageHitTile extends StatelessWidget {
     return ListTile(
       key: Key('messageHit_${hit.message.id}'),
       onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       title: Row(
         children: [
           Expanded(
@@ -32,12 +33,12 @@ class MessageHitTile extends StatelessWidget {
               hit.conversationTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 16),
             ),
           ),
           Text(
             MessagesDateFormat.conversationStamp(hit.message.sentAt, now: now),
-            style: TextStyle(fontSize: 12, color: colors.textMuted),
+            style: TextStyle(fontSize: 13, color: colors.textMuted),
           ),
         ],
       ),
@@ -53,7 +54,7 @@ class MessageHitTile extends StatelessWidget {
   /// surlignage : une simple découpe en trois morceaux suffit.
   TextSpan _highlight(String body, String query, AppColors colors) {
     final index = body.toLowerCase().indexOf(query.toLowerCase());
-    final base = TextStyle(color: colors.textMuted, fontSize: 13);
+    final base = TextStyle(color: colors.textMuted, fontSize: 15, height: 1.3);
     if (index < 0) return TextSpan(text: body, style: base);
 
     return TextSpan(

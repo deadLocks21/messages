@@ -14,11 +14,11 @@ class DefaultAppBanner extends ConsumerWidget {
 
     return Container(
       key: const Key('defaultAppBanner'),
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      padding: const EdgeInsets.fromLTRB(18, 12, 12, 12),
       decoration: BoxDecoration(
         color: colors.accentSoft,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [

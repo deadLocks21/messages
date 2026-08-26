@@ -7,6 +7,7 @@ import 'package:messages/ui/pages/conversations/widgets/conversation_tile.widget
 import 'package:messages/ui/providers/conversation_providers.dart';
 import 'package:messages/ui/router/app_router.dart';
 import 'package:messages/ui/theme/app_colors.dart';
+import 'package:messages/ui/widgets/content_panel.widget.dart';
 
 /// Les fils archivés : retirés de la liste principale, mais intacts.
 class ArchivedPage extends ConsumerWidget {
@@ -21,8 +22,9 @@ class ArchivedPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: AppBar(title: const Text('Archivées')),
-      body: archivedAsync.when(
+      appBar: AppBar(toolbarHeight: 64, title: const Text('Archivées')),
+      body: ContentPanel(
+        child: archivedAsync.when(
         skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Erreur : $error')),
@@ -38,6 +40,7 @@ class ArchivedPage extends ConsumerWidget {
                 ),
               )
             : ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: conversations.length,
                 itemBuilder: (context, index) {
                   final conversation = conversations[index];
@@ -64,6 +67,7 @@ class ArchivedPage extends ConsumerWidget {
                   );
                 },
               ),
+        ),
       ),
     );
   }

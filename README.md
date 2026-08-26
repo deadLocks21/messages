@@ -12,7 +12,7 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 
 | | |
 |---|---|
-| **Conversations** | Liste triée (épinglés d'abord), filtres « Tous / Non lus », recherche, archives, mode sélection multiple (épingler, archiver, sourdine, marquer lu, supprimer). |
+| **Conversations** | Liste triée (épinglés d'abord), pastille de non-lus, recherche et ses filtres (« Non lues », « Archivées »), archives, mode sélection multiple (épingler, archiver, sourdine, marquer lu, supprimer). |
 | **Fil** | Bulles groupées à la Google Messages, séparateurs de date, états `Envoi… / Envoyé / Distribué / Non distribué`, appui long (copier, transférer, supprimer, détails, réessayer), appel du correspondant. |
 | **Envoi** | SMS simple et multi-parties (compteur de segments), envoi optimiste, accusés de dépôt et de remise, renvoi d'un échec. |
 | **Réception** | `SMS_DELIVER` → écriture dans le stock + notification + rafraîchissement live de l'UI. |

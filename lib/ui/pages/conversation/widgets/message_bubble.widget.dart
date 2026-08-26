@@ -22,6 +22,10 @@ class MessageBubble extends StatelessWidget {
   static const _round = Radius.circular(20);
   static const _tight = Radius.circular(4);
 
+  /// Largeur maximale d'une bulle, relevée sur l'app d'origine : elle laisse
+  /// toujours voir de quel côté elle penche.
+  static const _maxWidthFactor = 0.82;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -36,10 +40,10 @@ class MessageBubble extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        16,
-        entry.isFirstOfGroup ? 6 : 1,
-        16,
-        entry.isLastOfGroup ? 2 : 1,
+        14,
+        entry.isFirstOfGroup ? 6 : 2,
+        14,
+        entry.isLastOfGroup ? 2 : 2,
       ),
       child: Column(
         crossAxisAlignment: outgoing
@@ -72,11 +76,12 @@ class MessageBubble extends StatelessWidget {
                   child: Container(
                     key: Key('bubble_${message.id}'),
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+                      maxWidth:
+                          MediaQuery.sizeOf(context).width * _maxWidthFactor,
                     ),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
+                      horizontal: 18,
+                      vertical: 9,
                     ),
                     decoration: BoxDecoration(
                       color: failed ? colors.surfaceAlt : background,
@@ -90,7 +95,7 @@ class MessageBubble extends StatelessWidget {
                       style: TextStyle(
                         color: failed ? colors.textPrimary : foreground,
                         fontSize: 16,
-                        height: 1.3,
+                        height: 1.28,
                       ),
                     ),
                   ),
@@ -100,12 +105,12 @@ class MessageBubble extends StatelessWidget {
           ),
           if (entry.showStatus || failed)
             Padding(
-              padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
+              padding: const EdgeInsets.only(top: 4, left: 6, right: 6),
               child: Text(
                 message.statusLabel,
                 key: Key('status_${message.id}'),
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   color: failed ? colors.danger : colors.textMuted,
                 ),
               ),

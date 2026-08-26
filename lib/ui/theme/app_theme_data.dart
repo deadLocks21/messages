@@ -8,7 +8,17 @@ import 'package:messages/ui/theme/app_colors.dart';
 /// Typo : **Roboto**, la police système d'Android — Google Sans n'étant pas
 /// distribuée, c'est ce qui rapproche le plus l'app de l'originale sur les
 /// plateformes de développement (macOS, web).
+///
+/// Deux constantes portent la mise en page de l'app d'origine : [panelRadius],
+/// le rayon des coins hauts du panneau de contenu posé sur le fond pêche, et
+/// [cardRadius], celui des cartes et des champs.
 abstract final class AppThemeData {
+  /// Coins hauts du panneau de contenu (liste, fil).
+  static const panelRadius = 28.0;
+
+  /// Cartes de la recherche, des contacts et des paramètres.
+  static const cardRadius = 20.0;
+
   static ThemeData buildLightTheme() =>
       _build(messagesLightScheme, AppColors.light, Brightness.light);
 
@@ -34,6 +44,8 @@ abstract final class AppThemeData {
     final textTheme = GoogleFonts.robotoTextTheme(base.textTheme);
 
     return base.copyWith(
+      // Le fond de l'app est la teinte pêche : c'est le panneau de contenu qui
+      // pose le blanc cassé par-dessus, coins hauts arrondis.
       scaffoldBackgroundColor: colors.background,
       textTheme: textTheme,
       extensions: <ThemeExtension<dynamic>>[colors],
@@ -44,32 +56,56 @@ abstract final class AppThemeData {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        // Le titre de l'app d'origine n'est pas gras : c'est du corps de texte
+        // en grand.
         titleTextStyle: GoogleFonts.roboto(
           textStyle: TextStyle(
             color: colors.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.w500,
+            fontSize: 22,
+            fontWeight: FontWeight.w400,
           ),
         ),
+        iconTheme: IconThemeData(color: colors.textPrimary, size: 24),
+        actionsIconTheme: IconThemeData(color: colors.textPrimary, size: 24),
       ),
-      // Le FAB « Démarrer un chat » : bleu plein, coins très arrondis (M3).
+      // Le FAB « Démarrer une discussion » : ambre pâle, pas d'ombre marquée.
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: colors.accentSoft,
         foregroundColor: colors.onAccentSoft,
-        elevation: 1,
-        highlightElevation: 2,
+        elevation: 2,
+        highlightElevation: 3,
         extendedTextStyle: GoogleFonts.roboto(
           fontWeight: FontWeight.w500,
-          fontSize: 15,
+          fontSize: 16,
         ),
+        extendedPadding: const EdgeInsets.symmetric(horizontal: 22),
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
+          borderRadius: BorderRadius.all(Radius.circular(18)),
         ),
       ),
       listTileTheme: ListTileThemeData(
-        iconColor: colors.textMuted,
+        iconColor: colors.textPrimary,
         textColor: colors.textPrimary,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        titleTextStyle: GoogleFonts.roboto(
+          textStyle: TextStyle(color: colors.textPrimary, fontSize: 16),
+        ),
+        subtitleTextStyle: GoogleFonts.roboto(
+          textStyle: TextStyle(color: colors.textMuted, fontSize: 14),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      ),
+      // Les menus « ⋮ » de l'app d'origine : fond pêche, coins très arrondis,
+      // entrées aérées.
+      popupMenuTheme: PopupMenuThemeData(
+        color: colors.background,
+        surfaceTintColor: Colors.transparent,
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(cardRadius),
+        ),
+        textStyle: GoogleFonts.roboto(
+          textStyle: TextStyle(color: colors.textPrimary, fontSize: 16),
+        ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: colors.surface,
@@ -80,62 +116,75 @@ abstract final class AppThemeData {
           fontWeight: FontWeight.w500,
           fontSize: 14,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: colors.accent,
           foregroundColor: colors.onAccent,
           minimumSize: const Size(0, 48),
-          textStyle: GoogleFonts.roboto(fontWeight: FontWeight.w500, fontSize: 15),
+          textStyle: GoogleFonts.roboto(
+            fontWeight: FontWeight.w500,
+            fontSize: 15,
+          ),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: colors.accent,
-          textStyle: GoogleFonts.roboto(fontWeight: FontWeight.w500, fontSize: 15),
+          textStyle: GoogleFonts.roboto(
+            fontWeight: FontWeight.w500,
+            fontSize: 15,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: colors.textPrimary,
+          foregroundColor: colors.accent,
           minimumSize: const Size(0, 48),
           side: BorderSide(color: colors.outline),
-          textStyle: GoogleFonts.roboto(fontWeight: FontWeight.w500, fontSize: 15),
+          textStyle: GoogleFonts.roboto(
+            fontWeight: FontWeight.w500,
+            fontSize: 16,
+          ),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         ),
       ),
-      // Champs sans bordure sur fond gris clair : la barre de recherche et le
-      // champ de rédaction de Google Messages.
+      // Champs sans bordure sur fond plein : la barre de recherche et le champ
+      // de rédaction de Google Messages sont des pilules pleines.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colors.surfaceAlt,
-        hintStyle: TextStyle(color: colors.textMuted, fontSize: 16),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        fillColor: colors.surface,
+        hintStyle: TextStyle(color: colors.textMuted, fontSize: 17),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
       ),
-      dividerTheme: DividerThemeData(color: colors.outline, space: 1, thickness: 1),
+      dividerTheme: DividerThemeData(
+        color: colors.outlineVariant,
+        space: 1,
+        thickness: 1,
+      ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(panelRadius)),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       ),

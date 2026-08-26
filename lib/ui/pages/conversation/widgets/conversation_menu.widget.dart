@@ -19,25 +19,35 @@ class ConversationMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Entrées hautes et espacées : le menu « ⋮ » de l'app d'origine respire
+    // beaucoup plus que le PopupMenuItem par défaut.
     return PopupMenuButton<String>(
       key: const Key('conversationMenu'),
+      position: PopupMenuPosition.under,
       onSelected: (value) => _onSelected(context, ref, value),
       itemBuilder: (context) => [
         PopupMenuItem(
           value: 'pin',
+          height: 56,
           child: Text(conversation.isPinned ? 'Ne plus épingler' : 'Épingler'),
         ),
         PopupMenuItem(
           value: 'archive',
+          height: 56,
           child: Text(conversation.isArchived ? 'Désarchiver' : 'Archiver'),
         ),
         PopupMenuItem(
           value: 'mute',
+          height: 56,
           child: Text(
             conversation.isMuted ? 'Réactiver les notifications' : 'Sourdine',
           ),
         ),
-        const PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+        const PopupMenuItem(
+          value: 'delete',
+          height: 56,
+          child: Text('Supprimer'),
+        ),
       ],
     );
   }

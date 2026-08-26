@@ -19,11 +19,7 @@ class TimelineSeparatorLabel extends StatelessWidget {
       child: Center(
         child: Text(
           MessagesDateFormat.separator(at, now: now),
-          style: TextStyle(
-            fontSize: 12,
-            color: colors.textMuted,
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontSize: 13, color: colors.textMuted),
         ),
       ),
     );

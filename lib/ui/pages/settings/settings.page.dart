@@ -4,8 +4,12 @@ import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
 import 'package:messages/infrastructure/providers/theme_providers.dart';
 import 'package:messages/ui/theme/app_colors.dart';
+import 'package:messages/ui/widgets/card_group.widget.dart';
 
 /// Paramètres : thème, statut d'application SMS par défaut, autorisations.
+///
+/// Cartes arrondies posées sur le fond pêche, comme les réglages de l'app
+/// d'origine.
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -17,10 +21,11 @@ class SettingsPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: AppBar(title: const Text('Paramètres')),
+      appBar: AppBar(toolbarHeight: 64, title: const Text('Paramètres')),
       body: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
         children: [
-          const _SectionHeader('Apparence'),
+          const CardGroupHeader('Apparence'),
           // `RadioGroup` porte la valeur et le callback ; les tuiles ne
           // déclarent plus que leur propre valeur (API Material 3).
           RadioGroup<AppThemeMode>(
@@ -28,12 +33,15 @@ class SettingsPage extends ConsumerWidget {
             onChanged: (value) => value == null
                 ? null
                 : ref.read(themeModeControllerProvider.notifier).set(value),
-            child: Column(
+            child: CardGroup(
               children: AppThemeMode.values
                   .map(
                     (mode) => RadioListTile<AppThemeMode>(
                       key: Key('themeMode_${mode.name}'),
                       value: mode,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                      ),
                       title: Text(switch (mode) {
                         AppThemeMode.light => 'Clair',
                         AppThemeMode.dark => 'Sombre',
@@ -44,83 +52,85 @@ class SettingsPage extends ConsumerWidget {
                   .toList(),
             ),
           ),
-          const Divider(),
-          const _SectionHeader('SMS'),
-          ListTile(
-            key: const Key('defaultAppTile'),
-            leading: Icon(
-              access?.isDefaultSmsApp == true
-                  ? Icons.check_circle_outline
-                  : Icons.error_outline,
-              color: access?.isDefaultSmsApp == true
-                  ? colors.accent
-                  : colors.danger,
-            ),
-            title: const Text('Application SMS par défaut'),
-            subtitle: Text(
-              access?.isDefaultSmsApp == true
-                  ? 'Messages est votre application SMS.'
-                  : 'Requis pour envoyer et recevoir des messages.',
-            ),
-            trailing: access?.isDefaultSmsApp == true
-                ? null
-                : TextButton(
-                    onPressed: () => ref
-                        .read(smsAccessControllerProvider.notifier)
-                        .requestDefaultSmsApp(),
-                    child: const Text('Définir'),
-                  ),
+          const CardGroupHeader('SMS'),
+          CardGroup(
+            children: [
+              CardRow(
+                key: const Key('defaultAppTile'),
+                icon: access?.isDefaultSmsApp == true
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                iconColor: access?.isDefaultSmsApp == true
+                    ? colors.accent
+                    : colors.danger,
+                label: 'Application SMS par défaut',
+                subtitle: access?.isDefaultSmsApp == true
+                    ? 'Messages est votre application SMS.'
+                    : 'Requis pour envoyer et recevoir des messages.',
+                trailing: access?.isDefaultSmsApp == true
+                    ? null
+                    : TextButton(
+                        onPressed: () => ref
+                            .read(smsAccessControllerProvider.notifier)
+                            .requestDefaultSmsApp(),
+                        child: const Text('Définir'),
+                      ),
+              ),
+              CardRow(
+                key: const Key('notificationsTile'),
+                icon: access?.canNotify == true
+                    ? Icons.notifications_active_outlined
+                    : Icons.notifications_off_outlined,
+                iconColor: access?.canNotify == true
+                    ? colors.accent
+                    : colors.danger,
+                label: 'Notifications',
+                subtitle: access?.canNotify == true
+                    ? 'Vous êtes averti des nouveaux messages.'
+                    : 'Désactivées : aucun message reçu ne sera signalé.',
+                trailing: access?.canNotify == true
+                    ? null
+                    : TextButton(
+                        key: const Key('enableNotifications'),
+                        onPressed: () => _enableNotifications(ref),
+                        child: const Text('Activer'),
+                      ),
+              ),
+              CardRow(
+                key: const Key('permissionsTile'),
+                icon: access?.canReadSms == true
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                iconColor: access?.canReadSms == true
+                    ? colors.accent
+                    : colors.danger,
+                label: 'Autorisations',
+                subtitle: _permissionsLabel(
+                  access?.canReadSms,
+                  access?.canReadContacts,
+                ),
+                trailing:
+                    access?.canReadSms == true &&
+                        access?.canReadContacts == true
+                    ? null
+                    : TextButton(
+                        onPressed: () => ref
+                            .read(smsAccessControllerProvider.notifier)
+                            .requestPermissions(),
+                        child: const Text('Accorder'),
+                      ),
+              ),
+            ],
           ),
-          ListTile(
-            key: const Key('notificationsTile'),
-            leading: Icon(
-              access?.canNotify == true
-                  ? Icons.notifications_active_outlined
-                  : Icons.notifications_off_outlined,
-              color: access?.canNotify == true ? colors.accent : colors.danger,
-            ),
-            title: const Text('Notifications'),
-            subtitle: Text(
-              access?.canNotify == true
-                  ? 'Vous êtes averti des nouveaux messages.'
-                  : 'Désactivées : aucun message reçu ne sera signalé.',
-            ),
-            trailing: access?.canNotify == true
-                ? null
-                : TextButton(
-                    key: const Key('enableNotifications'),
-                    onPressed: () => _enableNotifications(ref),
-                    child: const Text('Activer'),
-                  ),
-          ),
-          ListTile(
-            key: const Key('permissionsTile'),
-            leading: Icon(
-              access?.canReadSms == true
-                  ? Icons.check_circle_outline
-                  : Icons.error_outline,
-              color: access?.canReadSms == true ? colors.accent : colors.danger,
-            ),
-            title: const Text('Autorisations'),
-            subtitle: Text(
-              _permissionsLabel(access?.canReadSms, access?.canReadContacts),
-            ),
-            trailing: access?.canReadSms == true && access?.canReadContacts == true
-                ? null
-                : TextButton(
-                    onPressed: () => ref
-                        .read(smsAccessControllerProvider.notifier)
-                        .requestPermissions(),
-                    child: const Text('Accorder'),
-                  ),
-          ),
-          const Divider(),
-          const _SectionHeader('À propos'),
-          const ListTile(
-            title: Text('Messages'),
-            subtitle: Text(
-              'Client SMS écrit en Flutter, architecture hexagonale.',
-            ),
+          const CardGroupHeader('À propos'),
+          const CardGroup(
+            children: [
+              CardRow(
+                label: 'Messages',
+                subtitle:
+                    'Client SMS écrit en Flutter, architecture hexagonale.',
+              ),
+            ],
           ),
         ],
       ),
@@ -143,28 +153,5 @@ class SettingsPage extends ConsumerWidget {
       return 'SMS accordés. Sans les contacts, les fils affichent les numéros.';
     }
     return 'SMS et contacts accordés.';
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          color: colors.accent,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
   }
 }

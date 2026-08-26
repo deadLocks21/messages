@@ -26,29 +26,28 @@ void main() {
     expect(find.byKey(Key('conversationTile_$threadId')), findsOneWidget);
   });
 
-  testWidgets('un fil non lu alimente la puce « Non lus »', (tester) async {
+  testWidgets('un fil non lu porte une pastille de compteur', (tester) async {
     final device = TestDevice();
     device.store.receive(from: Address.parse('+33612345678'), body: 'Coucou');
+    final threadId = device.store.threadIdFor([Build.address('+33612345678')]);
 
     await pumpPage(tester, const ConversationsPage(), device: device);
 
-    expect(find.text('Non lus · 1'), findsOneWidget);
+    final badge = find.byKey(Key('unreadBadge_$threadId'));
+    expect(badge, findsOneWidget);
+    expect(find.descendant(of: badge, matching: find.text('1')), findsOneWidget);
   });
 
-  testWidgets('le filtre « Non lus » masque les fils déjà lus', (tester) async {
+  testWidgets('un fil lu n\'a pas de pastille', (tester) async {
     final device = TestDevice();
-    final lu = device.store.threadIdFor([Build.address('0611111111')]);
+    final threadId = device.store.threadIdFor([Build.address('0611111111')]);
     device.store.insert(
-      Build.message(threadId: lu, address: '0611111111', body: 'Déjà lu'),
+      Build.message(threadId: threadId, address: '0611111111', body: 'Déjà lu'),
     );
-    device.store.receive(from: Address.parse('0622222222'), body: 'Pas encore lu');
 
     await pumpPage(tester, const ConversationsPage(), device: device);
-    await tester.tap(find.byKey(const Key('filterUnread')));
-    await tester.pumpAndSettle();
 
-    expect(find.text('Pas encore lu'), findsOneWidget);
-    expect(find.text('Déjà lu'), findsNothing);
+    expect(find.byKey(Key('unreadBadge_$threadId')), findsNothing);
   });
 
   testWidgets('sans conversation, l\'écran invite à en démarrer une', (tester) async {
@@ -56,6 +55,16 @@ void main() {
 
     expect(find.text('Aucune conversation'), findsOneWidget);
     expect(find.byKey(const Key('startChat')), findsOneWidget);
+  });
+
+  testWidgets('la pastille de compte ouvre la feuille du compte', (tester) async {
+    await pumpPage(tester, const ConversationsPage(), device: TestDevice());
+
+    await tester.tap(find.byKey(const Key('accountMenu')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('accountArchived')), findsOneWidget);
+    expect(find.byKey(const Key('accountSettings')), findsOneWidget);
   });
 
   testWidgets('un bandeau réclame le rôle d\'app SMS par défaut', (tester) async {

@@ -6,8 +6,9 @@ import 'package:messages/ui/widgets/avatar.widget.dart';
 
 /// Une ligne de la liste des conversations.
 ///
-/// Non lu ⇒ nom et aperçu en gras, horodatage à la couleur d'accent : c'est la
-/// seule marque que Google Messages utilise, sans pastille de compteur.
+/// Non lu ⇒ nom et aperçu appuyés, et une **pastille de compteur** ambre sous
+/// l'horodatage : c'est ainsi que Google Messages marque un fil non lu.
+/// L'aperçu court sur deux lignes, comme dans l'app d'origine.
 class ConversationTile extends StatelessWidget {
   const ConversationTile({
     super.key,
@@ -26,6 +27,8 @@ class ConversationTile extends StatelessWidget {
   /// Injectable pour que les tests contrôlent les libellés d'horodatage.
   final DateTime? now;
 
+  static const _avatarSize = 54.0;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -36,57 +39,45 @@ class ConversationTile extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        color: selected ? colors.accentSoft.withValues(alpha: 0.6) : null,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: selected ? colors.accentSoft : null,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             selected
-                ? CircleAvatar(
-                    radius: 24,
-                    backgroundColor: colors.accent,
+                ? Container(
+                    width: _avatarSize,
+                    height: _avatarSize,
+                    decoration: BoxDecoration(
+                      color: colors.accent,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
                     child: Icon(Icons.check, color: colors.onAccent),
                   )
-                : Avatar(avatar: conversation.avatar),
+                : Avatar(avatar: conversation.avatar, size: _avatarSize),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          conversation.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colors.textPrimary,
-                            fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        MessagesDateFormat.conversationStamp(
-                          conversation.lastMessageAt,
-                          now: now,
-                        ),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: unread ? colors.accent : colors.textMuted,
-                          fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    conversation.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 17,
+                      color: colors.textPrimary,
+                      fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
+                    ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Expanded(child: _Snippet(conversation: conversation)),
                       if (conversation.isMuted) ...[
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Icon(
                           Icons.notifications_off_outlined,
                           size: 16,
@@ -94,7 +85,7 @@ class ConversationTile extends StatelessWidget {
                         ),
                       ],
                       if (conversation.isPinned) ...[
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Icon(Icons.push_pin, size: 16, color: colors.textMuted),
                       ],
                     ],
@@ -102,9 +93,66 @@ class ConversationTile extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(width: 12),
+            _Stamp(conversation: conversation, now: now),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Colonne de droite : l'heure en haut, la pastille de non-lus dessous.
+class _Stamp extends StatelessWidget {
+  const _Stamp({required this.conversation, this.now});
+
+  final ConversationDto conversation;
+  final DateTime? now;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final unread = conversation.hasUnread;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          MessagesDateFormat.conversationStamp(
+            conversation.lastMessageAt,
+            now: now,
+          ),
+          style: TextStyle(
+            fontSize: 13,
+            color: unread ? colors.textPrimary : colors.textMuted,
+            fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
+          ),
+        ),
+        if (unread) ...[
+          const SizedBox(height: 8),
+          Container(
+            key: Key('unreadBadge_${conversation.threadId}'),
+            constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              color: colors.accent,
+              shape: BoxShape.rectangle,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              // Au-delà de 99, la pastille cesserait d'être ronde : Google
+              // Messages tronque, on fait pareil.
+              conversation.unreadCount > 99 ? '99+' : '${conversation.unreadCount}',
+              style: TextStyle(
+                color: colors.onAccent,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -121,9 +169,10 @@ class _Snippet extends StatelessWidget {
     final colors = context.appColors;
     final unread = conversation.hasUnread;
     final style = TextStyle(
-      fontSize: 14,
+      fontSize: 15,
+      height: 1.3,
       color: unread ? colors.textPrimary : colors.textMuted,
-      fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
+      fontWeight: unread ? FontWeight.w500 : FontWeight.w400,
     );
 
     if (conversation.hasDraft) {
@@ -137,7 +186,7 @@ class _Snippet extends StatelessWidget {
             TextSpan(text: conversation.draft!.trim()),
           ],
         ),
-        maxLines: 1,
+        maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: style,
       );
@@ -145,7 +194,7 @@ class _Snippet extends StatelessWidget {
 
     return Text(
       conversation.snippet,
-      maxLines: 1,
+      maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: style,
     );
