@@ -10,6 +10,8 @@ import android.net.Uri
 import android.app.PendingIntent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Telephony
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -17,6 +19,7 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.Executors
 
 /**
  * Côté natif du canal `fr.dtfh.messages/sms`.
@@ -73,6 +76,40 @@ class SmsBridge(
     private val store = SmsStore(activity)
     private val picker = AttachmentPicker(activity)
 
+    /**
+     * Où s'exécutent les accès au stock.
+     *
+     * Un `MethodCallHandler` est appelé sur le fil principal d'Android. Or
+     * parcourir `content://sms` et `content://mms` prend, sur un stock réel,
+     * de l'ordre de la seconde : tant que ça dure, l'application ne peut plus
+     * livrer une seule frame. Le symptôme n'est pas un rendu lent — les frames
+     * restent courtes à construire — mais des frames livrées avec des
+     * centaines de millisecondes de retard, ce qui se voit surtout aux
+     * transitions d'écran.
+     *
+     * **Un seul thread**, pas un pool : le provider est de toute façon
+     * sérialisé, et plusieurs parcours concurrents ne feraient que se disputer
+     * le même verrou en multipliant les curseurs ouverts. Ce fil unique garde
+     * aussi l'ordre des écritures, ce dont dépend la cohérence du stock.
+     */
+    private val storeExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "sms-store")
+    }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * Les appels qui doivent rester sur le fil principal : ils lancent une
+     * `Activity` ou lisent son état, ce qu'on ne fait pas d'ailleurs. Ils sont
+     * tous immédiats — aucun ne touche le provider.
+     */
+    private val mainThreadMethods = setOf(
+        "pickAttachments",
+        "requestDefaultSmsApp",
+        "consumeLaunchRequest",
+        "checkAccess",
+    )
+
     /** Résultat en attente de la boîte de dialogue de rôle. */
     private var pendingRoleResult: MethodChannel.Result? = null
 
@@ -121,6 +158,7 @@ class SmsBridge(
         eventChannel.setStreamHandler(null)
         SmsEventBus.detach()
         runCatching { activity.unregisterReceiver(sendStatusReceiver) }
+        storeExecutor.shutdown()
     }
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) =
@@ -129,6 +167,14 @@ class SmsBridge(
     override fun onCancel(arguments: Any?) = SmsEventBus.detach()
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        if (call.method in mainThreadMethods) {
+            handle(call, result)
+            return
+        }
+        storeExecutor.execute { handle(call, MainThreadResult(result, mainHandler)) }
+    }
+
+    private fun handle(call: MethodCall, result: MethodChannel.Result) {
         try {
             when (call.method) {
                 "listConversations" -> result.success(store.listConversations())
@@ -144,11 +190,14 @@ class SmsBridge(
                 "markThreadRead" -> {
                     requireDefaultSmsApp()
                     val threadId = call.argument<String>("threadId")!!
-                    store.markThreadRead(threadId)
+                    val updated = store.markThreadRead(threadId)
                     // Lire le fil dans l'app rend sa notification caduque.
                     SmsNotifications.cancel(activity, threadId)
-                    SmsEventBus.emitChanged()
-                    result.success(null)
+                    // Un fil déjà lu n'a rien changé au stock : publier un
+                    // événement ferait recharger toutes les vues pour rien,
+                    // justement pendant l'ouverture du fil.
+                    if (updated > 0) SmsEventBus.emitChanged()
+                    result.success(updated > 0)
                 }
 
                 "deleteThread" -> {
@@ -387,3 +436,23 @@ class SmsBridge(
 
 class NotDefaultSmsAppException :
     IllegalStateException("Messages n'est pas l'application SMS par défaut")
+
+
+/**
+ * Renvoie la réponse d'un appel sur le fil principal.
+ *
+ * `MethodChannel.Result` n'est utilisable que depuis lui, alors que le travail
+ * a lieu sur [SmsBridge.storeExecutor].
+ */
+private class MainThreadResult(
+    private val delegate: MethodChannel.Result,
+    private val main: Handler,
+) : MethodChannel.Result {
+
+    override fun success(result: Any?) = main.post { delegate.success(result) }.let {}
+
+    override fun error(code: String, message: String?, details: Any?) =
+        main.post { delegate.error(code, message, details) }.let {}
+
+    override fun notImplemented() = main.post { delegate.notImplemented() }.let {}
+}

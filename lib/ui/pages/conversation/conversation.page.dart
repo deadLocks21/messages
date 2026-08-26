@@ -65,10 +65,12 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   }
 
   Future<void> _markRead() async {
-    await ref
+    final changed = await ref
         .read(markConversationReadUseCaseProvider)
         .execute(widget.threadId);
-    if (!mounted) return;
+    // Rouvrir un fil déjà lu ne change rien : rafraîchir la liste des fils
+    // coûterait un parcours complet du stock, pendant l'animation d'ouverture.
+    if (!changed || !mounted) return;
     ref.invalidate(conversationsProvider);
     ref.invalidate(unreadConversationCountProvider);
   }

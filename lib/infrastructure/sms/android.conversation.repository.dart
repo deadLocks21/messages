@@ -22,7 +22,7 @@ class AndroidConversationRepository implements ConversationRepository {
       _channel.resolveThreadId(recipients);
 
   @override
-  Future<void> markRead(String threadId) => _channel.markThreadRead(threadId);
+  Future<bool> markRead(String threadId) => _channel.markThreadRead(threadId);
 
   @override
   Future<void> delete(String threadId) => _channel.deleteThread(threadId);

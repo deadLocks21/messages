@@ -58,8 +58,9 @@ class AndroidSmsChannel {
     return raw;
   }
 
-  Future<void> markThreadRead(String threadId) =>
-      _invoke<void>('markThreadRead', {'threadId': threadId});
+  /// Rend `true` si des messages ont réellement basculé en « lu ».
+  Future<bool> markThreadRead(String threadId) async =>
+      await _invoke<bool>('markThreadRead', {'threadId': threadId}) ?? false;
 
   Future<void> deleteThread(String threadId) =>
       _invoke<void>('deleteThread', {'threadId': threadId});

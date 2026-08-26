@@ -186,7 +186,7 @@ class InMemorySmsStore implements SmsEventSource {
     );
   }
 
-  void markThreadRead(String threadId) {
+  bool markThreadRead(String threadId) {
     var changed = false;
     for (var i = 0; i < _messages.length; i++) {
       final message = _messages[i];
@@ -196,6 +196,7 @@ class InMemorySmsStore implements SmsEventSource {
       }
     }
     if (changed) _events.add(const StoreChanged());
+    return changed;
   }
 
   void deleteMessage(String messageId) {

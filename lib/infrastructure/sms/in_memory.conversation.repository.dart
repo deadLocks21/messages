@@ -22,7 +22,7 @@ class InMemoryConversationRepository implements ConversationRepository {
       _store.threadIdFor(recipients);
 
   @override
-  Future<void> markRead(String threadId) async => _store.markThreadRead(threadId);
+  Future<bool> markRead(String threadId) async => _store.markThreadRead(threadId);
 
   @override
   Future<void> delete(String threadId) async => _store.deleteThread(threadId);

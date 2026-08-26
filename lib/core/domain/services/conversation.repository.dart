@@ -18,7 +18,12 @@ abstract interface class ConversationRepository {
   Future<String> resolveThreadId(List<Address> recipients);
 
   /// Marque tous les entrants du fil comme lus.
-  Future<void> markRead(String threadId);
+  /// Marque lus les entrants du fil.
+  ///
+  /// Rend `true` si le stock a réellement changé. Rouvrir un fil déjà lu est
+  /// le cas courant, et il ne doit rien coûter : sans cette réponse, l'app
+  /// reconstruisait toute la liste des fils à chaque ouverture.
+  Future<bool> markRead(String threadId);
 
   /// Supprime le fil et tous ses messages.
   Future<void> delete(String threadId);
