@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:messages/core/domain/model/address.dart';
+import 'package:messages/core/domain/model/conversation_preference.dart';
 import 'package:messages/core/domain/model/sms_access.dart';
 import 'package:messages/ui/pages/conversations/conversations.page.dart';
 
@@ -55,6 +56,35 @@ void main() {
 
     expect(find.text('Aucune conversation'), findsOneWidget);
     expect(find.byKey(const Key('startChat')), findsOneWidget);
+  });
+
+  testWidgets('sourdine et épinglage se lisent près de l\'horodatage', (tester) async {
+    final device = TestDevice();
+    final threadId = device.store.threadIdFor([Build.address('0611111111')]);
+    device.store.insert(
+      Build.message(threadId: threadId, address: '0611111111', body: 'Coucou'),
+    );
+    await device.preferences.save(
+      ConversationPreference(threadId: threadId, pinned: true, muted: true),
+    );
+
+    await pumpPage(tester, const ConversationsPage(), device: device);
+
+    // Les deux marques vivent sur la ligne de l'horodatage — pas dans
+    // l'aperçu, qui garde toute sa largeur.
+    final meta = find.byKey(Key('threadMeta_$threadId'));
+    expect(meta, findsOneWidget);
+    expect(
+      find.descendant(of: meta, matching: find.byIcon(Icons.push_pin)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: meta,
+        matching: find.byIcon(Icons.notifications_off_outlined),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('la pastille de compte ouvre la feuille du compte', (tester) async {

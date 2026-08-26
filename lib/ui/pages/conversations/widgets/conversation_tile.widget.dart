@@ -72,24 +72,7 @@ class ConversationTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(child: _Snippet(conversation: conversation)),
-                      if (conversation.isMuted) ...[
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.notifications_off_outlined,
-                          size: 16,
-                          color: colors.textMuted,
-                        ),
-                      ],
-                      if (conversation.isPinned) ...[
-                        const SizedBox(width: 8),
-                        Icon(Icons.push_pin, size: 16, color: colors.textMuted),
-                      ],
-                    ],
-                  ),
+                  _Snippet(conversation: conversation),
                 ],
               ),
             ),
@@ -102,7 +85,12 @@ class ConversationTile extends StatelessWidget {
   }
 }
 
-/// Colonne de droite : l'heure en haut, la pastille de non-lus dessous.
+/// Colonne de droite : l'état du fil et l'heure sur la première ligne, la
+/// pastille de non-lus dessous.
+///
+/// Sourdine et épinglage sont là plutôt que collés à l'aperçu : ce sont des
+/// métadonnées du fil, elles vont avec l'horodatage, et l'aperçu garde toute
+/// sa largeur pour ses deux lignes.
 class _Stamp extends StatelessWidget {
   const _Stamp({required this.conversation, this.now});
 
@@ -117,16 +105,34 @@ class _Stamp extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          MessagesDateFormat.conversationStamp(
-            conversation.lastMessageAt,
-            now: now,
-          ),
-          style: TextStyle(
-            fontSize: 13,
-            color: unread ? colors.textPrimary : colors.textMuted,
-            fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
-          ),
+        Row(
+          key: Key('threadMeta_${conversation.threadId}'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (conversation.isMuted) ...[
+              Icon(
+                Icons.notifications_off_outlined,
+                size: 15,
+                color: colors.textMuted,
+              ),
+              const SizedBox(width: 6),
+            ],
+            if (conversation.isPinned) ...[
+              Icon(Icons.push_pin, size: 15, color: colors.textMuted),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              MessagesDateFormat.conversationStamp(
+                conversation.lastMessageAt,
+                now: now,
+              ),
+              style: TextStyle(
+                fontSize: 13,
+                color: unread ? colors.textPrimary : colors.textMuted,
+                fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
+              ),
+            ),
+          ],
         ),
         if (unread) ...[
           const SizedBox(height: 8),
