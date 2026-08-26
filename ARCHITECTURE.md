@@ -82,6 +82,13 @@ d'implémentation.
   numéro n'est nommé.
 - Le contenu affiché (`MessagingStyle`) est relu du stock au moment de notifier :
   le provider est déjà la source de vérité, l'app n'en tient pas de copie.
+- Le fil affiché commence à l'**ancre** du fil — la date du message qui a ouvert
+  la salve en cours, mémorisée par `SmsNotifications` dans ses propres
+  préférences. Elle est reposée dès qu'aucune notification n'est affichée pour le
+  fil (balayée, ouverte ou marquée comme lue) : une notification ne rejoue jamais
+  d'échanges déjà vus. C'est l'état affiché qui arbitre, pas le drapeau `read` du
+  provider — une notification balayée sans être lue ne doit pas ressortir au
+  message suivant.
 
 ## Permissions & rôle d'app SMS par défaut
 

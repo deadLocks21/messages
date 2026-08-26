@@ -24,6 +24,10 @@ import androidx.core.app.RemoteInput
  * conversation d'Android 11+. Les messages affichés sont **relus du stock** au
  * moment de notifier plutôt que mémorisés ici : le provider est déjà la source
  * de vérité, inutile d'en tenir une copie.
+ *
+ * Le fil affiché s'arrête à l'**ancre** du fil — la date du message qui a ouvert
+ * la salve en cours. Rejouer dans le volet des échanges déjà lus n'apprend rien
+ * à l'utilisateur, et noie le message qui vient d'arriver.
  */
 object SmsNotifications {
     private const val CHANNEL_ID = "sms"
@@ -31,8 +35,14 @@ object SmsNotifications {
     private const val GROUP_KEY = "fr.dtfh.messages.SMS"
     private const val SUMMARY_ID = 1
 
-    /** Nombre de messages repris dans le fil de la notification. */
-    private const val HISTORY = 6
+    /** Préférences natives où survit l'ancre de chaque fil. */
+    private const val ANCHOR_PREFS = "fr.dtfh.messages.notification_anchors"
+
+    /**
+     * Plafond de messages relus du stock. Ce n'est pas le nombre affiché — seuls
+     * ceux postérieurs à l'ancre le sont — mais une borne à la requête.
+     */
+    private const val MAX_HISTORY = 25
 
     /** Clé du texte saisi dans la réponse directe. */
     const val REMOTE_INPUT_KEY = "reply_text"
@@ -57,6 +67,7 @@ object SmsNotifications {
     fun cancel(context: Context, threadId: String) {
         val manager = NotificationManagerCompat.from(context)
         manager.cancel(threadId, threadId.hashCode())
+        clearAnchor(context, threadId)
         // Le résumé ne doit pas survivre seul à la dernière notification du
         // groupe : Android le laisserait affiché, vide. `cancel` étant
         // asynchrone, on exclut explicitement le fil qu'on vient de retirer
@@ -85,19 +96,21 @@ object SmsNotifications {
         val me = Person.Builder().setName("Moi").build()
 
         val style = NotificationCompat.MessagingStyle(me)
-        val history = runCatching { SmsStore(context).listMessages(threadId, HISTORY) }
+        val history = runCatching { SmsStore(context).listMessages(threadId, MAX_HISTORY) }
             .getOrDefault(emptyList())
+        val anchor = resolveAnchor(context, threadId, history, timestamp)
+        val shown = history.filter { dateOf(it) >= anchor }
 
-        if (history.isEmpty() && body != null) {
+        if (shown.isEmpty() && body != null) {
             // Le stock n'a pas encore rendu le message (cas limite) : on affiche
             // au moins celui qu'on vient de recevoir.
             style.addMessage(body, timestamp, sender)
         } else {
-            for (message in history) {
+            for (message in shown) {
                 val outgoing = message["direction"] == "outgoing"
                 style.addMessage(
                     message["body"] as? String ?: "",
-                    message["date"] as? Long ?: 0L,
+                    dateOf(message),
                     if (outgoing) null else sender,
                 )
             }
@@ -125,6 +138,57 @@ object SmsNotifications {
             manager.notify(SUMMARY_ID, summary(context))
         }
     }
+
+    /**
+     * Date du message qui a ouvert la salve en cours, et donc début du fil
+     * affiché. Elle survit dans un `SharedPreferences` parce que le process meurt
+     * entre deux SMS.
+     *
+     * Elle est reposée dès qu'aucune notification n'est affichée pour le fil :
+     * balayée, ouverte, ou marquée comme lue, peu importe — la salve suivante
+     * repart du message qui l'ouvre. C'est l'état affiché qui fait foi, pas le
+     * drapeau `read` du provider : une notification balayée sans être lue ne doit
+     * pas ressortir au message suivant.
+     */
+    private fun resolveAnchor(
+        context: Context,
+        threadId: String,
+        history: List<Map<String, Any?>>,
+        timestamp: Long,
+    ): Long {
+        val prefs = context.getSharedPreferences(ANCHOR_PREFS, Context.MODE_PRIVATE)
+        val stored = prefs.getLong(threadId, 0L)
+        if (stored != 0L && isShowing(context, threadId)) return stored
+
+        // Nouvelle salve. `timestamp` vaut 0 lors d'un simple rafraîchissement
+        // (réponse directe) : l'ancre est alors le dernier entrant, pour que la
+        // notification garde le message auquel on vient de répondre.
+        val fresh = if (timestamp > 0) {
+            timestamp
+        } else {
+            history.lastOrNull { it["direction"] == "incoming" }?.let { dateOf(it) } ?: 0L
+        }
+        prefs.edit().putLong(threadId, fresh).apply()
+        return fresh
+    }
+
+    private fun clearAnchor(context: Context, threadId: String) {
+        context.getSharedPreferences(ANCHOR_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove(threadId)
+            .apply()
+    }
+
+    /** Une notification est-elle actuellement affichée pour ce fil ? */
+    private fun isShowing(context: Context, threadId: String): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return false
+        return runCatching {
+            manager.activeNotifications.any { it.tag == threadId }
+        }.getOrDefault(false)
+    }
+
+    private fun dateOf(message: Map<String, Any?>): Long = message["date"] as? Long ?: 0L
 
     /**
      * Résumé du groupe : ce qu'affiche Android quand plusieurs fils notifient en
