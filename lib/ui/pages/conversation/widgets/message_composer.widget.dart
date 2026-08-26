@@ -26,6 +26,11 @@ class MessageComposer extends StatefulWidget {
   /// message valide : le bouton d'envoi doit s'allumer même le champ vide.
   final bool hasAttachments;
 
+  /// Hauteur de la pilule quand le champ tient sur une ligne. C'est aussi la
+  /// hauteur de la boîte du bouton « + » et du disque d'envoi : les trois se
+  /// mesurent l'un sur l'autre, sinon ils dérivent.
+  static const pillHeight = 56.0;
+
   /// Taille d'un SMS mono-partie (alphabet GSM 7 bits).
   static const segmentLength = 160;
 
@@ -75,7 +80,9 @@ class _MessageComposerState extends State<MessageComposer> {
           children: [
             Expanded(
               child: Container(
-                constraints: const BoxConstraints(minHeight: 56),
+                constraints: const BoxConstraints(
+                  minHeight: MessageComposer.pillHeight,
+                ),
                 decoration: BoxDecoration(
                   color: colors.surfaceAlt,
                   borderRadius: BorderRadius.circular(28),
@@ -84,17 +91,26 @@ class _MessageComposerState extends State<MessageComposer> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    IconButton(
-                      key: const Key('composerAttach'),
-                      tooltip: 'Joindre',
-                      icon: Icon(
-                        widget.hasAttachments
-                            ? Icons.add_circle
-                            : Icons.add_circle_outline,
-                        size: 26,
+                    // La boîte du bouton fait la hauteur de la pilule : sur une
+                    // ligne, « aligné en bas » revient alors à « centré », et
+                    // quand le champ grandit le « + » reste en bas, contre la
+                    // dernière ligne — c'est le comportement de l'app d'origine.
+                    // Sans cela le bouton, haut de 48 px, pendait cinq pixels
+                    // sous le centre.
+                    SizedBox(
+                      height: MessageComposer.pillHeight,
+                      child: IconButton(
+                        key: const Key('composerAttach'),
+                        tooltip: 'Joindre',
+                        icon: Icon(
+                          widget.hasAttachments
+                              ? Icons.add_circle
+                              : Icons.add_circle_outline,
+                          size: 26,
+                        ),
+                        color: colors.textPrimary,
+                        onPressed: widget.onAttach,
                       ),
-                      color: colors.textPrimary,
-                      onPressed: widget.onAttach,
                     ),
                     Expanded(
                       child: Column(
@@ -120,8 +136,11 @@ class _MessageComposerState extends State<MessageComposer> {
                               enabledBorder: InputBorder.none,
                               focusedBorder: InputBorder.none,
                               disabledBorder: InputBorder.none,
+                              // Ajusté pour qu'une ligne unique donne très
+                              // exactement `pillHeight` : c'est ce qui fait
+                              // coïncider le centre du champ et celui du « + ».
                               contentPadding: const EdgeInsets.symmetric(
-                                vertical: 16,
+                                vertical: 15,
                               ),
                               hintText: widget.enabled
                                   ? 'Message texte'
@@ -183,8 +202,8 @@ class _SendButton extends StatelessWidget {
         key: const Key('sendMessage'),
         onTap: enabled ? onPressed : null,
         child: SizedBox(
-          height: 56,
-          width: 56,
+          height: MessageComposer.pillHeight,
+          width: MessageComposer.pillHeight,
           child: Icon(
             Icons.send,
             size: 22,
