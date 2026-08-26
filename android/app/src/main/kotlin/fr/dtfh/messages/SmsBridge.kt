@@ -6,6 +6,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
+import android.app.PendingIntent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Telephony
@@ -38,11 +40,38 @@ class SmsBridge(
         const val METHOD_CHANNEL = "fr.dtfh.messages/sms"
         const val EVENT_CHANNEL = "fr.dtfh.messages/sms_events"
         const val ROLE_REQUEST_CODE = 4711
+
+        /**
+         * L'accusé que le service MMS du système rendra une fois le PDU déposé
+         * auprès du MMSC.
+         *
+         * Le MMS n'a pas d'accusé de remise séparé comme le SMS : le dépôt est
+         * le seul retour, et il arrive par ce `PendingIntent` que
+         * [MmsStore.sendMessage] confie à `sendMultimediaMessage`.
+         */
+        fun mmsSentIntent(
+            context: Context,
+            messageId: String,
+            threadId: String,
+        ): PendingIntent {
+            val intent = Intent(MmsStore.ACTION_MMS_SENT).apply {
+                setPackage(context.packageName)
+                putExtra(SmsStore.EXTRA_MESSAGE_ID, messageId)
+                putExtra(SmsStore.EXTRA_THREAD_ID, threadId)
+            }
+            return PendingIntent.getBroadcast(
+                context,
+                (messageId + MmsStore.ACTION_MMS_SENT).hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
     }
 
     private val methodChannel = MethodChannel(messenger, METHOD_CHANNEL)
     private val eventChannel = EventChannel(messenger, EVENT_CHANNEL)
     private val store = SmsStore(activity)
+    private val picker = AttachmentPicker(activity)
 
     /** Résultat en attente de la boîte de dialogue de rôle. */
     private var pendingRoleResult: MethodChannel.Result? = null
@@ -65,6 +94,9 @@ class SmsBridge(
                 store.applySendResult(messageId, delivered = delivered, success = success)
             }.getOrDefault(if (success) "sent" else "failed")
             SmsEventBus.emitStatus(messageId, threadId, status)
+            // Le stock a changé de forme, pas seulement d'état : un MMS passé
+            // en « envoyé » sort de la boîte d'envoi.
+            if (MmsStore.isMmsId(messageId)) SmsEventBus.emitChanged()
         }
     }
 
@@ -74,6 +106,7 @@ class SmsBridge(
         val filter = IntentFilter().apply {
             addAction(SmsStore.ACTION_SMS_SENT)
             addAction(SmsStore.ACTION_SMS_DELIVERED)
+            addAction(MmsStore.ACTION_MMS_SENT)
         }
         ContextCompat.registerReceiver(
             activity,
@@ -148,10 +181,27 @@ class SmsBridge(
                     val message = store.sendMessage(
                         recipients = call.argument<List<String>>("recipients")!!,
                         body = call.argument<String>("body")!!,
+                        attachments = call.argument<List<Map<String, Any?>>>(
+                            "attachments"
+                        ) ?: emptyList(),
                         subscriptionId = call.argument<Int>("subscriptionId"),
                     )
                     SmsEventBus.emitChanged()
                     result.success(message)
+                }
+
+                "pickAttachments" ->
+                    picker.pick(call.argument<String>("source")!!, result)
+
+                "readAttachment" ->
+                    result.success(store.readAttachment(call.argument<String>("id")!!))
+
+                "readAttachmentUri" ->
+                    result.success(store.readUri(call.argument<String>("uri")!!))
+
+                "discardAttachment" -> {
+                    discard(activity, Uri.parse(call.argument<String>("uri")!!))
+                    result.success(null)
                 }
 
                 "deleteMessage" -> {
@@ -194,6 +244,8 @@ class SmsBridge(
             }
         } catch (e: NotDefaultSmsAppException) {
             result.error("not_default_sms_app", e.message, null)
+        } catch (e: AttachmentUnavailableException) {
+            result.error("attachment_unavailable", e.message, null)
         } catch (e: SecurityException) {
             result.error("permission_denied", e.message, null)
         } catch (e: Exception) {
@@ -241,6 +293,7 @@ class SmsBridge(
 
     /** Relaie l'issue de la boîte de dialogue de rôle vers l'appel Dart en attente. */
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (picker.onActivityResult(requestCode, resultCode, data)) return true
         if (requestCode != ROLE_REQUEST_CODE) return false
         // On ne se fie pas au `resultCode` : sur certains OEM il vaut CANCELED
         // alors que le rôle a bien été accordé. La seule vérité est l'état du

@@ -111,6 +111,100 @@ final class MessageRepositoryProvider
 
 String _$messageRepositoryHash() => r'94d0c2f7533e94cff368cdc3283f963a873c52b7';
 
+@ProviderFor(attachmentRepository)
+final attachmentRepositoryProvider = AttachmentRepositoryProvider._();
+
+final class AttachmentRepositoryProvider
+    extends
+        $FunctionalProvider<
+          AttachmentRepository,
+          AttachmentRepository,
+          AttachmentRepository
+        >
+    with $Provider<AttachmentRepository> {
+  AttachmentRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'attachmentRepositoryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$attachmentRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<AttachmentRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  AttachmentRepository create(Ref ref) {
+    return attachmentRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AttachmentRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AttachmentRepository>(value),
+    );
+  }
+}
+
+String _$attachmentRepositoryHash() =>
+    r'f8fe763169cac99841d091c3ffe732a7d6b228a2';
+
+@ProviderFor(attachmentPicker)
+final attachmentPickerProvider = AttachmentPickerProvider._();
+
+final class AttachmentPickerProvider
+    extends
+        $FunctionalProvider<
+          AttachmentPicker,
+          AttachmentPicker,
+          AttachmentPicker
+        >
+    with $Provider<AttachmentPicker> {
+  AttachmentPickerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'attachmentPickerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$attachmentPickerHash();
+
+  @$internal
+  @override
+  $ProviderElement<AttachmentPicker> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  AttachmentPicker create(Ref ref) {
+    return attachmentPicker(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AttachmentPicker value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AttachmentPicker>(value),
+    );
+  }
+}
+
+String _$attachmentPickerHash() => r'38874b0feae8689fc3185a17ee28ddc32e2f0799';
+
 @ProviderFor(contactRepository)
 final contactRepositoryProvider = ContactRepositoryProvider._();
 

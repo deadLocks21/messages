@@ -1,4 +1,5 @@
 import 'package:messages/core/application/dtos/avatar.dto.dart';
+import 'package:messages/core/application/dtos/attachment.dto.dart';
 import 'package:messages/core/application/dtos/conversation.dto.dart';
 import 'package:messages/core/application/services/avatar_palette.service.dart';
 import 'package:messages/core/application/services/contact_directory.service.dart';
@@ -105,7 +106,7 @@ class ConversationListService {
     return ConversationDto(
       threadId: conversation.id,
       title: directory.titleFor(conversation.recipients),
-      snippet: conversation.snippet,
+      snippet: _snippetFor(conversation),
       lastMessageAt: conversation.lastMessageAt,
       unreadCount: conversation.unreadCount,
       isPinned: preference.pinned,
@@ -120,6 +121,20 @@ class ConversationListService {
         isGroup: conversation.isGroup,
       ),
     );
+  }
+
+  /// Le résumé affiché en liste.
+  ///
+  /// Un MMS sans légende n'a pas de texte à montrer : on le nomme par sa pièce
+  /// jointe (« Photo »), comme l'app d'origine. Avec légende, le libellé
+  /// précède le texte.
+  String _snippetFor(Conversation conversation) {
+    final kind = conversation.lastAttachmentKind;
+    if (kind == null) return conversation.snippet;
+    final label = AttachmentDto.previewLabelFor(kind);
+    return conversation.snippet.isEmpty
+        ? label
+        : '$label · ${conversation.snippet}';
   }
 
   AvatarDto _avatarFor(

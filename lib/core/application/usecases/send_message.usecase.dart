@@ -1,10 +1,12 @@
 import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
 import 'package:messages/core/domain/model/address.dart';
+import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/services/draft.repository.dart';
 import 'package:messages/core/domain/services/message.repository.dart';
 
-/// Envoie un SMS et nettoie le brouillon du fil.
+/// Envoie un message — SMS, ou MMS dès qu'il porte des pièces jointes — et
+/// nettoie le brouillon du fil.
 ///
 /// Le message rendu est en `sending` : c'est la plateforme qui confirmera le
 /// dépôt puis la remise via [SmsEventSource]. L'UI l'affiche donc tout de suite,
@@ -22,11 +24,21 @@ class SendMessageUseCase {
   Future<MessageDto> execute({
     required List<String> recipients,
     required String body,
+    List<AttachmentDraft> attachments = const [],
     int? subscriptionId,
   }) async {
     final text = body.trim();
-    if (text.isEmpty) {
+    // Une photo seule est un message parfaitement valide : c'est le couple
+    // (texte, pièces jointes) qui doit être non vide, pas le texte.
+    if (text.isEmpty && attachments.isEmpty) {
       throw const MessageSendFailedException('Message vide');
+    }
+    if (attachments.length > AttachmentLimits.maxCount) {
+      throw const TooManyAttachmentsException();
+    }
+    if (attachments.fold<int>(0, (sum, a) => sum + a.byteSize) >
+        AttachmentLimits.maxTotalBytes) {
+      throw const AttachmentTooLargeException();
     }
     final addresses = recipients
         .map(Address.tryParse)
@@ -39,6 +51,7 @@ class SendMessageUseCase {
     final sent = await _messages.send(
       recipients: addresses,
       body: text,
+      attachments: attachments,
       subscriptionId: subscriptionId,
     );
 

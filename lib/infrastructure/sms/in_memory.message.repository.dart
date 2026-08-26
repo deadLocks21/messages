@@ -1,5 +1,6 @@
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
 import 'package:messages/core/domain/model/address.dart';
+import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/model/message.dart';
 import 'package:messages/core/domain/services/message.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
@@ -25,11 +26,13 @@ class InMemoryMessageRepository implements MessageRepository {
   Future<Message> send({
     required List<Address> recipients,
     required String body,
+    List<AttachmentDraft> attachments = const [],
     int? subscriptionId,
   }) async {
     return _store.send(
       recipients: recipients,
       body: body,
+      attachments: attachments,
       subscriptionId: subscriptionId,
     );
   }
@@ -46,6 +49,7 @@ class InMemoryMessageRepository implements MessageRepository {
           ? [original.address]
           : _store.recipientsOf(original.threadId),
       body: original.body,
+      attachments: original.attachments.map(_store.draftFrom).toList(),
       subscriptionId: original.subscriptionId,
     );
   }

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:messages/core/domain/model/address.dart';
+import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/model/conversation.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/core/domain/model/message.dart';
@@ -22,6 +24,14 @@ import 'package:uuid/uuid.dart';
 class InMemorySmsStore implements SmsEventSource {
   final List<Message> _messages = [];
   final Map<String, List<Address>> _recipientsByThread = {};
+
+  /// Contenu des pièces jointes, par identifiant de partie. Le vrai stock les
+  /// garde dans des fichiers ; ici, en mémoire.
+  final Map<String, Uint8List> _attachmentBytes = {};
+
+  /// Contenu des pièces jointes encore en rédaction, par identifiant de
+  /// brouillon — ce que le sélecteur a produit et que l'envoi consommera.
+  final Map<String, Uint8List> _draftBytes = {};
   final StreamController<SmsEvent> _events = StreamController.broadcast();
   final Uuid _uuid = const Uuid();
 
@@ -74,6 +84,7 @@ class InMemorySmsStore implements SmsEventSource {
         lastMessageAt: last.sentAt,
         messageCount: messages.length,
         unreadCount: messages.where((m) => m.isUnread).length,
+        lastAttachmentKind: last.attachments.firstOrNull?.kind,
       );
     }).toList();
 
@@ -110,9 +121,14 @@ class InMemorySmsStore implements SmsEventSource {
   }
 
   /// Dépose un sortant : il apparaît immédiatement en `sending`.
+  ///
+  /// Les brouillons de pièces jointes deviennent des pièces jointes du stock —
+  /// c'est ce que fait Android en écrivant les parties du MMS, en gardant leur
+  /// contenu accessible par leur nouvel identifiant.
   Message send({
     required List<Address> recipients,
     required String body,
+    List<AttachmentDraft> attachments = const [],
     int? subscriptionId,
   }) {
     final threadId = threadIdFor(recipients);
@@ -125,6 +141,7 @@ class InMemorySmsStore implements SmsEventSource {
       direction: MessageDirection.outgoing,
       status: MessageStatus.sending,
       subscriptionId: subscriptionId,
+      attachments: attachments.map(_store).toList(),
     );
     _messages.add(message);
     if (simulateDelivery) _scheduleDelivery(message.id);
@@ -137,6 +154,7 @@ class InMemorySmsStore implements SmsEventSource {
     required Address from,
     required String body,
     DateTime? at,
+    List<Attachment> attachments = const [],
   }) {
     final message = Message(
       id: _uuid.v4(),
@@ -147,6 +165,7 @@ class InMemorySmsStore implements SmsEventSource {
       direction: MessageDirection.incoming,
       status: MessageStatus.received,
       read: false,
+      attachments: attachments,
     );
     _messages.add(message);
     _events.add(MessageReceived(message));
@@ -190,7 +209,57 @@ class InMemorySmsStore implements SmsEventSource {
     _events.add(const StoreChanged());
   }
 
+  /// Déclare un brouillon et son contenu : ce que produit le sélecteur
+  /// simulé, en attendant l'envoi.
+  void registerDraft(AttachmentDraft draft, Uint8List bytes) =>
+      _draftBytes[draft.id] = bytes;
+
+  Uint8List? draftBytesOf(String draftId) => _draftBytes[draftId];
+
+  /// Un brouillon retiré du plateau libère son contenu.
+  void discardDraft(String draftId) => _draftBytes.remove(draftId);
+
+  /// Une pièce jointe du stock, relue comme un brouillon — ce dont a besoin le
+  /// renvoi d'un MMS en échec.
+  AttachmentDraft draftFrom(Attachment attachment) {
+    final draft = AttachmentDraft(
+      id: 'draft-${_uuid.v4()}',
+      uri: 'memory://${attachment.id}',
+      mimeType: attachment.mimeType,
+      fileName: attachment.fileName ?? attachment.id,
+      byteSize: attachment.byteSize,
+      width: attachment.width,
+      height: attachment.height,
+    );
+    final bytes = _attachmentBytes[attachment.id];
+    if (bytes != null) _draftBytes[draft.id] = bytes;
+    return draft;
+  }
+
+  /// Octets d'une pièce jointe du stock, servis à l'UI pour sa vignette.
+  Uint8List? bytesOf(String attachmentId) => _attachmentBytes[attachmentId];
+
+  /// Dépose un contenu pour une pièce jointe déjà construite (seed, réception
+  /// simulée).
+  void putAttachmentBytes(String attachmentId, Uint8List bytes) =>
+      _attachmentBytes[attachmentId] = bytes;
+
   Future<void> dispose() => _events.close();
+
+  /// Écrit un brouillon dans le stock : nouvel identifiant, contenu conservé.
+  Attachment _store(AttachmentDraft draft) {
+    final attachment = Attachment(
+      id: 'part-${_uuid.v4()}',
+      mimeType: draft.mimeType,
+      fileName: draft.fileName,
+      byteSize: draft.byteSize,
+      width: draft.width,
+      height: draft.height,
+    );
+    final bytes = _draftBytes[draft.id];
+    if (bytes != null) _attachmentBytes[attachment.id] = bytes;
+    return attachment;
+  }
 
   /// Le cheminement d'un envoi réel, en accéléré : accusé de dépôt réseau puis
   /// accusé de remise.

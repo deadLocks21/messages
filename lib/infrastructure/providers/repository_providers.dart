@@ -1,3 +1,5 @@
+import 'package:messages/core/domain/services/attachment.repository.dart';
+import 'package:messages/core/domain/services/attachment_picker.service.dart';
 import 'package:messages/core/domain/services/contact.repository.dart';
 import 'package:messages/core/domain/services/conversation.repository.dart';
 import 'package:messages/core/domain/services/conversation_preferences.repository.dart';
@@ -6,6 +8,9 @@ import 'package:messages/core/domain/services/message.repository.dart';
 import 'package:messages/core/domain/services/notification.gateway.dart';
 import 'package:messages/core/domain/services/sms_permissions.service.dart';
 import 'package:messages/core/domain/services/theme.repository.dart';
+import 'package:messages/infrastructure/attachments/android.attachment.repository.dart';
+import 'package:messages/infrastructure/attachments/android.attachment_picker.service.dart';
+import 'package:messages/infrastructure/attachments/in_memory.attachment.repository.dart';
 import 'package:messages/infrastructure/contacts/flutter_contacts.contact.repository.dart';
 import 'package:messages/infrastructure/notifications/android.notification.gateway.dart';
 import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
@@ -40,6 +45,22 @@ MessageRepository messageRepository(Ref ref) {
     return AndroidMessageRepository(ref.watch(smsChannelProvider));
   }
   return InMemoryMessageRepository(ref.watch(inMemorySmsStoreProvider));
+}
+
+@Riverpod(keepAlive: true)
+AttachmentRepository attachmentRepository(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidAttachmentRepository(ref.watch(smsChannelProvider));
+  }
+  return InMemoryAttachmentRepository(ref.watch(inMemorySmsStoreProvider));
+}
+
+@Riverpod(keepAlive: true)
+AttachmentPicker attachmentPicker(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidAttachmentPicker(ref.watch(smsChannelProvider));
+  }
+  return ref.watch(inMemoryAttachmentPickerProvider);
 }
 
 @Riverpod(keepAlive: true)

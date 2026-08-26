@@ -32,3 +32,24 @@ class MessageSendFailedException extends SmsException {
 class MessageNotFoundException extends SmsException {
   const MessageNotFoundException() : super('Ce message n\'existe plus.');
 }
+
+/// Le MMS dépasse ce que le réseau accepte de porter
+/// ([AttachmentLimits.maxTotalBytes]).
+class AttachmentTooLargeException extends SmsException {
+  const AttachmentTooLargeException()
+    : super('Pièces jointes trop lourdes : allégez-les avant d\'envoyer.');
+}
+
+/// Trop de pièces jointes pour un seul message
+/// ([AttachmentLimits.maxCount]).
+class TooManyAttachmentsException extends SmsException {
+  const TooManyAttachmentsException()
+    : super('Trop de pièces jointes pour un seul message.');
+}
+
+/// Le fichier choisi n'est plus lisible : URI révoquée, fichier supprimé, ou
+/// permission de lecture perdue au retour du sélecteur.
+class AttachmentUnavailableException extends SmsException {
+  const AttachmentUnavailableException()
+    : super('Cette pièce jointe n\'est plus accessible.');
+}

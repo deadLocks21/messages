@@ -14,12 +14,17 @@ class MessageComposer extends StatefulWidget {
     required this.onSend,
     required this.enabled,
     this.onAttach,
+    this.hasAttachments = false,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onSend;
   final bool enabled;
   final VoidCallback? onAttach;
+
+  /// Le plateau au-dessus porte-t-il quelque chose ? Une photo seule est un
+  /// message valide : le bouton d'envoi doit s'allumer même le champ vide.
+  final bool hasAttachments;
 
   /// Taille d'un SMS mono-partie (alphabet GSM 7 bits).
   static const segmentLength = 160;
@@ -57,7 +62,8 @@ class _MessageComposerState extends State<MessageComposer> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final text = widget.controller.text;
-    final canSend = widget.enabled && text.trim().isNotEmpty;
+    final canSend =
+        widget.enabled && (text.trim().isNotEmpty || widget.hasAttachments);
     final segments = MessageComposer.segmentsFor(text);
 
     return SafeArea(
@@ -81,7 +87,12 @@ class _MessageComposerState extends State<MessageComposer> {
                     IconButton(
                       key: const Key('composerAttach'),
                       tooltip: 'Joindre',
-                      icon: const Icon(Icons.add_circle_outline, size: 26),
+                      icon: Icon(
+                        widget.hasAttachments
+                            ? Icons.add_circle
+                            : Icons.add_circle_outline,
+                        size: 26,
+                      ),
                       color: colors.textPrimary,
                       onPressed: widget.onAttach,
                     ),

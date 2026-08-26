@@ -8,11 +8,14 @@ import 'package:messages/core/application/usecases/save_draft.usecase.dart';
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
 import 'package:messages/infrastructure/providers/service_providers.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
+import 'package:messages/ui/pages/conversation/widgets/attachment_sheet.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/attachment_tray.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/conversation_menu.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_bubble.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_composer.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_options.sheet.dart';
 import 'package:messages/ui/pages/conversation/widgets/timeline_separator.widget.dart';
+import 'package:messages/ui/providers/attachment_providers.dart';
 import 'package:messages/ui/providers/conversation_providers.dart';
 import 'package:messages/ui/router/app_router.dart';
 import 'package:messages/ui/theme/app_colors.dart';
@@ -89,6 +92,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     }
 
     final conversation = conversationAsync.value;
+    final attachments = ref.watch(attachmentTrayProvider(widget.threadId));
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -113,11 +117,13 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                       ),
               ),
             ),
+            AttachmentTrayBar(threadId: widget.threadId),
             MessageComposer(
               controller: _composer,
               enabled: canSend,
               onSend: _send,
               onAttach: _onAttach,
+              hasAttachments: attachments.isNotEmpty,
             ),
           ],
         ),
@@ -179,12 +185,13 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     }
 
     // Le champ se vide tout de suite : l'envoi est optimiste, l'état de la
-    // bulle dira la suite.
+    // bulle dira la suite. Le plateau, lui, n'est vidé qu'une fois l'envoi
+    // accepté — c'est le contrôleur qui s'en charge.
     _composer.clear();
     try {
       await ref
-          .read(sendMessageUseCaseProvider)
-          .execute(recipients: recipients, body: body);
+          .read(attachmentTrayProvider(widget.threadId).notifier)
+          .send(recipients: recipients, body: body);
     } on SmsException catch (e) {
       _composer.text = body;
       _announce(e.message);
@@ -227,9 +234,22 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     }
   }
 
-  /// Les MMS ne sont pas pris en charge : on le dit franchement plutôt que
-  /// d'offrir un bouton qui ne fait rien.
-  void _onAttach() => _announce('Les pièces jointes (MMS) ne sont pas gérées.');
+  /// Ouvre le panneau des sources, puis pose sur le plateau ce qui en revient.
+  ///
+  /// Une sélection annulée ne dit rien : c'est un non-événement. Un refus du
+  /// domaine (plateau trop lourd, trop de pièces) se dit, lui, tout de suite —
+  /// c'est le seul moment où l'utilisateur peut encore y remédier.
+  Future<void> _onAttach() async {
+    final source = await AttachmentSheet.show(context);
+    if (source == null || !mounted) return;
+    try {
+      await ref
+          .read(attachmentTrayProvider(widget.threadId).notifier)
+          .add(source);
+    } on SmsException catch (e) {
+      _announce(e.message);
+    }
+  }
 
   Future<void> _call(String address) async {
     final uri = Uri(scheme: 'tel', path: address);

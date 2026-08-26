@@ -1,4 +1,5 @@
 import 'package:messages/core/domain/model/address.dart';
+import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/model/message.dart';
 
 /// Port de lecture/écriture des **messages** (`content://sms`).
@@ -15,11 +16,18 @@ abstract interface class MessageRepository {
 
   Future<Message?> getById(String messageId);
 
-  /// Dépose un SMS et l'insère dans le stock. Découpe en plusieurs parties si
-  /// le texte dépasse la taille d'un SMS — c'est la plateforme qui s'en charge.
+  /// Dépose le message et l'insère dans le stock. Découpe en plusieurs parties
+  /// si le texte dépasse la taille d'un SMS — c'est la plateforme qui s'en
+  /// charge.
+  ///
+  /// [attachments] non vide bascule l'envoi en **MMS** : le transport change
+  /// (PDU vers le MMSC au lieu du SMSC), et le message est écrit dans
+  /// `content://mms` plutôt que `content://sms`. L'appelant n'a pas à choisir —
+  /// c'est la présence de pièces jointes qui décide.
   Future<Message> send({
     required List<Address> recipients,
     required String body,
+    List<AttachmentDraft> attachments = const [],
     int? subscriptionId,
   });
 

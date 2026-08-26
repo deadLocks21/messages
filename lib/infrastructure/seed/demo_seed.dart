@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:messages/core/domain/model/address.dart';
+import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/model/contact.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/core/domain/model/message.dart';
+import 'package:messages/infrastructure/attachments/sample_image.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 
@@ -64,6 +68,7 @@ abstract final class DemoSeed {
       bool outgoing = false,
       bool read = true,
       MessageStatus? status,
+      List<Attachment> attachments = const [],
     }) {
       sequence++;
       return Message(
@@ -76,6 +81,35 @@ abstract final class DemoSeed {
         status: status ??
             (outgoing ? MessageStatus.delivered : MessageStatus.received),
         read: read,
+        attachments: attachments,
+      );
+    }
+
+    /// Une pièce jointe de démonstration, avec de vrais octets déposés dans le
+    /// stock : la vignette de la bulle décode réellement, comme sur téléphone.
+    Attachment photo(String id, String fileName, int argb) {
+      const width = 640;
+      const height = 480;
+      final bytes = SampleImage.solid(width: width, height: height, argb: argb);
+      store.putAttachmentBytes(id, bytes);
+      return Attachment(
+        id: id,
+        mimeType: 'image/png',
+        fileName: fileName,
+        byteSize: bytes.length,
+        width: width,
+        height: height,
+      );
+    }
+
+    Attachment document(String id, String fileName, String content) {
+      final bytes = Uint8List.fromList(content.codeUnits);
+      store.putAttachmentBytes(id, bytes);
+      return Attachment(
+        id: id,
+        mimeType: 'application/pdf',
+        fileName: fileName,
+        byteSize: bytes.length,
       );
     }
 
@@ -86,14 +120,39 @@ abstract final class DemoSeed {
       make(camille, 'Parfait, je prends les places', const Duration(hours: 29, minutes: 50)),
       make(camille, 'C\'est bon, réservé 🎟️', const Duration(minutes: 12), read: false),
       make(camille, 'Rangée F, places 12 et 13', const Duration(minutes: 11), read: false),
+      // Un MMS reçu, avec légende : la bulle porte l'image *et* le texte.
+      make(
+        camille,
+        'Les places 🎟️',
+        const Duration(minutes: 10),
+        read: false,
+        attachments: [photo('part-1', 'places.png', 0xFF8A5100)],
+      ),
 
       // Un fil récent sans non-lu, avec un envoi encore en cours.
       make(julien, 'On se cale un créneau pour la revue ?', const Duration(hours: 3)),
       make(julien, 'Jeudi 14h chez moi ?', const Duration(hours: 2, minutes: 58), outgoing: true, status: MessageStatus.sent),
+      // Une pièce jointe non visuelle : la bulle en fait une ligne de fichier.
+      make(
+        julien,
+        'Le compte rendu',
+        const Duration(hours: 2, minutes: 50),
+        attachments: [
+          document('part-3', 'compte-rendu.pdf', '%PDF-1.4\n% demo\n'),
+        ],
+      ),
 
       // Un fil de la veille.
       make(maman, 'Tu passes dimanche ?', const Duration(days: 1, hours: 5)),
       make(maman, 'Oui, vers midi. J\'apporte le dessert', const Duration(days: 1, hours: 4), outgoing: true),
+      // Un MMS envoyé sans légende : le fil doit l'annoncer par « Photo ».
+      make(
+        maman,
+        '',
+        const Duration(days: 1, hours: 3),
+        outgoing: true,
+        attachments: [photo('part-2', 'gateau.png', 0xFF5BB874)],
+      ),
 
       // Un envoi en échec, pour l'état « Non distribué ».
       make(lea, 'Bon anniversaire !! 🎂', const Duration(days: 2), outgoing: true, status: MessageStatus.failed),

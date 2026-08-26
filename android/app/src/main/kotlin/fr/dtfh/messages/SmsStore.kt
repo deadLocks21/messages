@@ -24,6 +24,13 @@ import android.telephony.SmsManager
  */
 class SmsStore(private val context: Context) {
 
+    /**
+     * Les MMS du stock. Les deux tables sont lues séparément puis fusionnées :
+     * `content://sms` et `content://mms` n'ont ni les mêmes colonnes, ni la
+     * même unité de date, ni la même façon de porter le corps du message.
+     */
+    private val mms = MmsStore(context)
+
     companion object {
         /** Action des accusés de dépôt réseau (`PendingIntent` de `sendTextMessage`). */
         const val ACTION_SMS_SENT = "fr.dtfh.messages.SMS_SENT"
@@ -34,6 +41,12 @@ class SmsStore(private val context: Context) {
         /** Identifiant (`_id`) du message concerné, porté par les deux actions. */
         const val EXTRA_MESSAGE_ID = "messageId"
         const val EXTRA_THREAD_ID = "threadId"
+
+        /**
+         * Clé de travail : le dernier MMS connu d'un fil pendant la fusion.
+         * Retirée du résumé avant qu'il ne parte vers Dart.
+         */
+        private const val LAST_MMS_ID = "_lastMms"
 
         private val MESSAGE_PROJECTION = arrayOf(
             Telephony.Sms._ID,
@@ -54,20 +67,37 @@ class SmsStore(private val context: Context) {
     /**
      * Résumés des fils.
      *
-     * Une seule passe sur `content://sms` triée par date décroissante : la
-     * première ligne rencontrée pour un `thread_id` en est le dernier message.
-     * Plus simple et plus portable que `content://mms-sms/conversations`, qui
-     * oblige à résoudre les `recipient_ids` via la table des adresses
-     * canoniques — et l'app ne gère que les SMS de toute façon.
+     * Une passe sur `content://sms`, une sur `content://mms`, fusionnées par
+     * `thread_id`. Plus simple et plus portable que
+     * `content://mms-sms/conversations`, qui oblige à résoudre les
+     * `recipient_ids` via la table des adresses canoniques.
      */
-    fun listConversations(): List<Map<String, Any?>> {
+    fun listConversations(): List<Map<String, Any?>> = buildConversations(null)
+
+    /**
+     * Résumés des fils, éventuellement d'un seul ([onlyThreadId]).
+     *
+     * Deux passes de curseur — une par table — puis, seulement pour les fils
+     * dont le dernier message est un MMS, la résolution de sa légende et de son
+     * interlocuteur. C'est ce dernier point qui compte : recomposer chaque MMS
+     * au passage coûterait deux requêtes et un descripteur de fichier *par
+     * message*, sur le fil principal, à chaque événement du stock.
+     */
+    private fun buildConversations(onlyThreadId: String?): List<Map<String, Any?>> {
         val threads = LinkedHashMap<String, MutableMap<String, Any?>>()
+
+        // Les MMS d'abord, en enveloppes seules : la fusion ne retient de toute
+        // façon qu'un message par fil.
+        for (summary in mms.listSummaries()) {
+            if (onlyThreadId != null && summary.threadId != onlyThreadId) continue
+            mergeMms(threads, summary)
+        }
 
         query(
             Telephony.Sms.CONTENT_URI,
             MESSAGE_PROJECTION,
-            null,
-            null,
+            onlyThreadId?.let { "${Telephony.Sms.THREAD_ID} = ?" },
+            onlyThreadId?.let { arrayOf(it) },
             "${Telephony.Sms.DATE} DESC",
         ) { cursor ->
             while (cursor.moveToNext()) {
@@ -75,6 +105,7 @@ class SmsStore(private val context: Context) {
                 val address = cursor.getString(Telephony.Sms.ADDRESS).orEmpty()
                 val unread = cursor.getInt(Telephony.Sms.READ) == 0 &&
                     cursor.getInt(Telephony.Sms.TYPE) == Telephony.Sms.MESSAGE_TYPE_INBOX
+                val date = cursor.getLong(Telephony.Sms.DATE)
 
                 val existing = threads[threadId]
                 if (existing == null) {
@@ -82,13 +113,26 @@ class SmsStore(private val context: Context) {
                         "threadId" to threadId,
                         "recipients" to listOf(address),
                         "snippet" to cursor.getString(Telephony.Sms.BODY).orEmpty(),
-                        "date" to cursor.getLong(Telephony.Sms.DATE),
+                        "date" to date,
                         "messageCount" to 1,
                         "unreadCount" to if (unread) 1 else 0,
+                        "lastAttachmentMimeType" to null,
+                        LAST_MMS_ID to null,
                     )
                 } else {
                     existing["messageCount"] = (existing["messageCount"] as Int) + 1
                     if (unread) existing["unreadCount"] = (existing["unreadCount"] as Int) + 1
+                    // Le résumé n'appartient qu'au message le plus récent du
+                    // fil — un SMS plus ancien ne doit pas reprendre la place
+                    // d'un MMS qui vient d'arriver.
+                    if (date > (existing["date"] as Long)) {
+                        existing["date"] = date
+                        existing["snippet"] =
+                            cursor.getString(Telephony.Sms.BODY).orEmpty()
+                        existing["lastAttachmentMimeType"] = null
+                        existing[LAST_MMS_ID] = null
+                        if (address.isNotEmpty()) existing["recipients"] = listOf(address)
+                    }
                     // Le dernier message peut être sortant : dans ce cas son
                     // `address` est le destinataire, ce qui nomme quand même
                     // correctement le fil.
@@ -101,11 +145,69 @@ class SmsStore(private val context: Context) {
             }
         }
 
-        return threads.values.toList()
+        for (thread in threads.values) resolveMmsSummary(thread)
+        return threads.values.sortedByDescending { it["date"] as Long }
+    }
+
+    /**
+     * Verse l'enveloppe d'un MMS dans le résumé de son fil.
+     *
+     * Le message retenu est mémorisé sous [LAST_MMS_ID] : sa légende et son
+     * interlocuteur ne seront lus qu'à la fin, s'il est encore le dernier du
+     * fil.
+     */
+    private fun mergeMms(
+        threads: LinkedHashMap<String, MutableMap<String, Any?>>,
+        summary: MmsStore.Summary,
+    ) {
+        val unread = !summary.read && summary.incoming
+
+        val existing = threads[summary.threadId]
+        if (existing == null) {
+            threads[summary.threadId] = mutableMapOf(
+                "threadId" to summary.threadId,
+                "recipients" to listOf(""),
+                "snippet" to "",
+                "date" to summary.date,
+                "messageCount" to 1,
+                "unreadCount" to if (unread) 1 else 0,
+                "lastAttachmentMimeType" to null,
+                LAST_MMS_ID to summary,
+            )
+            return
+        }
+
+        existing["messageCount"] = (existing["messageCount"] as Int) + 1
+        if (unread) existing["unreadCount"] = (existing["unreadCount"] as Int) + 1
+        if (summary.date > (existing["date"] as Long)) {
+            existing["date"] = summary.date
+            existing[LAST_MMS_ID] = summary
+        }
+    }
+
+    /**
+     * Lit ce qu'il manque au fil dont le dernier message est un MMS : sa
+     * légende, la nature de sa pièce jointe, son interlocuteur.
+     *
+     * Deux requêtes, mais seulement pour les fils concernés — jamais pour les
+     * cent autres MMS enfouis dans l'historique.
+     */
+    private fun resolveMmsSummary(thread: MutableMap<String, Any?>) {
+        val summary = thread.remove(LAST_MMS_ID) as? MmsStore.Summary ?: return
+        val (snippet, attachmentMimeType) = mms.snippetOf(summary.id)
+        thread["snippet"] = snippet
+        thread["lastAttachmentMimeType"] = attachmentMimeType
+
+        @Suppress("UNCHECKED_CAST")
+        val recipients = thread["recipients"] as List<String>
+        if (recipients.firstOrNull().isNullOrEmpty()) {
+            val address = mms.addressFor(summary.id, summary.incoming)
+            if (address.isNotEmpty()) thread["recipients"] = listOf(address)
+        }
     }
 
     fun getConversation(threadId: String): Map<String, Any?>? =
-        listConversations().firstOrNull { it["threadId"] == threadId }
+        buildConversations(threadId).firstOrNull()
 
     /**
      * `thread_id` du jeu de destinataires, créé au besoin. C'est ce qui permet
@@ -120,12 +222,13 @@ class SmsStore(private val context: Context) {
             put(Telephony.Sms.READ, 1)
             put(Telephony.Sms.SEEN, 1)
         }
-        return resolver.update(
+        val smsUpdated = resolver.update(
             Telephony.Sms.CONTENT_URI,
             values,
             "${Telephony.Sms.THREAD_ID} = ? AND ${Telephony.Sms.READ} = 0",
             arrayOf(threadId),
         )
+        return smsUpdated + mms.markThreadRead(threadId)
     }
 
     fun deleteThread(threadId: String): Int {
@@ -146,6 +249,7 @@ class SmsStore(private val context: Context) {
 
     fun listMessages(threadId: String, limit: Int): List<Map<String, Any?>> {
         val messages = mutableListOf<Map<String, Any?>>()
+        messages.addAll(mms.listMessages(threadId, limit))
         query(
             Telephony.Sms.CONTENT_URI,
             MESSAGE_PROJECTION,
@@ -157,12 +261,16 @@ class SmsStore(private val context: Context) {
                 messages.add(cursor.toMessage())
             }
         }
-        // Le fil s'affiche du plus ancien au plus récent.
-        return messages.reversed()
+        // Le fil s'affiche du plus ancien au plus récent — SMS et MMS mêlés,
+        // donc retriés : chaque table est ordonnée, leur concaténation non.
+        return messages
+            .sortedBy { it["date"] as Long }
+            .takeLast(limit)
     }
 
     fun searchMessages(query: String, limit: Int): List<Map<String, Any?>> {
         val messages = mutableListOf<Map<String, Any?>>()
+        messages.addAll(mms.searchMessages(query, limit))
         query(
             Telephony.Sms.CONTENT_URI,
             MESSAGE_PROJECTION,
@@ -175,9 +283,12 @@ class SmsStore(private val context: Context) {
             }
         }
         return messages
+            .sortedByDescending { it["date"] as Long }
+            .take(limit)
     }
 
     fun getMessage(id: String): Map<String, Any?>? {
+        if (MmsStore.isMmsId(id)) return mms.getMessage(id)
         var message: Map<String, Any?>? = null
         query(
             Telephony.Sms.CONTENT_URI,
@@ -191,11 +302,14 @@ class SmsStore(private val context: Context) {
         return message
     }
 
-    fun deleteMessage(id: String): Int = resolver.delete(
-        ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, id.toLong()),
-        null,
-        null,
-    )
+    fun deleteMessage(id: String): Int {
+        if (MmsStore.isMmsId(id)) return mms.deleteMessage(id)
+        return resolver.delete(
+            ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, id.toLong()),
+            null,
+            null,
+        )
+    }
 
     // ----------------------------------------------------------------- envoi
 
@@ -209,8 +323,15 @@ class SmsStore(private val context: Context) {
     fun sendMessage(
         recipients: List<String>,
         body: String,
+        attachments: List<Map<String, Any?>>,
         subscriptionId: Int?,
     ): Map<String, Any?> {
+        // Une pièce jointe change le transport de bout en bout : PDU vers le
+        // MMSC et écriture dans `content://mms`. Rien de la voie SMS ci-dessous
+        // ne s'y applique.
+        if (attachments.isNotEmpty()) {
+            return mms.sendMessage(recipients, body, attachments, subscriptionId)
+        }
         val threadId = resolveThreadId(recipients)
         val address = recipients.first()
         val now = System.currentTimeMillis()
@@ -266,6 +387,7 @@ class SmsStore(private val context: Context) {
 
     /** Applique l'issue d'un envoi au stock, et rend l'état à publier. */
     fun applySendResult(messageId: String, delivered: Boolean, success: Boolean): String {
+        if (MmsStore.isMmsId(messageId)) return mms.applySendResult(messageId, success)
         val values = ContentValues()
         val status = when {
             !success -> {
@@ -290,6 +412,14 @@ class SmsStore(private val context: Context) {
         )
         return status
     }
+
+    /** Contenu d'une pièce jointe, pour sa vignette côté Dart. */
+    fun readAttachment(partId: String): ByteArray? = mms.readPart(partId)
+
+    /** Contenu d'un fichier désigné par une URI, pour l'aperçu d'un brouillon. */
+    fun readUri(uri: String): ByteArray? = runCatching {
+        resolver.openInputStream(Uri.parse(uri))?.use { it.readBytes() }
+    }.getOrNull()
 
     /** Écrit un SMS entrant dans la boîte de réception. */
     fun insertIncoming(address: String, body: String, timestamp: Long): Map<String, Any?>? {
@@ -374,6 +504,9 @@ class SmsStore(private val context: Context) {
             "status" to statusOf(type, status),
             "read" to (getInt(Telephony.Sms.READ) == 1),
             "subscriptionId" to getInt(Telephony.Sms.SUBSCRIPTION_ID),
+            // Un SMS n'en a jamais : la clé est là pour que les deux tables
+            // rendent la même forme au canal.
+            "attachments" to emptyList<Map<String, Any?>>(),
         )
     }
 

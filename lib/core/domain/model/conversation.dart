@@ -1,4 +1,5 @@
 import 'package:messages/core/domain/model/address.dart';
+import 'package:messages/core/domain/model/attachment.dart';
 
 /// Un fil de discussion (`thread_id` du stock Telephony), avec ses
 /// destinataires et l'aperçu du dernier message.
@@ -18,6 +19,14 @@ class Conversation {
   final int messageCount;
   final int unreadCount;
 
+  /// Nature de la pièce jointe du dernier message, quand c'était un MMS.
+  ///
+  /// Le [snippet] d'un MMS sans légende est vide : sans cette indication, la
+  /// liste afficherait une ligne blanche là où l'app d'origine annonce
+  /// « Photo ». C'est un fait du stock (le type MIME de la partie), pas encore
+  /// un libellé — la traduction est l'affaire de la couche application.
+  final AttachmentKind? lastAttachmentKind;
+
   Conversation({
     required this.id,
     required this.recipients,
@@ -25,6 +34,7 @@ class Conversation {
     required this.lastMessageAt,
     this.messageCount = 0,
     this.unreadCount = 0,
+    this.lastAttachmentKind,
   }) : assert(id != '', 'id cannot be empty'),
        assert(recipients.isNotEmpty, 'a conversation has at least one recipient');
 
@@ -39,6 +49,7 @@ class Conversation {
     DateTime? lastMessageAt,
     int? messageCount,
     int? unreadCount,
+    AttachmentKind? lastAttachmentKind,
   }) {
     return Conversation(
       id: id,
@@ -47,6 +58,7 @@ class Conversation {
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
       messageCount: messageCount ?? this.messageCount,
       unreadCount: unreadCount ?? this.unreadCount,
+      lastAttachmentKind: lastAttachmentKind ?? this.lastAttachmentKind,
     );
   }
 

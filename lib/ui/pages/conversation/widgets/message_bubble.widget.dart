@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:messages/core/application/dtos/conversation_timeline.dto.dart';
+import 'package:messages/ui/pages/conversation/widgets/message_attachments.widget.dart';
 import 'package:messages/ui/theme/app_colors.dart';
 
 /// Une bulle de message.
@@ -32,6 +33,8 @@ class MessageBubble extends StatelessWidget {
     final message = entry.message;
     final outgoing = message.isOutgoing;
     final failed = message.status.hasFailed;
+
+    final maxWidth = MediaQuery.sizeOf(context).width * _maxWidthFactor;
 
     final background = outgoing ? colors.bubbleOutgoing : colors.bubbleIncoming;
     final foreground = outgoing
@@ -75,14 +78,8 @@ class MessageBubble extends StatelessWidget {
                   onLongPress: onLongPress,
                   child: Container(
                     key: Key('bubble_${message.id}'),
-                    constraints: BoxConstraints(
-                      maxWidth:
-                          MediaQuery.sizeOf(context).width * _maxWidthFactor,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 9,
-                    ),
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    padding: _padding(message.attachments.isNotEmpty),
                     decoration: BoxDecoration(
                       color: failed ? colors.surfaceAlt : background,
                       borderRadius: _radius(outgoing),
@@ -90,13 +87,39 @@ class MessageBubble extends StatelessWidget {
                           ? Border.all(color: colors.danger, width: 1)
                           : null,
                     ),
-                    child: Text(
-                      message.body,
-                      style: TextStyle(
-                        color: failed ? colors.textPrimary : foreground,
-                        fontSize: 16,
-                        height: 1.28,
-                      ),
+                    // `start`, surtout pas `stretch` : une bulle se serre sur
+                    // son contenu. L'étirer donnerait à « Bisous » la même
+                    // largeur qu'à un paragraphe.
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (message.hasAttachments)
+                          MessageAttachments(
+                            attachments: message.attachments,
+                            foreground: failed
+                                ? colors.textPrimary
+                                : foreground,
+                            maxWidth: maxWidth - _attachmentPadding * 2,
+                          ),
+                        // Une légende sous ses pièces jointes retrouve le
+                        // rembourrage qu'une bulle de texte a toujours : sans
+                        // lui, elle collerait au bord de l'image.
+                        if (message.body.isNotEmpty)
+                          Padding(
+                            padding: message.hasAttachments
+                                ? const EdgeInsets.fromLTRB(6, 8, 6, 2)
+                                : EdgeInsets.zero,
+                            child: Text(
+                              message.body,
+                              style: TextStyle(
+                                color: failed ? colors.textPrimary : foreground,
+                                fontSize: 16,
+                                height: 1.28,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -119,6 +142,16 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
+
+  /// Le liseré qui reste autour d'une pièce jointe : assez pour que la bulle
+  /// se devine derrière l'image, pas assez pour l'encadrer.
+  static const _attachmentPadding = 4.0;
+
+  /// Une bulle de texte respire ; une bulle qui porte une image se resserre
+  /// sur elle, sinon l'image flotterait dans un cadre coloré.
+  EdgeInsets _padding(bool hasAttachments) => hasAttachments
+      ? const EdgeInsets.all(_attachmentPadding)
+      : const EdgeInsets.symmetric(horizontal: 18, vertical: 9);
 
   /// Coins arrondis côté « extérieur », resserrés côté salve.
   BorderRadius _radius(bool outgoing) {

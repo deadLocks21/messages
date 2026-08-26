@@ -3,6 +3,7 @@ import 'package:messages/core/domain/model/compose_request.dart';
 import 'package:messages/core/domain/model/sms_event.dart';
 import 'package:messages/core/domain/services/compose_request.source.dart';
 import 'package:messages/core/domain/services/sms_event.source.dart';
+import 'package:messages/infrastructure/attachments/in_memory.attachment_picker.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/seed/demo_seed.dart';
 import 'package:messages/infrastructure/sms/android.compose_request.source.dart';
@@ -39,6 +40,12 @@ InMemorySmsStore inMemorySmsStore(Ref ref) {
   ref.onDispose(store.dispose);
   return store;
 }
+
+/// Sélecteur de pièces jointes simulé. Exposé à part pour que les tests
+/// puissent lui demander d'annuler la prochaine sélection.
+@Riverpod(keepAlive: true)
+InMemoryAttachmentPicker inMemoryAttachmentPicker(Ref ref) =>
+    InMemoryAttachmentPicker(ref.watch(inMemorySmsStoreProvider));
 
 /// Source des changements du stock. La doublure InMemory *est* sa propre
 /// source : elle émet quand on la modifie.

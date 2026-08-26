@@ -291,6 +291,54 @@ final class SendMessageUseCaseProvider
 String _$sendMessageUseCaseHash() =>
     r'34609b06b38a1dc388a408f18814014a8019055a';
 
+@ProviderFor(pickAttachmentsUseCase)
+final pickAttachmentsUseCaseProvider = PickAttachmentsUseCaseProvider._();
+
+final class PickAttachmentsUseCaseProvider
+    extends
+        $FunctionalProvider<
+          PickAttachmentsUseCase,
+          PickAttachmentsUseCase,
+          PickAttachmentsUseCase
+        >
+    with $Provider<PickAttachmentsUseCase> {
+  PickAttachmentsUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'pickAttachmentsUseCaseProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$pickAttachmentsUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<PickAttachmentsUseCase> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  PickAttachmentsUseCase create(Ref ref) {
+    return pickAttachmentsUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PickAttachmentsUseCase value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PickAttachmentsUseCase>(value),
+    );
+  }
+}
+
+String _$pickAttachmentsUseCaseHash() =>
+    r'7dee50166473f9e884213a7b0205e7c0ec082541';
+
 @ProviderFor(resendMessageUseCase)
 final resendMessageUseCaseProvider = ResendMessageUseCaseProvider._();
 

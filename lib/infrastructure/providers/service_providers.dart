@@ -6,6 +6,7 @@ import 'package:messages/core/application/services/search.service.dart';
 import 'package:messages/core/application/usecases/delete_conversation.usecase.dart';
 import 'package:messages/core/application/usecases/delete_message.usecase.dart';
 import 'package:messages/core/application/usecases/mark_conversation_read.usecase.dart';
+import 'package:messages/core/application/usecases/pick_attachments.usecase.dart';
 import 'package:messages/core/application/usecases/request_sms_access.usecase.dart';
 import 'package:messages/core/application/usecases/resend_message.usecase.dart';
 import 'package:messages/core/application/usecases/save_draft.usecase.dart';
@@ -57,6 +58,10 @@ SendMessageUseCase sendMessageUseCase(Ref ref) => SendMessageUseCase(
   messages: ref.watch(messageRepositoryProvider),
   drafts: ref.watch(draftRepositoryProvider),
 );
+
+@Riverpod(keepAlive: true)
+PickAttachmentsUseCase pickAttachmentsUseCase(Ref ref) =>
+    PickAttachmentsUseCase(ref.watch(attachmentPickerProvider));
 
 @Riverpod(keepAlive: true)
 ResendMessageUseCase resendMessageUseCase(Ref ref) =>

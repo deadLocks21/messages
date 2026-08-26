@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:messages/core/domain/model/contact.dart';
 import 'package:messages/core/domain/model/sms_access.dart';
+import 'package:messages/infrastructure/attachments/in_memory.attachment_picker.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
 import 'package:messages/infrastructure/permissions/in_memory.sms_permissions.service.dart';
@@ -30,6 +31,15 @@ class TestDevice {
   final InMemorySmsPermissionsService permissions;
   final InMemoryThemeRepository theme;
   final InMemoryNotificationGateway notifications;
+
+  /// Sélecteur de pièces jointes : c'est par lui qu'un test fait « choisir une
+  /// photo » ou « refermer le sélecteur sans rien prendre ».
+  ///
+  /// Il dépose ce qu'il fabrique dans le stock de *ce* device — d'où
+  /// l'initialisation dans le corps, une fois [store] construit.
+  late final InMemoryAttachmentPicker attachments = InMemoryAttachmentPicker(
+    store,
+  );
 
   TestDevice({
     List<Contact> contacts = const [],
@@ -99,6 +109,7 @@ Future<void> _pump(WidgetTester tester, TestDevice device, Widget child) async {
         themeRepositoryProvider.overrideWithValue(device.theme),
         smsPermissionsServiceProvider.overrideWithValue(device.permissions),
         notificationGatewayProvider.overrideWithValue(device.notifications),
+        inMemoryAttachmentPickerProvider.overrideWithValue(device.attachments),
       ],
       child: child,
     ),

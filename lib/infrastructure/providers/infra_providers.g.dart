@@ -221,6 +221,62 @@ final class InMemorySmsStoreProvider
 
 String _$inMemorySmsStoreHash() => r'62d064dc04a3c66053db38b5f3dbe8fc8e4faee3';
 
+/// Sélecteur de pièces jointes simulé. Exposé à part pour que les tests
+/// puissent lui demander d'annuler la prochaine sélection.
+
+@ProviderFor(inMemoryAttachmentPicker)
+final inMemoryAttachmentPickerProvider = InMemoryAttachmentPickerProvider._();
+
+/// Sélecteur de pièces jointes simulé. Exposé à part pour que les tests
+/// puissent lui demander d'annuler la prochaine sélection.
+
+final class InMemoryAttachmentPickerProvider
+    extends
+        $FunctionalProvider<
+          InMemoryAttachmentPicker,
+          InMemoryAttachmentPicker,
+          InMemoryAttachmentPicker
+        >
+    with $Provider<InMemoryAttachmentPicker> {
+  /// Sélecteur de pièces jointes simulé. Exposé à part pour que les tests
+  /// puissent lui demander d'annuler la prochaine sélection.
+  InMemoryAttachmentPickerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'inMemoryAttachmentPickerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$inMemoryAttachmentPickerHash();
+
+  @$internal
+  @override
+  $ProviderElement<InMemoryAttachmentPicker> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  InMemoryAttachmentPicker create(Ref ref) {
+    return inMemoryAttachmentPicker(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(InMemoryAttachmentPicker value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<InMemoryAttachmentPicker>(value),
+    );
+  }
+}
+
+String _$inMemoryAttachmentPickerHash() =>
+    r'57759d6437a4b3e4f1538d4f1583d9a69883bb30';
+
 /// Source des changements du stock. La doublure InMemory *est* sa propre
 /// source : elle émet quand on la modifie.
 

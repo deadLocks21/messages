@@ -26,7 +26,12 @@ class HeadlessSmsSendService : Service() {
 
         if (!body.isNullOrBlank() && !recipients.isNullOrEmpty()) {
             runCatching {
-                SmsStore(applicationContext).sendMessage(recipients, body, null)
+                SmsStore(applicationContext).sendMessage(
+                    recipients = recipients,
+                    body = body,
+                    attachments = emptyList(),
+                    subscriptionId = null,
+                )
             }
         }
 

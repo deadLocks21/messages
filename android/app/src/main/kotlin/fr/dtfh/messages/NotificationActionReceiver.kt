@@ -51,7 +51,12 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 // Un envoi refusé (plus l'app par défaut, SIM absente) ne doit pas
                 // faire tomber le process de notification : la notification reste
                 // en place, l'utilisateur retentera depuis l'app.
-                val sent = runCatching { store.sendMessage(listOf(address), reply, null) }
+                val sent = runCatching { store.sendMessage(
+                    recipients = listOf(address),
+                    body = reply,
+                    attachments = emptyList(),
+                    subscriptionId = null,
+                ) }
                 if (sent.isFailure) return
 
                 // Répondre vaut lecture du fil.
