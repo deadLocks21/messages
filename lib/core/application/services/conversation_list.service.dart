@@ -91,12 +91,6 @@ class ConversationListService {
     );
   }
 
-  /// Nombre de fils non lus, pour la pastille de l'onglet « Non lus ».
-  Future<int> unreadCount() async {
-    final items = await list(filter: ConversationFilter.unread);
-    return items.length;
-  }
-
   ConversationDto _toDto(
     Conversation conversation,
     ContactDirectory directory,

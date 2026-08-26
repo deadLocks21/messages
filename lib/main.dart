@@ -108,6 +108,13 @@ class MessagesApp extends ConsumerStatefulWidget {
 
 class _MessagesAppState extends ConsumerState<MessagesApp>
     with WidgetsBindingObserver {
+  /// Au-delà de cette absence, le carnet d'adresses est considéré comme
+  /// périmé et relu au retour.
+  static const _staleAfter = Duration(seconds: 30);
+
+  /// Quand l'app est passée en arrière-plan. Null si elle n'en revient pas.
+  DateTime? _backgroundedAt;
+
   @override
   void initState() {
     super.initState();
@@ -129,14 +136,27 @@ class _MessagesAppState extends ConsumerState<MessagesApp>
     switch (state) {
       case AppLifecycleState.resumed:
         logger.info('app.resumed');
+        final away = _backgroundedAt;
+        _backgroundedAt = null;
         // L'utilisateur a pu changer l'app SMS par défaut depuis les réglages
         // Android, et des messages ont pu arriver pendant notre absence.
         ref.read(smsAccessControllerProvider.notifier).refresh();
+        // Un contact a pu être ajouté ou renommé pendant notre absence : le
+        // carnet en mémoire est périmé, et c'est le seul moment où on accepte
+        // d'en payer la relecture.
+        //
+        // Mais seulement après une vraie absence. Relire cinq cents fiches
+        // coûte le gros d'une seconde ; le faire à chaque bascule punirait
+        // l'aller-retour vers la galerie pour joindre une photo, alors que le
+        // carnet n'a évidemment pas bougé entre-temps.
+        if (away == null || DateTime.now().difference(away) > _staleAfter) {
+          ref.read(contactDirectoryServiceProvider).invalidate();
+        }
         ref.invalidate(conversationsProvider);
-        // Un contact a pu être ajouté ou renommé pendant notre absence.
         ref.read(syncNotificationSettingsUseCaseProvider).execute();
       case AppLifecycleState.paused:
         logger.info('app.paused');
+        _backgroundedAt = DateTime.now();
         logger.flush();
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:

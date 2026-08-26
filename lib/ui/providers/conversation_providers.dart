@@ -41,10 +41,16 @@ Future<ConversationTimelineDto> conversationTimeline(
 }
 
 /// Nombre de fils non lus — pastille de la puce « Non lus ».
+///
+/// Dérivé de la liste déjà construite, jamais recalculé : la reconstruire pour
+/// n'en tirer qu'un entier coûtait un second parcours complet du stock et une
+/// seconde lecture du carnet d'adresses, à chaque démarrage et à chaque
+/// changement. Le filtre « non lues » est exactement « non archivé et non lu »,
+/// donc compter sur la liste « tous » donne le même nombre.
 @riverpod
 Future<int> unreadConversationCount(Ref ref) async {
-  ref.watch(smsEventsProvider);
-  return ref.watch(conversationListServiceProvider).unreadCount();
+  final conversations = await ref.watch(conversationsProvider().future);
+  return conversations.where((c) => c.hasUnread).length;
 }
 
 /// Contacts proposés par le sélecteur de destinataires, filtrés par la saisie.

@@ -47,19 +47,47 @@ class ContactDirectory {
   }
 }
 
-/// Charge le carnet d'adresses et en fait un [ContactDirectory].
+/// Charge le carnet d'adresses et en fait un [ContactDirectory], **une fois**.
+///
+/// Le carnet est lu intégralement, vignettes comprises : sur un appareil
+/// ordinaire (cinq cents fiches) cela prend le gros d'une seconde. Or sept
+/// endroits en ont besoin — la liste des fils, l'en-tête d'une conversation, le
+/// fil lui-même, le sélecteur de contacts, la synchro des notifications — et
+/// plusieurs se déclenchent ensemble au démarrage puis à chaque changement du
+/// stock. Sans mémoire, l'app relisait le carnet cinq fois pour afficher un
+/// écran.
+///
+/// C'est la **promesse** qui est mémorisée, pas sa valeur : les appels
+/// simultanés du démarrage partagent alors un seul chargement au lieu d'en
+/// lancer chacun un.
+///
+/// Le carnet n'est pas relu tout seul — c'est [invalidate] qui décide, au
+/// retour au premier plan et après l'octroi de la permission Contacts. Un
+/// contact ajouté pendant que l'app est à l'écran ne sera donc vu qu'ensuite,
+/// ce qui est le compromis qu'on préfère à une seconde de blocage par écran.
 class ContactDirectoryService {
   final ContactRepository _contacts;
 
-  const ContactDirectoryService(this._contacts);
+  Future<ContactDirectory>? _pending;
+
+  ContactDirectoryService(this._contacts);
+
+  Future<ContactDirectory> load() => _pending ??= _read();
+
+  /// Oublie le carnet en mémoire : la prochaine lecture repartira du système.
+  void invalidate() => _pending = null;
 
   /// Une permission refusée ou un carnet indisponible ne doit pas casser la
   /// liste des conversations : on retombe sur un annuaire vide, et l'UI affiche
   /// les numéros bruts.
-  Future<ContactDirectory> load() async {
+  Future<ContactDirectory> _read() async {
     try {
       return ContactDirectory.from(await _contacts.listAll());
     } catch (_) {
+      // Un échec ne se garde pas : la permission peut être accordée juste
+      // après, et l'app resterait sinon avec des numéros nus jusqu'au prochain
+      // retour au premier plan.
+      _pending = null;
       return ContactDirectory.empty;
     }
   }

@@ -23,6 +23,9 @@ class SmsAccessController extends _$SmsAccessController {
     final access = await ref
         .read(requestSmsAccessUseCaseProvider)
         .requestPermissions();
+    // Le carnet lu avant l'accord était vide : le garder en mémoire
+    // condamnerait l'app à n'afficher que des numéros.
+    ref.read(contactDirectoryServiceProvider).invalidate();
     state = AsyncData(access);
     return access;
   }

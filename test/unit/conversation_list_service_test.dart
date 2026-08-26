@@ -101,7 +101,10 @@ void main() {
       final items = await service.list(filter: ConversationFilter.unread);
 
       expect(items.single.threadId, nonLu);
-      expect(await service.unreadCount(), 1);
+      // Le compteur de la puce se lit sur la liste « tous », d'où la
+      // vérification que les deux voient bien le même fil non lu.
+      final all = await service.list();
+      expect(all.where((c) => c.hasUnread).map((c) => c.threadId), [nonLu]);
     });
 
     test('remonte le brouillon du fil', () async {
