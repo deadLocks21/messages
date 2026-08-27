@@ -1,0 +1,283 @@
+# Workflow de release, déclenché sur push d'un tag `v*`.
+# Pour le moment : Android uniquement (iOS / desktop viendront plus tard).
+#
+# Pas de publication store : la chaîne s'arrête à la GitHub Release, qui porte
+# l'APK universel en distribution directe (sideload).
+#
+# Pipeline "fail-fast au build (gate strict) → GitHub Release" :
+#
+#   1) prepare        Calcule la version (depuis le tag ou pubspec.yaml).
+#
+#   2) Builds (gate strict) :
+#        build-android → APK universel signé (artifact, attaché à la Release)
+#      Si UN SEUL plante, aucune release n'est créée.
+#
+#   3) build-gate     Job sentinelle qui vérifie que TOUS les builds sont verts.
+#                     Un seul build aujourd'hui, mais le job reste le point
+#                     d'accroche unique quand d'autres plateformes s'ajouteront.
+#
+#   4) release        Crée la GitHub Release dès le gate franchi.
+#                     Notes = changelog semantic-release relu depuis le corps
+#                     du commit `chore(release)` taggé.
+#
+# Secrets requis (Settings → Secrets and variables → Actions) :
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+#   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD,
+#   SIGNOZ_INGEST_URL, SIGNOZ_INGESTION_KEY
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+# Configuration Signoz. Injectée dans le binaire via `--dart-define` à la
+# compilation (cf. `lib/infrastructure/providers/logger_providers.dart` qui lit
+# `String.fromEnvironment('SIGNOZ_INGEST_URL')`). Sans ces valeurs, l'app
+# retombe sur le logger console → pas de remontée Signoz côté users.
+#
+# `SIGNOZ_INGEST_URL` vient du secret du même nom (instance self-hosted →
+# l'URL n'est pas codée en dur ici). Il est mappé dans le bloc `env:` des
+# étapes de build, à côté de `SIGNOZ_INGESTION_KEY`.
+env:
+  SIGNOZ_ENV: "production"
+
+jobs:
+  prepare:
+    name: Compute version
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extrait la version depuis le tag (ou pubspec.yaml)
+        # Tag `v1.2.3` → 1.2.3. Pour `workflow_dispatch` (lancement manuel
+        # sans tag), on retombe sur la version de `pubspec.yaml`.
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//;s/+.*//')
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version: $VERSION"
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # BUILDS — Compilation + signature + upload artifact (pas de publish)
+  # ═══════════════════════════════════════════════════════════════════════
+
+  build-android:
+    name: Build Android (${{ needs.prepare.outputs.version }})
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      # Sans Play Store pour arbitrer, le numéro de run fait office de build
+      # number : monotone croissant sur la durée de vie du workflow, donc
+      # toujours supérieur au précédent.
+      BUILD_NUMBER: ${{ github.run_number }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java (Temurin 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.7"
+          channel: stable
+          cache: true
+
+      - name: Décoder le keystore upload
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/android/upload-keystore.jks"
+
+      - name: Écrire android/key.properties
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          cat > "$GITHUB_WORKSPACE/android/key.properties" <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=$GITHUB_WORKSPACE/android/upload-keystore.jks
+          EOF
+
+      - run: flutter pub get
+
+      - name: Build APK (.apk)
+        # APK universel attaché à la GitHub Release : c'est l'unique canal de
+        # distribution Android ici (install directe / sideload).
+        env:
+          SIGNOZ_INGEST_URL: ${{ secrets.SIGNOZ_INGEST_URL }}
+          SIGNOZ_INGESTION_KEY: ${{ secrets.SIGNOZ_INGESTION_KEY }}
+        run: |
+          flutter build apk --release \
+            --build-name="$VERSION" \
+            --build-number="$BUILD_NUMBER" \
+            --dart-define=APP_VERSION="$VERSION+$BUILD_NUMBER" \
+            --dart-define=SIGNOZ_INGEST_URL="$SIGNOZ_INGEST_URL" \
+            --dart-define=SIGNOZ_INGESTION_KEY="$SIGNOZ_INGESTION_KEY" \
+            --dart-define=SIGNOZ_ENV="$SIGNOZ_ENV"
+
+      # `flutter build apk` sort un `app-release.apk` générique : on le renomme
+      # au schéma d'assets de la Release (cf. job release) avant l'upload, pour
+      # que le nom de l'artifact soit déjà le nom final.
+      - name: Renomme l'APK au schéma messages-android-<version>.apk
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             "build/app/outputs/flutter-apk/messages-android-${VERSION}.apk"
+
+      # `mapping.txt` reste dans l'artifact (rétention 14 j) sans être attaché à
+      # la Release : R8 est actif en release, et c'est le seul moyen de relire
+      # les stack traces des crashs — mais ça n'a rien à faire en public.
+      - name: Upload APK + mapping artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: messages-android
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/mapping/release/mapping.txt
+          retention-days: 14
+          if-no-files-found: error
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # BUILD GATE — Sentinelle qui valide que les builds sont verts
+  # ═══════════════════════════════════════════════════════════════════════
+
+  build-gate:
+    name: All builds passed
+    # TOUS les builds doivent être verts avant publication. Aujourd'hui il n'y a
+    # qu'Android ; le job reste le point d'accroche unique de `release` pour que
+    # l'ajout d'une plateforme se limite à l'étendre ici.
+    needs: [build-android]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: echo "✓ Tous les builds sont verts — publication autorisée"
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # GITHUB RELEASE — Assets installables attachés, dès le gate franchi.
+  # Dernière étape du pipeline : pas de publication store derrière.
+  # ═══════════════════════════════════════════════════════════════════════
+
+  release:
+    name: Create GitHub Release
+    # NB : `prepare` DOIT rester dans needs — needs.<job>.outputs n'est exposé
+    # qu'aux dépendances directes ; sans lui, needs.prepare.outputs.version est
+    # vide et le titre devient « Messages v ».
+    needs: [prepare, build-gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `fetch-depth: 0` : le fallback `git describe` (cf. étape "Compose
+          # les notes de release") a besoin des tags et de l'historique.
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Compose les notes de release
+        # semantic-release génère déjà le changelog conventionnel et l'écrit
+        # dans le CORPS du commit `chore(release): X.Y.Z` — celui-là même sur
+        # lequel pointe le tag `vX.Y.Z` qui déclenche ce workflow. On le relit
+        # ici plutôt que de publier le message générique de
+        # `release_notes_android.json` (réservé au store, cf. publish-android).
+        run: |
+          set -euo pipefail
+
+          NOTES=""
+
+          # On teste le SUJET, pas le corps : tout commit conventionnel un peu
+          # soigné a un corps, donc "corps non vide" ne prouve rien. Seul
+          # `chore(release):` garantit que le corps est bien le changelog.
+          case "$(git log -1 --format=%s HEAD)" in
+            "chore(release):"*) NOTES=$(git log -1 --format=%b HEAD) ;;
+          esac
+
+          # Fallback `workflow_dispatch` : HEAD n'est pas un commit de release
+          # → on liste les commits depuis le dernier tag.
+          if [ -z "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then
+            PREV=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
+            # NB : pas d'apostrophe dans le mot par défaut de `${PREV:-...}`,
+            # bash y ré-interprète les quotes même entre guillemets doubles.
+            echo "HEAD n'est pas un commit de release — fallback depuis ${PREV:-le premier commit}"
+            NOTES=$(git log --no-merges --invert-grep --grep='^chore(release)' \
+              --pretty='* %s (%h)' ${PREV:+"$PREV.."}HEAD)
+          fi
+
+          printf '%s\n' "$NOTES" > notes.md
+
+          echo "--- notes.md ---"
+          cat notes.md
+
+      - name: Create GitHub Release
+        run: |
+          set -euo pipefail
+
+          # Schéma des assets : `messages-<plateforme>-<version>.<ext>`, tout en
+          # minuscules, sans numéro de run (la version du tag suffit à situer le
+          # binaire).
+          #
+          # Uniquement des assets installables : `mapping.txt` reste dans
+          # l'artifact du build (cf. job build-android), pas dans la Release.
+          #
+          # On n'attache par ailleurs que les assets réellement présents :
+          # passer un argument vide à `gh release create` fait échouer la commande.
+          ASSETS=()
+          echo "Releasing assets:"
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            echo "  - $f"
+            ASSETS+=("$f")
+          done < <(find artifacts -type f -name '*.apk' | sort)
+
+          if [ ${#ASSETS[@]} -eq 0 ]; then
+            echo "ERROR: no release assets found"
+            exit 1
+          fi
+
+          # Tag name : `v<version>` si on est sur un tag, sinon nom synthétique
+          # avec run_number pour éviter toute collision avec un tag git existant
+          # et pour ne pas créer une release tagged sur un nom de branche
+          # (ce qui serait invalide / source de confusion).
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            RELEASE_TAG="$GITHUB_REF_NAME"
+          else
+            RELEASE_TAG="dispatch-v${VERSION}-${{ github.run_number }}"
+          fi
+          echo "Release tag: $RELEASE_TAG"
+
+          gh release create "$RELEASE_TAG" \
+            --title "Messages v$VERSION" \
+            --notes-file notes.md \
+            "${ASSETS[@]}"
