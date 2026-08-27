@@ -361,7 +361,7 @@ final class MmsConfigurationProvider
   }
 }
 
-String _$mmsConfigurationHash() => r'b5a4b51e00f111fc9f62d3343cc48b8ce4a41f56';
+String _$mmsConfigurationHash() => r'eb08bb77f02221537170a11538231273f674f4b2';
 
 @ProviderFor(contactRepository)
 final contactRepositoryProvider = ContactRepositoryProvider._();

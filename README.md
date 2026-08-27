@@ -19,6 +19,7 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 | **Rédaction** | Sélecteur de contacts (nom ou numéro), numéro libre, brouillons persistés, transfert d'un message. |
 | **Notifications** | `MessagingStyle` (fil des derniers échanges, nom du contact), **réponse directe** et **marquer comme lu** depuis le volet, groupement + résumé, sourdine par fil respectée, annulation quand le fil est lu dans l'app. |
 | **Système** | Demande des permissions (SMS, contacts, notifications) puis du rôle **application SMS par défaut**, ouverture depuis une notification ou un lien `sms:`, thème clair/sombre. |
+| **Journalisation** | Logs applicatifs et erreurs expédiés à **Signoz** en OTLP/HTTP, avec l'écran courant et l'état du rôle d'app par défaut sur chaque ligne. |
 
 Reste à faire : notifier les **échecs d'envoi** (« Message non envoyé »), et
 couvrir le Kotlin par des tests instrumentés — `flutter_test` ne l'atteint pas.
@@ -48,6 +49,51 @@ flutter analyze
 dart run build_runner build        # providers Riverpod (*.g.dart)
 ```
 
+### Envoyer les logs à Signoz
+
+Rien n'est expédié tant que `SIGNOZ_INGEST_URL` est vide : par défaut, l'app se
+contente de la console de dev. Pour brancher Signoz :
+
+```bash
+flutter run -d <android_device> \
+  --dart-define=SIGNOZ_INGEST_URL=https://ingest.<région>.signoz.cloud:443/v1/logs \
+  --dart-define=SIGNOZ_INGESTION_KEY=<clé> \
+  --dart-define=SIGNOZ_ENV=development \
+  --dart-define=APP_VERSION=$(git describe --tags --always)
+```
+
+| `--dart-define` | Effet |
+|---|---|
+| `SIGNOZ_INGEST_URL` | Point d'entrée OTLP/HTTP complet. **Vide → Signoz désactivé.** |
+| `SIGNOZ_INGESTION_KEY` | En-tête `signoz-access-token`. À omettre pour un collecteur auto-hébergé sans authentification. |
+| `SIGNOZ_ENV` | `deployment.environment`. Défaut : `production` en release, `development` sinon. |
+| `APP_VERSION` | `service.version`. Défaut `dev`, pour qu'un build local non configuré se voie dans Signoz. |
+
+Sur un collecteur local, viser `http://10.0.2.2:4318/v1/logs` depuis l'émulateur
+Android (`10.0.2.2` est la machine hôte vue du téléphone virtuel).
+
+En build **debug** avec Signoz branché, les enregistrements sont doublés dans la
+console, préfixés `[→signoz]` : ce qu'on lit localement est exactement ce qui
+part. Les échecs d'expédition (clé invalide, collecteur injoignable) sont
+signalés sous le nom `messages.logger` — la seule façon de voir un silence.
+
+Dans Signoz, l'app se trouve sous `service.name = messages`. Quelques
+enregistrements pour s'orienter :
+
+| Nom | Quand |
+|---|---|
+| `app.started`, `app.route`, `app.backgrounded` | Démarrage, navigation, mises en arrière-plan. |
+| `message.send`, `message.send_failed`, `message.resent` | Un envoi, son transport (`sms`/`mms`) et son sort. |
+| `sms.platform_error`, `sms.channel_missing` | Le natif a refusé — avec la méthode appelée et son code d'erreur. |
+| `sms.default_app_refused`, `sms.default_app_changed` | L'app n'a pas (ou plus) le droit d'écrire dans le stock. |
+| `attachment.rejected`, `attachment.compressed`, `mms.limits_fallback` | Pourquoi une photo est refusée, ou part plus dégradée que prévu. |
+| `flutter.error`, `dart.uncaught` | Ce que personne n'avait attrapé. |
+| `provider.failed`, `provider.recovered` | Un provider en échec — l'écran affiche « Erreur : … », et Riverpod ayant attrapé, aucun des deux gestionnaires ci-dessus ne se déclenche. |
+| `app.start_failed` | Le démarrage n'est pas allé au bout. Expédié immédiatement : il n'y aura pas de session suivante pour le raconter. |
+
+Aucun de ces enregistrements ne porte de texte de message ni de numéro : ce sont
+des mesures (`body.length`, `recipients.count`, `attachments.bytes`).
+
 Sur un téléphone, l'app doit être définie **application SMS par défaut** pour
 envoyer, recevoir et écrire dans le stock : l'écran d'accueil enchaîne les deux
 demandes (permissions runtime, puis rôle `ROLE_SMS`). Sans le rôle, elle reste
@@ -56,6 +102,7 @@ en lecture seule et le signale par un bandeau.
 ## Tests
 
 `test/unit/` (domaine, services applicatifs, cas d'usage, traduction du canal
-natif) et `test/functional/` (écrans montés sur un `TestDevice`, plus un
+natif, charge OTLP expédiée à Signoz et enregistrements sur lesquels on compte
+pour comprendre un envoi qui échoue) et `test/functional/` (écrans montés sur un `TestDevice`, plus un
 parcours de bout en bout avec le routeur). Pas de mockito : les doublures sont
 les implémentations `InMemory*` de production pour les plateformes non-Android.

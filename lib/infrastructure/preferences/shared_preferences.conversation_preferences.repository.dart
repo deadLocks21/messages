@@ -1,3 +1,4 @@
+import 'package:messages/core/application/services/logger_application.service.dart';
 import 'dart:convert';
 
 import 'package:messages/core/domain/model/conversation_preference.dart';
@@ -15,6 +16,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SharedPreferencesConversationPreferencesRepository
     implements ConversationPreferencesRepository {
   static const _key = 'messages.conversation_preferences';
+
+  final LoggerApplicationService _logger;
+
+  const SharedPreferencesConversationPreferencesRepository({
+    required LoggerApplicationService logger,
+  }) : _logger = logger;
 
   @override
   Future<List<ConversationPreference>> listAll() async {
@@ -56,7 +63,17 @@ class SharedPreferencesConversationPreferencesRepository
           ),
         ),
       );
-    } catch (_) {
+    } catch (e, stack) {
+      // Un blob illisible fait disparaître d'un coup tous les épinglages,
+      // archivages et sourdines. L'app repart de zéro sans rien dire ; c'est
+      // exactement le genre de perte qu'on ne comprend qu'en la voyant dans
+      // les logs.
+      _logger.error(
+        'preferences.decode_failed',
+        attrs: {'preferences.key': _key},
+        error: e,
+        stack: stack,
+      );
       return {};
     }
   }

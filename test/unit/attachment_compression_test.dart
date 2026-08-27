@@ -9,6 +9,7 @@ import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 
 import '../builders/builders.dart';
+import '../helpers/test_logger.dart';
 
 /// Une photo d'appareil : plusieurs mégaoctets, très au-delà d'un MMS.
 AttachmentDraft cameraPhoto({int megapixels = 12}) => Build.draft(
@@ -29,6 +30,7 @@ void main() {
       picker: InMemoryAttachmentPicker(store),
       compressor: InMemoryAttachmentCompressor(store),
       configuration: configuration,
+      logger: testLogger(),
     );
   });
 

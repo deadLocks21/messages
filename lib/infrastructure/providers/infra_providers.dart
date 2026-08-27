@@ -5,6 +5,7 @@ import 'package:messages/core/domain/services/compose_request.source.dart';
 import 'package:messages/core/domain/services/sms_event.source.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_picker.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
+import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/seed/demo_seed.dart';
 import 'package:messages/infrastructure/sms/android.compose_request.source.dart';
 import 'package:messages/infrastructure/sms/android.sms_event.source.dart';
@@ -25,8 +26,12 @@ bool useNativeSmsStack(Ref ref) =>
     !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
 /// Pont vers le stock SMS d'Android.
+///
+/// Le logger lui est passé ici : c'est le canal qui voit passer les échecs de
+/// la plateforme, et il est le seul endroit d'où ils soient tous visibles.
 @Riverpod(keepAlive: true)
-AndroidSmsChannel smsChannel(Ref ref) => const AndroidSmsChannel();
+AndroidSmsChannel smsChannel(Ref ref) =>
+    AndroidSmsChannel(logger: ref.watch(loggerProvider));
 
 /// Carnet d'adresses simulé, partagé par le seed et le repository InMemory.
 @Riverpod(keepAlive: true)

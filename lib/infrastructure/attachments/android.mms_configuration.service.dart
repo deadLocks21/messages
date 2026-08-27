@@ -1,3 +1,4 @@
+import 'package:messages/core/application/services/logger_application.service.dart';
 import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/services/mms_configuration.service.dart';
 import 'package:messages/infrastructure/sms/android_sms.channel.dart';
@@ -16,8 +17,12 @@ import 'package:messages/infrastructure/sms/android_sms.channel.dart';
 /// nécessaire.
 class AndroidMmsConfiguration implements MmsConfiguration {
   final AndroidSmsChannel _channel;
+  final LoggerApplicationService _logger;
 
-  AndroidMmsConfiguration(this._channel);
+  AndroidMmsConfiguration(
+    this._channel, {
+    required LoggerApplicationService logger,
+  }) : _logger = logger;
 
   Future<MmsLimits>? _pending;
 
@@ -33,10 +38,33 @@ class AndroidMmsConfiguration implements MmsConfiguration {
       final limits = MmsLimits.fromCarrier(bytes);
       // L'opérateur n'a rien publié d'exploitable : on garde le repli, mais on
       // retentera plus tard plutôt que de figer ce demi-échec.
-      if (limits == MmsLimits.fallback) _pending = null;
+      if (limits == MmsLimits.fallback) {
+        _pending = null;
+        // Ce repli décide de la qualité de toutes les photos envoyées : quand
+        // une image part visiblement plus dégradée que nécessaire, c'est la
+        // première ligne à regarder.
+        await _logger.warn(
+          'mms.limits_fallback',
+          attrs: {
+            'mms.carrier_bytes': bytes,
+            'mms.limit_bytes': limits.contentBytes,
+          },
+        );
+      } else {
+        await _logger.info(
+          'mms.limits_read',
+          attrs: {'mms.limit_bytes': limits.contentBytes},
+        );
+      }
       return limits;
-    } catch (_) {
+    } catch (e, stack) {
       _pending = null;
+      await _logger.warn(
+        'mms.limits_failed',
+        attrs: {'mms.limit_bytes': MmsLimits.fallback.contentBytes},
+        error: e,
+        stack: stack,
+      );
       return MmsLimits.fallback;
     }
   }

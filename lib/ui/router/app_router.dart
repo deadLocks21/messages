@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
+import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
 import 'package:messages/ui/pages/archived/archived.page.dart';
 import 'package:messages/ui/pages/conversation/conversation.page.dart';
@@ -30,6 +31,51 @@ GoRouter goRouter(Ref ref) {
   ref.listen(smsAccessControllerProvider, (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
+  final router = _buildRouter(ref, refresh);
+  _traceNavigation(ref, router);
+  return router;
+}
+
+/// Note l'écran affiché, sur chaque ligne de log et à chaque changement.
+///
+/// Deux usages distincts et tous deux nécessaires : `app.route` en attribut de
+/// contexte répond à « où était l'utilisateur quand ça a cassé ? », que la
+/// ligne d'erreur ne dit jamais d'elle-même ; l'événement `app.route` répond à
+/// « comment y est-il arrivé ? », en laissant le chemin parcouru avant la
+/// panne.
+///
+/// C'est le **motif** de route (`/thread/:id`) qui est retenu, pas l'adresse
+/// (`/thread/42`) : un identifiant de fil ferait de cet attribut une dimension
+/// à cardinalité infinie, inutilisable en agrégat et bavarde sur qui parle à
+/// qui.
+void _traceNavigation(Ref ref, GoRouter router) {
+  final context = ref.read(appLogContextProvider);
+  final logger = ref.read(loggerProvider);
+
+  void onChanged() {
+    // `state` lève tant que le délégué n'a pas de configuration : au tout
+    // premier appel, il n'y a simplement rien à noter.
+    final String? route;
+    try {
+      route = router.state.fullPath;
+    } catch (_) {
+      return;
+    }
+    if (route == null || route == context.route) return;
+    final previous = context.route;
+    context.route = route;
+    logger.info(
+      'app.route',
+      attrs: {'app.route_from': ?previous},
+    );
+  }
+
+  router.routerDelegate.addListener(onChanged);
+  ref.onDispose(() => router.routerDelegate.removeListener(onChanged));
+  onChanged();
+}
+
+GoRouter _buildRouter(Ref ref, ValueNotifier<int> refresh) {
   return GoRouter(
     initialLocation: AppRoutes.conversations,
     refreshListenable: refresh,

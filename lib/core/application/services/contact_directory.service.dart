@@ -1,3 +1,4 @@
+import 'package:messages/core/application/services/logger_application.service.dart';
 import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/core/domain/model/contact.dart';
 import 'package:messages/core/domain/services/contact.repository.dart';
@@ -67,10 +68,14 @@ class ContactDirectory {
 /// ce qui est le compromis qu'on préfère à une seconde de blocage par écran.
 class ContactDirectoryService {
   final ContactRepository _contacts;
+  final LoggerApplicationService _logger;
 
   Future<ContactDirectory>? _pending;
 
-  ContactDirectoryService(this._contacts);
+  ContactDirectoryService(
+    this._contacts, {
+    required LoggerApplicationService logger,
+  }) : _logger = logger;
 
   Future<ContactDirectory> load() => _pending ??= _read();
 
@@ -81,13 +86,32 @@ class ContactDirectoryService {
   /// liste des conversations : on retombe sur un annuaire vide, et l'UI affiche
   /// les numéros bruts.
   Future<ContactDirectory> _read() async {
+    final started = DateTime.now();
     try {
-      return ContactDirectory.from(await _contacts.listAll());
-    } catch (_) {
+      final directory = ContactDirectory.from(await _contacts.listAll());
+      // Le coût de la lecture est le seul argument du cache : le mesurer, c'est
+      // pouvoir dire si l'invalidation au retour au premier plan reste tenable
+      // sur un vrai carnet.
+      await _logger.info(
+        'contacts.loaded',
+        attrs: {
+          'contacts.count': directory.all.length,
+          'duration_ms': DateTime.now().difference(started).inMilliseconds,
+        },
+      );
+      return directory;
+    } catch (e, stack) {
       // Un échec ne se garde pas : la permission peut être accordée juste
       // après, et l'app resterait sinon avec des numéros nus jusqu'au prochain
       // retour au premier plan.
       _pending = null;
+      // Le repli est silencieux à l'écran — des numéros au lieu des noms, ce
+      // qu'on prend facilement pour un carnet vide plutôt que pour une panne.
+      await _logger.warn(
+        'contacts.load_failed',
+        error: e,
+        stack: stack,
+      );
       return ContactDirectory.empty;
     }
   }

@@ -7,6 +7,7 @@ import 'package:messages/infrastructure/notifications/in_memory.notification.gat
 import 'package:messages/infrastructure/preferences/in_memory.conversation_preferences.repository.dart';
 
 import '../builders/builders.dart';
+import '../helpers/test_logger.dart';
 
 /// Le récepteur `SMS_DELIVER` notifie sans moteur Dart : tout ce dont il a
 /// besoin doit lui avoir été poussé avant. Ces tests vérifient que ça part.
@@ -22,13 +23,15 @@ void main() {
     preferences = InMemoryConversationPreferencesRepository();
     gateway = InMemoryNotificationGateway();
     sync = SyncNotificationSettingsUseCase(
-      directory: ContactDirectoryService(contacts),
+      directory: ContactDirectoryService(contacts, logger: testLogger()),
       preferences: preferences,
       notifications: gateway,
+      logger: testLogger(),
     );
     flags = UpdateConversationFlagsUseCase(
       preferences: preferences,
       notifications: sync,
+      logger: testLogger(),
     );
   });
 

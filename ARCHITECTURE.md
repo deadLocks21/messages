@@ -118,6 +118,111 @@ règle du port et non une précaution de l'appelant.
 - Le provider du lecteur est `keepAlive`, celui du flux ne l'est pas : quitter
   le fil coupe l'écoute du flux, pas le son.
 
+## Observabilité : Signoz, et de quoi lire une panne à distance
+
+Un client SMS ne se débogue pas depuis un bureau : le stock est celui du
+téléphone, le rôle d'app par défaut aussi, et l'opérateur n'est pas le nôtre.
+L'app raconte donc ce qu'elle fait, et l'expédie.
+
+- **Port** `LoggerService` (Domain) : un puits, deux méthodes (`log`, `flush`),
+  et l'interdiction formelle de lever — un logger en panne ne casse pas l'app
+  qu'il observe. Adaptateurs dans `lib/infrastructure/logger/` : `Console`,
+  `Signoz`, `Composite`, `InMemory` (tests).
+- **Façade** `LoggerApplicationService` : `info`/`warn`/`error`, et surtout la
+  fusion des trois couches de contexte (dynamique → statique → site d'appel).
+- `SignozLoggerService` poste la charge **OTLP/HTTP** (`ExportLogsServiceRequest`
+  en JSON protobuf) sur `<ingest>/v1/logs`. Écrite à la main : trente lignes de
+  sérialisation contre deux paquets `opentelemetry` encore rugueux en Dart.
+  Tampon en mémoire, expédié toutes les dix secondes ou par lot de cinquante,
+  plafonné à cinq cents enregistrements. **Aucune reprise** :
+  un lot qui ne part pas est perdu et compté (`log.dropped_total`) — une file
+  de reprise empilerait des doublons au premier incident réseau.
+- **Activation par `--dart-define`.** Sans `SIGNOZ_INGEST_URL`, l'app se
+  contente de sa console : c'est le cas nominal en développement. Avec, un
+  build debug branche les **deux** (`CompositeLoggerService`), pour qu'on voie
+  dans sa propre console exactement ce qui part sur le réseau.
+
+### Ce qui accompagne chaque ligne
+
+| Où | Clés | Pourquoi |
+|---|---|---|
+| Ressource (par lot) | `service.name`, `service.version`, `deployment.environment`, `os.type`, `os.version` | Découper les tableaux de bord ; la version d'OS explique la moitié des différences de comportement du stock Telephony. |
+| Contexte (`AppLogContext`, par ligne) | `session.id`, `app.route`, `sms.default_app` | « Où était l'utilisateur, et l'app avait-elle le droit d'écrire ? » — ce que la ligne d'erreur ne dit jamais d'elle-même. |
+
+`app.route` retient le **motif** (`/thread/:id`), jamais l'adresse
+(`/thread/42`) : un identifiant de fil ferait une dimension à cardinalité
+infinie, inutilisable en agrégat et bavarde sur qui parle à qui.
+
+### Rien du contenu, jamais
+
+Aucun log ne porte de texte de message ni de numéro. Ce qui part, ce sont des
+**mesures** : `body.length`, `recipients.count`, `attachments.bytes`. Un journal
+de production se lit par d'autres yeux que ceux du destinataire.
+
+### Les erreurs non rattrapées : quatre filets, et un trou qui reste
+
+Aucun filet ne suffit seul, parce que « non rattrapée » ne veut pas dire la même
+chose selon qui aurait pu la rattraper.
+
+| Filet | Attrape | Ne voit pas |
+|---|---|---|
+| `FlutterError.onError` | Erreurs **synchrones** du framework : build, layout, paint, assertions. | Tout ce qui est asynchrone. |
+| `PlatformDispatcher.onError` | Erreurs **Dart asynchrones** qui échappent à tous les `Future`/`Stream`/zones — le filet de dernier recours. | Ce qu'un `catch` a déjà pris. Les isolats enfants (le SDK est explicite : le rappel n'est **pas** invoqué pour eux). |
+| `LoggingProviderObserver` | Providers en échec. | Rien, dans son périmètre. |
+| `AndroidSmsChannel._invoke` | Toute `PlatformException` du natif, avec la méthode appelée. | Ce qui casse côté Kotlin sans revenir par le canal. |
+
+**Riverpod attrape, et c'est le piège.** Un provider qui lève range son
+exception dans un `AsyncError` : l'écran affiche « Erreur : … », et ni
+`FlutterError.onError` ni `PlatformDispatcher.onError` ne sont appelés — ils ne
+servent que ce que *personne* n'a pris. Sept écrans rendent un état d'erreur de
+cette façon. D'où `LoggingProviderObserver`, monté sur le `ProviderContainer` dès sa
+construction.
+
+Il ne journalise que la **première** défaillance consécutive d'un provider :
+Riverpod 3 réessaie dix fois en doublant le délai, et onze lignes identiques
+pour une panne unique rendraient un tableau de bord illisible. La reprise, elle,
+dit combien de tentatives il aura fallu (`provider.recovered`).
+
+**Ce qui reste hors de portée**, et qu'aucun ajustement Dart ne rattrapera :
+
+- **Les crashs natifs** (JVM/Kotlin, plugins). Ils tuent l'isolate avant que le
+  moindre rappel Dart s'exécute — le SDK le dit noir sur blanc : « le rappel ne
+  sera pas appelé pour les exceptions qui font terminer la VM ou le processus
+  avant qu'il puisse l'être ». Il faudrait Crashlytics ou Sentry.
+- **Le tampon qui meurt avec le processus.** Mitigé, pas résolu : un
+  enregistrement de niveau `error` déclenche une expédition **immédiate**, sans
+  attendre le lot ni le timer. Une erreur non rattrapée précède souvent de peu
+  un processus qui meurt ; dix secondes d'attente suffiraient à la perdre.
+- **La toute première fraction de `main()`** — la construction du conteneur et
+  du logger lui-même. Le reste du démarrage est sous `try` (`app.start_failed`,
+  suivi d'un `flush()` : il n'y aura pas de session suivante pour le raconter).
+
+`PlatformDispatcher.onError` rend `true` : l'app **survit** à l'erreur au lieu
+de laisser le repli de la plateforme décider. Conséquence à connaître — ce
+`true` supprime aussi l'affichage de secours, et `developer.log` ne va qu'au
+service VM. En build debug, `ConsoleLoggerService` double donc les `warn` et
+`error` par `debugPrint`, sans quoi une session au terminal serait aveugle :
+l'erreur est enregistrée, et rien ne l'imprime.
+
+### Les replis silencieux
+
+Ceux qui ne cassent aucun écran et qu'on prend pour un comportement normal :
+carnet d'adresses illisible (`contacts.load_failed` → des numéros nus), limite
+MMS non publiée (`mms.limits_fallback` → des photos plus dégradées que
+nécessaire), préférences corrompues (`preferences.decode_failed` → tous les
+épinglages disparus), flux natif mort (`sms.stream_failed` → une liste qui cesse
+de se rafraîchir).
+
+### Le vidage du tampon au bon moment
+
+`app.paused` / `app.hidden` / `app.detached` appellent `flush()`. Sans cela, les
+dix dernières secondes avant que le processus meure — précisément celles qui
+expliquent pourquoi il est mort — ne partiraient jamais.
+
+Une limite connue : la cible **macOS** de démonstration n'a pas l'entitlement
+`com.apple.security.network.client`, l'envoi y échoue donc (visiblement, dans la
+console de dev). Sans effet sur Android, où `INTERNET` est déclarée.
+
 ## Le stock SMS est la source de vérité
 
 Contrairement à motorz, **aucune base locale n'est tenue par l'app** : le `ContentProvider`

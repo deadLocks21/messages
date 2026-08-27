@@ -6,6 +6,7 @@ import 'package:messages/core/application/dtos/conversation_timeline.dto.dart';
 import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/core/application/usecases/save_draft.usecase.dart';
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
+import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/providers/service_providers.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
 import 'package:messages/ui/pages/conversation/widgets/attachment_sheet.widget.dart';
@@ -182,6 +183,13 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     final conversation = ref.read(conversationProvider(widget.threadId)).value;
     final recipients = conversation?.addresses ?? const <String>[];
     if (recipients.isEmpty) {
+      // Un fil présent dans la liste mais sans destinataire lisible : le stock
+      // système en contient, et l'utilisateur se retrouve devant un fil dans
+      // lequel il ne peut pas écrire sans savoir pourquoi.
+      ref.read(loggerProvider).warn(
+        'message.send_blocked',
+        attrs: {'reason': 'no_recipient', 'thread.id': widget.threadId},
+      );
       _announce('Destinataire inconnu pour ce fil.');
       return;
     }
@@ -256,6 +264,9 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   Future<void> _call(String address) async {
     final uri = Uri(scheme: 'tel', path: address);
     if (!await launchUrl(uri)) {
+      // Aucune exception ne remonte d'un `launchUrl` qui rend `false` : sans
+      // ce log, un téléphone sans application d'appel ne laisse aucune trace.
+      await ref.read(loggerProvider).warn('call.launch_failed');
       _announce('Aucune application d\'appel disponible.');
     }
   }

@@ -29,6 +29,7 @@ import 'package:messages/infrastructure/preferences/shared_preferences.conversat
 import 'package:messages/infrastructure/preferences/shared_preferences.draft.repository.dart';
 import 'package:messages/infrastructure/preferences/shared_preferences.theme.repository.dart';
 import 'package:messages/infrastructure/providers/infra_providers.dart';
+import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/sms/android.conversation.repository.dart';
 import 'package:messages/infrastructure/sms/android.message.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.conversation.repository.dart';
@@ -69,7 +70,7 @@ AttachmentRepository attachmentRepository(Ref ref) {
 @Riverpod(keepAlive: true)
 AudioPlayerService audioPlayerService(Ref ref) {
   if (ref.watch(useNativeSmsStackProvider)) {
-    return AndroidAudioPlayerService();
+    return AndroidAudioPlayerService(logger: ref.watch(loggerProvider));
   }
   final player = InMemoryAudioPlayerService(ref.watch(inMemorySmsStoreProvider));
   ref.onDispose(player.dispose);
@@ -97,7 +98,10 @@ AttachmentCompressor attachmentCompressor(Ref ref) {
 @Riverpod(keepAlive: true)
 MmsConfiguration mmsConfiguration(Ref ref) {
   if (ref.watch(useNativeSmsStackProvider)) {
-    return AndroidMmsConfiguration(ref.watch(smsChannelProvider));
+    return AndroidMmsConfiguration(
+      ref.watch(smsChannelProvider),
+      logger: ref.watch(loggerProvider),
+    );
   }
   return InMemoryMmsConfiguration();
 }
@@ -134,10 +138,13 @@ NotificationGateway notificationGateway(Ref ref) {
 
 @Riverpod(keepAlive: true)
 ConversationPreferencesRepository conversationPreferencesRepository(Ref ref) =>
-    SharedPreferencesConversationPreferencesRepository();
+    SharedPreferencesConversationPreferencesRepository(
+      logger: ref.watch(loggerProvider),
+    );
 
 @Riverpod(keepAlive: true)
-DraftRepository draftRepository(Ref ref) => SharedPreferencesDraftRepository();
+DraftRepository draftRepository(Ref ref) =>
+    SharedPreferencesDraftRepository(logger: ref.watch(loggerProvider));
 
 @Riverpod(keepAlive: true)
 ThemeRepository themeRepository(Ref ref) => SharedPreferencesThemeRepository();

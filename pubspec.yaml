@@ -32,6 +32,9 @@ dependencies:
   # Appel du correspondant depuis un fil (tel:)
   url_launcher: ^6.3.1
 
+  # Télémétrie : logs OTLP/HTTP vers Signoz
+  http: ^1.6.0
+
   # Divers
   uuid: ^4.5.1
   intl: ^0.20.2

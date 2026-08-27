@@ -4,6 +4,7 @@ import 'package:messages/core/application/services/contact_picker.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 
 import '../builders/builders.dart';
+import '../helpers/test_logger.dart';
 
 void main() {
   late InMemoryContactRepository contacts;
@@ -14,7 +15,9 @@ void main() {
       Build.contact(displayName: 'Camille Rousseau', addresses: ['0612345678']),
       Build.contact(displayName: 'Julien Marchand', addresses: ['0623456789']),
     ]);
-    service = ContactPickerService(ContactDirectoryService(contacts));
+    service = ContactPickerService(
+      ContactDirectoryService(contacts, logger: testLogger()),
+    );
   });
 
   group('ContactPickerService', () {

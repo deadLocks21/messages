@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:messages/core/application/services/logger_application.service.dart';
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
 import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/core/domain/model/attachment.dart';
@@ -21,6 +22,16 @@ import 'package:messages/core/domain/services/attachment_picker.service.dart';
 /// `PlatformException`.
 ///
 /// Contrat côté natif : voir `android/app/src/main/kotlin/.../SmsChannel.kt`.
+///
+/// ## C'est ici qu'on voit le natif échouer
+///
+/// La frontière Dart/Kotlin est l'endroit où l'app cesse de savoir ce qui se
+/// passe : au-delà, un refus du `ContentProvider`, un MMSC injoignable ou une
+/// permission reprise en douce ne remontent que sous forme de
+/// `PlatformException`. [_invoke] les journalise **toutes**, avec le nom de la
+/// méthode appelée, avant de les traduire en exception du domaine — c'est le
+/// seul point de passage obligé, et donc le seul filet qui ne se troue pas
+/// quand un appelant oublie d'attraper.
 class AndroidSmsChannel {
   static const _methods = MethodChannel('fr.dtfh.messages/sms');
   static const _events = EventChannel('fr.dtfh.messages/sms_events');
@@ -28,11 +39,17 @@ class AndroidSmsChannel {
   final MethodChannel _channel;
   final EventChannel _eventChannel;
 
+  /// Optionnel : les tests de traduction du canal n'ont rien à journaliser, et
+  /// se construisent sans. En production le provider en fournit toujours un.
+  final LoggerApplicationService? _logger;
+
   const AndroidSmsChannel({
     MethodChannel channel = _methods,
     EventChannel eventChannel = _events,
+    LoggerApplicationService? logger,
   }) : _channel = channel,
-       _eventChannel = eventChannel;
+       _eventChannel = eventChannel,
+       _logger = logger;
 
   // ---------------------------------------------------------------- fils
 
@@ -201,7 +218,7 @@ class AndroidSmsChannel {
       .where((data) => data['type'] == 'compose')
       .map(_composeRequest)
       .where((request) => !request.isEmpty)
-      .handleError((_) {});
+      .handleError((Object e, StackTrace stack) => _streamFailed('compose', e, stack));
 
   // ------------------------------------------------------------ événements
 
@@ -212,7 +229,20 @@ class AndroidSmsChannel {
       .map((raw) => _event(_map(raw)))
       .where((event) => event != null)
       .cast<SmsEvent>()
-      .handleError((_) {});
+      .handleError((Object e, StackTrace stack) => _streamFailed('events', e, stack));
+
+  /// Une erreur de flux est absorbée — une source muette dégrade le
+  /// rafraîchissement, elle ne casse pas l'app — mais elle ne doit pas être
+  /// *invisible* : sans ce log, une liste qui cesse de se mettre à jour toute
+  /// seule ne laisse aucune trace.
+  void _streamFailed(String stream, Object error, StackTrace stack) {
+    _logger?.error(
+      'sms.stream_failed',
+      attrs: {'sms.stream': stream},
+      error: error,
+      stack: stack,
+    );
+  }
 
   // ------------------------------------------------------------ mapping
 
@@ -337,7 +367,29 @@ class AndroidSmsChannel {
   Future<T?> _invoke<T>(String method, [Map<String, Object?>? arguments]) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stack) {
+      // Un refus attendu (rôle manquant, permission non accordée) est un
+      // `warn` : l'app est dans un état connu et l'écran le dit déjà. Tout le
+      // reste est un `error` — le natif a rencontré quelque chose que
+      // personne n'a prévu.
+      final expected = const {
+        'not_default_sms_app',
+        'permission_denied',
+        'not_found',
+        'attachment_too_large',
+        'attachment_unavailable',
+      }.contains(e.code);
+      _log(
+        expected,
+        'sms.platform_error',
+        attrs: {
+          'sms.method': method,
+          'sms.error_code': e.code,
+          if (e.message != null) 'sms.error_message': e.message,
+        },
+        error: e,
+        stack: stack,
+      );
       throw switch (e.code) {
         'not_default_sms_app' => const NotDefaultSmsAppException(),
         'permission_denied' => const SmsPermissionDeniedException(),
@@ -350,11 +402,36 @@ class AndroidSmsChannel {
         'attachment_unavailable' => const AttachmentUnavailableException(),
         _ => MessageSendFailedException(e.message),
       };
-    } on MissingPluginException {
+    } on MissingPluginException catch (e, stack) {
       // Le canal n'existe que sur Android : ailleurs, l'assemblage des
       // providers choisit déjà les doublures InMemory. Un appel qui arrive
-      // quand même ici est un bug de câblage, pas une erreur utilisateur.
+      // quand même ici est un bug de câblage, pas une erreur utilisateur — et
+      // il se présente à l'utilisateur comme une permission refusée, ce qui
+      // est le pire des déguisements. D'où le niveau `error`.
+      _log(
+        false,
+        'sms.channel_missing',
+        attrs: {'sms.method': method},
+        error: e,
+        stack: stack,
+      );
       throw const SmsPermissionDeniedException();
+    }
+  }
+
+  void _log(
+    bool expected,
+    String message, {
+    required Map<String, Object?> attrs,
+    Object? error,
+    StackTrace? stack,
+  }) {
+    final logger = _logger;
+    if (logger == null) return;
+    if (expected) {
+      logger.warn(message, attrs: attrs, error: error, stack: stack);
+    } else {
+      logger.error(message, attrs: attrs, error: error, stack: stack);
     }
   }
 }

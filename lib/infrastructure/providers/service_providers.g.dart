@@ -55,7 +55,7 @@ final class ContactDirectoryServiceProvider
 }
 
 String _$contactDirectoryServiceHash() =>
-    r'ce00bf691e46d8c2347098c14f4a2ae354decb72';
+    r'26276cb857935a844ab38fa671070105acd62575';
 
 @ProviderFor(contactPickerService)
 final contactPickerServiceProvider = ContactPickerServiceProvider._();
@@ -289,7 +289,7 @@ final class SendMessageUseCaseProvider
 }
 
 String _$sendMessageUseCaseHash() =>
-    r'd8700e087fe077a56df979cbfa79ffa76fc9a0ba';
+    r'68c9c687121a79c933fe62d58b150264d72df5d5';
 
 @ProviderFor(pickAttachmentsUseCase)
 final pickAttachmentsUseCaseProvider = PickAttachmentsUseCaseProvider._();
@@ -337,7 +337,7 @@ final class PickAttachmentsUseCaseProvider
 }
 
 String _$pickAttachmentsUseCaseHash() =>
-    r'afa8273a38aef3808a781853798f5a784929bb59';
+    r'cc02faed15327d26aac818147c315c624f294549';
 
 @ProviderFor(resendMessageUseCase)
 final resendMessageUseCaseProvider = ResendMessageUseCaseProvider._();
@@ -385,7 +385,7 @@ final class ResendMessageUseCaseProvider
 }
 
 String _$resendMessageUseCaseHash() =>
-    r'2a6c0b51294073e2f5585eda4bbced3a912df0aa';
+    r'137b143767a299282617032469d60ff82eb2b9f3';
 
 @ProviderFor(deleteMessageUseCase)
 final deleteMessageUseCaseProvider = DeleteMessageUseCaseProvider._();
@@ -433,7 +433,7 @@ final class DeleteMessageUseCaseProvider
 }
 
 String _$deleteMessageUseCaseHash() =>
-    r'5884fe3a0b3ea375d433d53699285f0562088282';
+    r'9f3ac9c853e442cead22560574428ce62dbff29c';
 
 @ProviderFor(markConversationReadUseCase)
 final markConversationReadUseCaseProvider =
@@ -530,7 +530,7 @@ final class DeleteConversationUseCaseProvider
 }
 
 String _$deleteConversationUseCaseHash() =>
-    r'5d1012cebb8bd520c1b2c929f79aa8b28c1b9bf7';
+    r'4d7ef87fda61b4f61e34e204197a18eb7ebef024';
 
 @ProviderFor(updateConversationFlagsUseCase)
 final updateConversationFlagsUseCaseProvider =
@@ -581,7 +581,7 @@ final class UpdateConversationFlagsUseCaseProvider
 }
 
 String _$updateConversationFlagsUseCaseHash() =>
-    r'df99917132fe7eacfc9673179a745d7dc7bf34bf';
+    r'da031036b09fc845fd2a102e7b9cad2e34efd803';
 
 @ProviderFor(syncNotificationSettingsUseCase)
 final syncNotificationSettingsUseCaseProvider =
@@ -632,7 +632,7 @@ final class SyncNotificationSettingsUseCaseProvider
 }
 
 String _$syncNotificationSettingsUseCaseHash() =>
-    r'8d197e8bc6bbc1c3ffbbb3c058a6add467471aa7';
+    r'82d4c8acf35760d1468679e9186bef29d3686c9e';
 
 @ProviderFor(saveDraftUseCase)
 final saveDraftUseCaseProvider = SaveDraftUseCaseProvider._();
@@ -726,7 +726,7 @@ final class StartConversationUseCaseProvider
 }
 
 String _$startConversationUseCaseHash() =>
-    r'b272aa800dae6a6738baed8f0c6959ef3330db59';
+    r'925c2c659aa23177400706d0a3fdfae41d5d57f3';
 
 @ProviderFor(requestSmsAccessUseCase)
 final requestSmsAccessUseCaseProvider = RequestSmsAccessUseCaseProvider._();
@@ -774,4 +774,4 @@ final class RequestSmsAccessUseCaseProvider
 }
 
 String _$requestSmsAccessUseCaseHash() =>
-    r'3efe6231bc03972be25a96bf9df4258a48b60b16';
+    r'1d2dc7b7d42fa8a8ec71b9d1fe9137c942a88f2f';

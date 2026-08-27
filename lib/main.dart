@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:messages/core/application/services/logger_application.service.dart';
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
 import 'package:messages/core/domain/model/compose_request.dart';
+import 'package:messages/infrastructure/logger/provider_failure.observer.dart';
 import 'package:messages/infrastructure/providers/infra_providers.dart';
 import 'package:messages/infrastructure/providers/service_providers.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
@@ -18,15 +19,51 @@ import 'package:messages/ui/theme/app_theme_data.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Les libellés de date sont en français partout (« hier », « ven. 22 août »).
-  await initializeDateFormatting('fr_FR');
-
   // Container construit à la main pour pouvoir lire le logger avant `runApp` et
   // câbler les gestionnaires d'erreurs du framework.
-  final container = ProviderContainer();
+  //
+  // L'observateur est monté dès la construction : un provider qui échoue voit
+  // son exception rangée dans un `AsyncError` par Riverpod, sans jamais passer
+  // par les gestionnaires ci-dessous. Sans lui, sept écrans peuvent afficher
+  // « Erreur : … » sans qu'aucune ligne ne parte.
+  late final ProviderContainer container;
+  container = ProviderContainer(
+    observers: [LoggingProviderObserver(() => container.read(loggerProvider))],
+  );
   final logger = container.read(loggerProvider);
 
   _installErrorHandlers(logger);
+
+  // À partir d'ici tout est sous filet. Ce qui précède ne l'est pas — c'est la
+  // construction du logger lui-même — mais ne fait rien qui puisse échouer.
+  await _boot(container, logger);
+}
+
+/// Le démarrage proprement dit, sous `try` : `initializeDateFormatting` et la
+/// première frame échouent rarement, mais quand elles échouent l'app ne
+/// démarre pas *du tout*, et c'est le seul cas où l'absence de log ne se
+/// rattrape jamais — il n'y aura pas de session suivante pour le raconter.
+Future<void> _boot(
+  ProviderContainer container,
+  LoggerApplicationService logger,
+) async {
+  try {
+    await _start(container, logger);
+  } catch (e, stack) {
+    await logger.error('app.start_failed', error: e, stack: stack);
+    // Expédié tout de suite : le processus n'ira peut-être pas plus loin, et
+    // le tampon mourrait avec lui.
+    await logger.flush();
+    rethrow;
+  }
+}
+
+Future<void> _start(
+  ProviderContainer container,
+  LoggerApplicationService logger,
+) async {
+  // Les libellés de date sont en français partout (« hier », « ven. 22 août »).
+  await initializeDateFormatting('fr_FR');
 
   // Les autorisations décident de l'écran de départ : les résoudre avant le
   // premier build évite un aller-retour visible par l'écran d'accueil.
@@ -59,6 +96,8 @@ Future<void> main() async {
     logger.error('notifications.sync_failed', error: e, stack: stack);
   }
 
+  // Émis en dernier, une fois le décor connu (autorisations, rôle) : c'est la
+  // ligne à laquelle on remonte pour dater le début d'une session.
   logger.info('app.started');
 
   runApp(
@@ -130,14 +169,33 @@ class _MessagesAppState extends ConsumerState<MessagesApp>
     super.dispose();
   }
 
+  /// Le cycle de vie fait deux choses ici.
+  ///
+  /// La première est de rafraîchir ce qui a pu bouger pendant l'absence. La
+  /// seconde est d'**expédier le tampon de logs** avant que l'OS ne suspende
+  /// le processus : l'adaptateur Signoz ne vide le sien que toutes les dix
+  /// secondes et ne rejoue jamais un lot perdu. Or les dernières secondes
+  /// avant que l'app disparaisse sont précisément celles qui expliquent
+  /// pourquoi elle a disparu — sans ce vidage, ce sont les seules à manquer.
+  ///
+  /// `paused` et `hidden` font le vrai travail : ils surviennent au simple
+  /// passage en arrière-plan, bien avant que l'utilisateur ne balaie l'app.
+  /// `detached` est au mieux-effort — la plateforme peut tuer le processus
+  /// avant la fin du POST.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final logger = ref.read(loggerProvider);
     switch (state) {
       case AppLifecycleState.resumed:
-        logger.info('app.resumed');
         final away = _backgroundedAt;
         _backgroundedAt = null;
+        logger.info(
+          'app.resumed',
+          attrs: {
+            if (away != null)
+              'app.away_ms': DateTime.now().difference(away).inMilliseconds,
+          },
+        );
         // L'utilisateur a pu changer l'app SMS par défaut depuis les réglages
         // Android, et des messages ont pu arriver pendant notre absence.
         ref.read(smsAccessControllerProvider.notifier).refresh();
@@ -155,12 +213,16 @@ class _MessagesAppState extends ConsumerState<MessagesApp>
         ref.invalidate(conversationsProvider);
         ref.read(syncNotificationSettingsUseCaseProvider).execute();
       case AppLifecycleState.paused:
-        logger.info('app.paused');
-        _backgroundedAt = DateTime.now();
+      case AppLifecycleState.hidden:
+        _backgroundedAt ??= DateTime.now();
+        logger.info('app.backgrounded', attrs: {'app.state': state.name});
+        logger.flush();
+      case AppLifecycleState.detached:
+        logger.info('app.detached');
         logger.flush();
       case AppLifecycleState.inactive:
-      case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
+        // Transitoire (volet de notifications tiré, appel entrant) : ni une
+        // absence, ni un moment où le processus risque de mourir.
         break;
     }
   }
@@ -172,9 +234,20 @@ class _MessagesAppState extends ConsumerState<MessagesApp>
 
   /// Ouvre le fil visé par une demande extérieure, en déposant le texte
   /// pré-rempli comme brouillon — rien n'est envoyé sans validation.
+  ///
+  /// Entrée par l'extérieur : notification touchée, lien `sms:`, partage d'une
+  /// autre app. Un fil qui s'ouvre au mauvais endroit ne se distingue sinon pas
+  /// d'un utilisateur qui aurait tapé la mauvaise ligne — d'où la trace.
   Future<void> _open(ComposeRequest request) async {
     final router = ref.read(goRouterProvider);
     final recipient = request.recipient;
+    ref.read(loggerProvider).info(
+      'compose.opened',
+      attrs: {
+        'compose.has_recipient': recipient != null,
+        'compose.has_body': request.body?.isNotEmpty ?? false,
+      },
+    );
     if (recipient == null) {
       router.push(AppRoutes.newConversation, extra: request.body);
       return;
@@ -191,7 +264,9 @@ class _MessagesAppState extends ConsumerState<MessagesApp>
       }
       router.push(AppRoutes.thread(threadId));
     } on SmsException catch (e) {
-      ref.read(loggerProvider).warn('compose.open_failed', attrs: {'reason': e.message});
+      ref
+          .read(loggerProvider)
+          .warn('compose.open_failed', attrs: {'reason': e.message});
     }
   }
 

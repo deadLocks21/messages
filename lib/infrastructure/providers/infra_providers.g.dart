@@ -67,11 +67,17 @@ final class UseNativeSmsStackProvider
 String _$useNativeSmsStackHash() => r'c2802f2f9fad129ccbb95e36d6c583e102046341';
 
 /// Pont vers le stock SMS d'Android.
+///
+/// Le logger lui est passé ici : c'est le canal qui voit passer les échecs de
+/// la plateforme, et il est le seul endroit d'où ils soient tous visibles.
 
 @ProviderFor(smsChannel)
 final smsChannelProvider = SmsChannelProvider._();
 
 /// Pont vers le stock SMS d'Android.
+///
+/// Le logger lui est passé ici : c'est le canal qui voit passer les échecs de
+/// la plateforme, et il est le seul endroit d'où ils soient tous visibles.
 
 final class SmsChannelProvider
     extends
@@ -82,6 +88,9 @@ final class SmsChannelProvider
         >
     with $Provider<AndroidSmsChannel> {
   /// Pont vers le stock SMS d'Android.
+  ///
+  /// Le logger lui est passé ici : c'est le canal qui voit passer les échecs de
+  /// la plateforme, et il est le seul endroit d'où ils soient tous visibles.
   SmsChannelProvider._()
     : super(
         from: null,
@@ -116,7 +125,7 @@ final class SmsChannelProvider
   }
 }
 
-String _$smsChannelHash() => r'3c5ddacfa63f3e740f543164e72312568a6bd0d4';
+String _$smsChannelHash() => r'fa75b1e683a4390c15cf0f24764e8d0b33bd804f';
 
 /// Carnet d'adresses simulé, partagé par le seed et le repository InMemory.
 

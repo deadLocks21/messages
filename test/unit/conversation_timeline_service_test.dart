@@ -8,6 +8,7 @@ import 'package:messages/infrastructure/sms/in_memory.message.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 
 import '../builders/builders.dart';
+import '../helpers/test_logger.dart';
 
 void main() {
   late InMemorySmsStore store;
@@ -17,7 +18,10 @@ void main() {
     store = InMemorySmsStore();
     service = ConversationTimelineService(
       messages: InMemoryMessageRepository(store),
-      directory: ContactDirectoryService(InMemoryContactRepository()),
+      directory: ContactDirectoryService(
+        InMemoryContactRepository(),
+        logger: testLogger(),
+      ),
     );
   });
 

@@ -5,6 +5,7 @@ import 'package:messages/core/domain/services/contact.repository.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 
 import '../builders/builders.dart';
+import '../helpers/test_logger.dart';
 
 /// Un carnet qui refuse de se laisser lire : permission révoquée, fournisseur
 /// indisponible.
@@ -22,7 +23,7 @@ void main() {
   group('ContactDirectoryService', () {
     test('ne lit le carnet qu\'une fois, quel que soit le nombre d\'appels', () async {
       final contacts = InMemoryContactRepository([Build.contact()]);
-      final service = ContactDirectoryService(contacts);
+      final service = ContactDirectoryService(contacts, logger: testLogger());
 
       for (var i = 0; i < 5; i++) {
         await service.load();
@@ -35,7 +36,7 @@ void main() {
       // Le cas du démarrage : liste, en-tête, fil et notifications demandent
       // le carnet dans la même frame.
       final contacts = InMemoryContactRepository([Build.contact()]);
-      final service = ContactDirectoryService(contacts);
+      final service = ContactDirectoryService(contacts, logger: testLogger());
 
       await Future.wait([
         service.load(),
@@ -49,7 +50,7 @@ void main() {
 
     test('relit après invalidation', () async {
       final contacts = InMemoryContactRepository([Build.contact()]);
-      final service = ContactDirectoryService(contacts);
+      final service = ContactDirectoryService(contacts, logger: testLogger());
 
       await service.load();
       service.invalidate();
@@ -62,7 +63,7 @@ void main() {
       final contacts = InMemoryContactRepository([
         Build.contact(displayName: 'Camille', addresses: ['+33612345678']),
       ]);
-      final service = ContactDirectoryService(contacts);
+      final service = ContactDirectoryService(contacts, logger: testLogger());
       await service.load();
 
       contacts.contacts.add(
@@ -78,7 +79,7 @@ void main() {
       // Sinon une permission accordée juste après laisserait l'app avec des
       // numéros nus jusqu'au prochain retour au premier plan.
       final failing = _FailingContactRepository();
-      final service = ContactDirectoryService(failing);
+      final service = ContactDirectoryService(failing, logger: testLogger());
 
       final first = await service.load();
       final second = await service.load();

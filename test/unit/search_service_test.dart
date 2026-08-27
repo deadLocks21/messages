@@ -10,6 +10,7 @@ import 'package:messages/infrastructure/sms/in_memory.message.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 
 import '../builders/builders.dart';
+import '../helpers/test_logger.dart';
 
 void main() {
   late InMemorySmsStore store;
@@ -22,7 +23,7 @@ void main() {
     service = SearchService(
       conversations: ConversationListService(
         conversations: InMemoryConversationRepository(store),
-        directory: ContactDirectoryService(contacts),
+        directory: ContactDirectoryService(contacts, logger: testLogger()),
         preferences: InMemoryConversationPreferencesRepository(),
         drafts: InMemoryDraftRepository(),
       ),

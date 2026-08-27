@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:messages/core/application/services/logger_application.service.dart';
 import 'package:messages/core/domain/model/audio_playback.dart';
 import 'package:messages/core/domain/services/audio_player.service.dart';
 
@@ -27,11 +28,17 @@ class AndroidAudioPlayerService implements AudioPlayerService {
   /// Dernier état connu, ré-émis à toute nouvelle écoute.
   AudioPlayback _last = AudioPlayback.idle;
 
+  /// Optionnel, pour que les tests puissent construire un lecteur nu. En
+  /// production le provider en fournit toujours un.
+  final LoggerApplicationService? _logger;
+
   AndroidAudioPlayerService({
     MethodChannel channel = _methods,
     EventChannel eventChannel = _events,
+    LoggerApplicationService? logger,
   }) : _channel = channel,
-       _eventChannel = eventChannel;
+       _eventChannel = eventChannel,
+       _logger = logger;
 
   @override
   Stream<AudioPlayback> get playback async* {
@@ -64,10 +71,25 @@ class AndroidAudioPlayerService implements AudioPlayerService {
   Future<void> _invoke(String method, [Map<String, Object?>? arguments]) async {
     try {
       await _channel.invokeMethod<void>(method, arguments);
-    } on PlatformException {
+    } on PlatformException catch (e, stack) {
       _last = AudioPlayback.idle;
-    } on MissingPluginException {
+      // Le bouton « lire » revient et rien n'explique pourquoi le vocal ne
+      // part pas : c'est le silence côté utilisateur qui rend ce log
+      // nécessaire.
+      _logger?.warn(
+        'audio.platform_error',
+        attrs: {'audio.method': method, 'audio.error_code': e.code},
+        error: e,
+        stack: stack,
+      );
+    } on MissingPluginException catch (e, stack) {
       _last = AudioPlayback.idle;
+      _logger?.error(
+        'audio.channel_missing',
+        attrs: {'audio.method': method},
+        error: e,
+        stack: stack,
+      );
     }
   }
 

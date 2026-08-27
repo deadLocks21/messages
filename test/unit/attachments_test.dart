@@ -15,6 +15,7 @@ import 'package:messages/infrastructure/sms/in_memory.message.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 
 import '../builders/builders.dart';
+import '../helpers/test_logger.dart';
 
 void main() {
   group('AttachmentKind', () {
@@ -101,6 +102,7 @@ void main() {
         picker: picker,
         compressor: InMemoryAttachmentCompressor(store),
         configuration: InMemoryMmsConfiguration(),
+        logger: testLogger(),
       );
     });
 
@@ -171,6 +173,7 @@ void main() {
         messages: InMemoryMessageRepository(store),
         drafts: InMemoryDraftRepository(),
         configuration: InMemoryMmsConfiguration(),
+        logger: testLogger(),
       );
     });
 

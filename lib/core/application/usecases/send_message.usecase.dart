@@ -1,4 +1,5 @@
 import 'package:messages/core/application/dtos/message.dto.dart';
+import 'package:messages/core/application/services/logger_application.service.dart';
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
 import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/core/domain/model/attachment.dart';
@@ -30,20 +31,58 @@ class SendMessageUseCase {
   final MessageRepository _messages;
   final DraftRepository _drafts;
   final MmsConfiguration _configuration;
+  final LoggerApplicationService _logger;
 
   const SendMessageUseCase({
     required MessageRepository messages,
     required DraftRepository drafts,
     required MmsConfiguration configuration,
+    required LoggerApplicationService logger,
   }) : _messages = messages,
        _drafts = drafts,
-       _configuration = configuration;
+       _configuration = configuration,
+       _logger = logger;
 
   /// @return un message par envoi réellement déposé, dans l'ordre.
+  ///
+  /// L'envoi est le geste que l'app doit réussir : chaque tentative laisse une
+  /// trace (`message.send` / `message.send_failed`) portant de quoi la relire
+  /// sans l'appareil sous la main — transport choisi, nombre de destinataires,
+  /// poids des pièces jointes. Le **contenu** n'y figure jamais : ni le texte,
+  /// ni les numéros. Un log de production se lit par d'autres yeux que ceux du
+  /// destinataire.
   Future<List<MessageDto>> execute({
     required List<String> recipients,
     required String body,
     List<AttachmentDraft> attachments = const [],
+    int? subscriptionId,
+  }) async {
+    try {
+      return await _execute(
+        recipients: recipients,
+        body: body,
+        attachments: attachments,
+        subscriptionId: subscriptionId,
+      );
+    } catch (e, stack) {
+      await _logger.error(
+        'message.send_failed',
+        attrs: {
+          'recipients.count': recipients.length,
+          'body.length': body.trim().length,
+          'attachments.count': attachments.length,
+        },
+        error: e,
+        stack: stack,
+      );
+      rethrow;
+    }
+  }
+
+  Future<List<MessageDto>> _execute({
+    required List<String> recipients,
+    required String body,
+    required List<AttachmentDraft> attachments,
     int? subscriptionId,
   }) async {
     final text = body.trim();
@@ -115,6 +154,27 @@ class SendMessageUseCase {
       body: body,
       attachments: attachments,
       subscriptionId: subscriptionId,
+    );
+
+    // Le transport n'est pas choisi par l'appelant mais déduit de la présence
+    // de pièces jointes : le tracer évite d'avoir à re-dérouler ce
+    // raisonnement en lisant les logs.
+    await _logger.info(
+      'message.send',
+      attrs: {
+        'message.transport': attachments.isEmpty ? 'sms' : 'mms',
+        'message.id': sent.id,
+        'thread.id': sent.threadId,
+        'recipients.count': addresses.length,
+        'body.length': body.length,
+        'attachments.count': attachments.length,
+        if (attachments.isNotEmpty)
+          'attachments.bytes': attachments.fold<int>(
+            0,
+            (sum, a) => sum + a.byteSize,
+          ),
+        if (attachments.isNotEmpty) 'attachment.mime': attachments.first.mimeType,
+      },
     );
 
     // Le brouillon a rempli son office : le garder ferait réapparaître le texte

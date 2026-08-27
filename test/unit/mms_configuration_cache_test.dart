@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/infrastructure/attachments/android.mms_configuration.service.dart';
 import 'package:messages/infrastructure/sms/android_sms.channel.dart';
+import '../helpers/test_logger.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -33,7 +34,10 @@ void main() {
   });
 
   AndroidMmsConfiguration configuration() =>
-      AndroidMmsConfiguration(const AndroidSmsChannel());
+      AndroidMmsConfiguration(
+        const AndroidSmsChannel(),
+        logger: testLogger(),
+      );
 
   group('AndroidMmsConfiguration', () {
     test('lit la limite de l\'opérateur', () async {

@@ -8,6 +8,7 @@ import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 
 import '../builders/builders.dart';
+import '../helpers/test_logger.dart';
 
 void main() {
   group('MmsLimits.fromCarrier', () {
@@ -49,6 +50,7 @@ void main() {
         picker: InMemoryAttachmentPicker(store),
         compressor: InMemoryAttachmentCompressor(store),
         configuration: configuration,
+        logger: testLogger(),
       );
     });
 

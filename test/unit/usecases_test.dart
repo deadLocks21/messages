@@ -17,6 +17,7 @@ import 'package:messages/infrastructure/sms/in_memory.message.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 
 import '../builders/builders.dart';
+import '../helpers/test_logger.dart';
 
 void main() {
   late InMemorySmsStore store;
@@ -31,9 +32,13 @@ void main() {
     preferences = InMemoryConversationPreferencesRepository();
     notifications = InMemoryNotificationGateway();
     syncNotifications = SyncNotificationSettingsUseCase(
-      directory: ContactDirectoryService(InMemoryContactRepository()),
+      directory: ContactDirectoryService(
+        InMemoryContactRepository(),
+        logger: testLogger(),
+      ),
       preferences: preferences,
       notifications: notifications,
+      logger: testLogger(),
     );
   });
 
@@ -47,6 +52,7 @@ void main() {
         messages: InMemoryMessageRepository(store),
         drafts: drafts,
         configuration: InMemoryMmsConfiguration(),
+        logger: testLogger(),
       );
     });
 
@@ -91,6 +97,7 @@ void main() {
       () => usecase = UpdateConversationFlagsUseCase(
         preferences: preferences,
         notifications: syncNotifications,
+        logger: testLogger(),
       ),
     );
 
@@ -129,12 +136,14 @@ void main() {
       await UpdateConversationFlagsUseCase(
         preferences: preferences,
         notifications: syncNotifications,
+        logger: testLogger(),
       ).togglePinned(threadId);
 
       await DeleteConversationUseCase(
         conversations: InMemoryConversationRepository(store),
         preferences: preferences,
         drafts: drafts,
+        logger: testLogger(),
       ).execute(threadId);
 
       expect(store.conversations(), isEmpty);
@@ -147,6 +156,7 @@ void main() {
     test('rend le fil du destinataire, en le créant au besoin', () async {
       final usecase = StartConversationUseCase(
         InMemoryConversationRepository(store),
+        logger: testLogger(),
       );
 
       final threadId = await usecase.execute(['06 12 34 56 78']);
@@ -158,6 +168,7 @@ void main() {
     test('refuse une liste sans destinataire exploitable', () {
       final usecase = StartConversationUseCase(
         InMemoryConversationRepository(store),
+        logger: testLogger(),
       );
 
       expect(

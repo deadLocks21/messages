@@ -14,6 +14,7 @@ import 'package:messages/core/application/usecases/send_message.usecase.dart';
 import 'package:messages/core/application/usecases/start_conversation.usecase.dart';
 import 'package:messages/core/application/usecases/sync_notification_settings.usecase.dart';
 import 'package:messages/core/application/usecases/update_conversation_flags.usecase.dart';
+import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/providers/repository_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -23,7 +24,10 @@ part 'service_providers.g.dart';
 
 @Riverpod(keepAlive: true)
 ContactDirectoryService contactDirectoryService(Ref ref) =>
-    ContactDirectoryService(ref.watch(contactRepositoryProvider));
+    ContactDirectoryService(
+      ref.watch(contactRepositoryProvider),
+      logger: ref.watch(loggerProvider),
+    );
 
 @Riverpod(keepAlive: true)
 ContactPickerService contactPickerService(Ref ref) =>
@@ -58,6 +62,7 @@ SendMessageUseCase sendMessageUseCase(Ref ref) => SendMessageUseCase(
   messages: ref.watch(messageRepositoryProvider),
   drafts: ref.watch(draftRepositoryProvider),
   configuration: ref.watch(mmsConfigurationProvider),
+  logger: ref.watch(loggerProvider),
 );
 
 @Riverpod(keepAlive: true)
@@ -65,15 +70,20 @@ PickAttachmentsUseCase pickAttachmentsUseCase(Ref ref) => PickAttachmentsUseCase
   picker: ref.watch(attachmentPickerProvider),
   compressor: ref.watch(attachmentCompressorProvider),
   configuration: ref.watch(mmsConfigurationProvider),
+  logger: ref.watch(loggerProvider),
 );
 
 @Riverpod(keepAlive: true)
-ResendMessageUseCase resendMessageUseCase(Ref ref) =>
-    ResendMessageUseCase(ref.watch(messageRepositoryProvider));
+ResendMessageUseCase resendMessageUseCase(Ref ref) => ResendMessageUseCase(
+  ref.watch(messageRepositoryProvider),
+  logger: ref.watch(loggerProvider),
+);
 
 @Riverpod(keepAlive: true)
-DeleteMessageUseCase deleteMessageUseCase(Ref ref) =>
-    DeleteMessageUseCase(ref.watch(messageRepositoryProvider));
+DeleteMessageUseCase deleteMessageUseCase(Ref ref) => DeleteMessageUseCase(
+  ref.watch(messageRepositoryProvider),
+  logger: ref.watch(loggerProvider),
+);
 
 @Riverpod(keepAlive: true)
 MarkConversationReadUseCase markConversationReadUseCase(Ref ref) =>
@@ -85,6 +95,7 @@ DeleteConversationUseCase deleteConversationUseCase(Ref ref) =>
       conversations: ref.watch(conversationRepositoryProvider),
       preferences: ref.watch(conversationPreferencesRepositoryProvider),
       drafts: ref.watch(draftRepositoryProvider),
+      logger: ref.watch(loggerProvider),
     );
 
 @Riverpod(keepAlive: true)
@@ -92,6 +103,7 @@ UpdateConversationFlagsUseCase updateConversationFlagsUseCase(Ref ref) =>
     UpdateConversationFlagsUseCase(
       preferences: ref.watch(conversationPreferencesRepositoryProvider),
       notifications: ref.watch(syncNotificationSettingsUseCaseProvider),
+      logger: ref.watch(loggerProvider),
     );
 
 @Riverpod(keepAlive: true)
@@ -100,6 +112,7 @@ SyncNotificationSettingsUseCase syncNotificationSettingsUseCase(Ref ref) =>
       directory: ref.watch(contactDirectoryServiceProvider),
       preferences: ref.watch(conversationPreferencesRepositoryProvider),
       notifications: ref.watch(notificationGatewayProvider),
+      logger: ref.watch(loggerProvider),
     );
 
 @Riverpod(keepAlive: true)
@@ -108,8 +121,14 @@ SaveDraftUseCase saveDraftUseCase(Ref ref) =>
 
 @Riverpod(keepAlive: true)
 StartConversationUseCase startConversationUseCase(Ref ref) =>
-    StartConversationUseCase(ref.watch(conversationRepositoryProvider));
+    StartConversationUseCase(
+      ref.watch(conversationRepositoryProvider),
+      logger: ref.watch(loggerProvider),
+    );
 
 @Riverpod(keepAlive: true)
 RequestSmsAccessUseCase requestSmsAccessUseCase(Ref ref) =>
-    RequestSmsAccessUseCase(ref.watch(smsPermissionsServiceProvider));
+    RequestSmsAccessUseCase(
+      ref.watch(smsPermissionsServiceProvider),
+      logger: ref.watch(loggerProvider),
+    );
