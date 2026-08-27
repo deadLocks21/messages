@@ -124,6 +124,32 @@ void main() {
     expect(shapeOf('part-voice-1'), isA<CircleBorder>());
   });
 
+  testWidgets('la piste dessine le relief du son, pas une ligne', (
+    tester,
+  ) async {
+    final (device, threadId) = deviceWithVoiceMessages();
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+
+    final painter =
+        tester
+                .widget<CustomPaint>(
+                  find.descendant(
+                    of: find.byKey(const Key('audioTrack_part-voice-1')),
+                    matching: find.byType(CustomPaint),
+                  ),
+                )
+                .painter
+            as AudioTrackPainter;
+
+    // La bulle a demandé la mesure et l'a transmise : c'est ce chaînage-là qui
+    // casserait sans qu'on le voie, la piste retombant sur ses pointillés.
+    expect(painter.waveform.isEmpty, isFalse);
+    expect(painter.waveform.levels, everyElement(inInclusiveRange(0, 1)));
+    // Un relief, pas un plateau.
+    expect(painter.waveform.levels.toSet(), hasLength(greaterThan(1)));
+  });
+
   testWidgets('lancer un vocal arrête celui qui jouait', (tester) async {
     final (device, threadId) = deviceWithVoiceMessages();
 

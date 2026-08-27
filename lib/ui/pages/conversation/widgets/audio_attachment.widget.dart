@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:messages/core/application/dtos/attachment.dto.dart';
 import 'package:messages/core/domain/model/audio_playback.dart';
+import 'package:messages/core/domain/model/waveform.dart';
 import 'package:messages/infrastructure/providers/repository_providers.dart';
 import 'package:messages/ui/providers/audio_providers.dart';
 
@@ -78,6 +79,11 @@ class AudioAttachment extends ConsumerWidget {
                 key: Key('audioTrack_${attachment.id}'),
                 progress: mine ? playback.progress : 0,
                 color: foreground,
+                // Mesurée à l'arrivée de la bulle : tant qu'elle manque, la
+                // piste reste la ligne pointillée neutre.
+                waveform:
+                    ref.watch(audioWaveformProvider(attachment.id)).value ??
+                    Waveform.empty,
                 // Sans durée connue, il n'y a nulle part où se déplacer : le
                 // curseur reste au départ plutôt que de sauter au hasard.
                 onSeek: total == null || total == Duration.zero
@@ -176,11 +182,15 @@ class _ProgressTrack extends StatelessWidget {
     super.key,
     required this.progress,
     required this.color,
+    required this.waveform,
     required this.onSeek,
   });
 
   final double progress;
   final Color color;
+
+  /// Relief du son. Vide tant qu'il n'est pas mesuré, ou s'il ne l'a pas été.
+  final Waveform waveform;
 
   /// Reçoit une fraction entre 0 et 1. `null` quand la durée est inconnue.
   final ValueChanged<double>? onSeek;
@@ -204,7 +214,11 @@ class _ProgressTrack extends StatelessWidget {
             width: width,
             height: _hitHeight,
             child: CustomPaint(
-              painter: _TrackPainter(progress: progress, color: color),
+              painter: AudioTrackPainter(
+                progress: progress,
+                color: color,
+                waveform: waveform,
+              ),
             ),
           ),
         );
@@ -213,18 +227,72 @@ class _ProgressTrack extends StatelessWidget {
   }
 }
 
-class _TrackPainter extends CustomPainter {
-  _TrackPainter({required this.progress, required this.color});
+/// Le dessin de la piste : les barres du son, ou la ligne pointillée quand il
+/// n'a pas pu être mesuré.
+///
+/// Public pour que les tests puissent vérifier ce qu'on lui donne à dessiner —
+/// c'est là que se voit si la bulle a bien demandé, puis transmis, la mesure.
+class AudioTrackPainter extends CustomPainter {
+  AudioTrackPainter({
+    required this.progress,
+    required this.color,
+    required this.waveform,
+  });
 
   final double progress;
   final Color color;
+  final Waveform waveform;
 
-  static const _spacing = 7.0;
+  /// Barres : ce que le son a réellement fait.
+  static const _barWidth = 3.0;
+  static const _barGap = 2.0;
+
+  /// Un silence reste une barre : sans ce minimum, la piste se troue et on ne
+  /// sait plus où poser le doigt.
+  static const _minBarHeight = 3.0;
+
+  /// Points : la piste neutre, tant qu'il n'y a rien de mesuré à montrer.
+  static const _dotSpacing = 7.0;
   static const _dotRadius = 1.6;
   static const _headRadius = 4.5;
 
+  /// Ce qui est déjà passé se lit plein, ce qui reste en retrait.
+  static const _pendingAlpha = 0.32;
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (waveform.isEmpty) {
+      _paintDots(canvas, size);
+      return;
+    }
+    _paintBars(canvas, size);
+  }
+
+  void _paintBars(Canvas canvas, Size size) {
+    final count = ((size.width + _barGap) / (_barWidth + _barGap)).floor();
+    if (count <= 0) return;
+    final levels = waveform.resampled(count);
+
+    final played = Paint()..color = color;
+    final pending = Paint()..color = color.withValues(alpha: _pendingAlpha);
+    final middle = size.height / 2;
+
+    for (var index = 0; index < levels.length; index++) {
+      final height =
+          _minBarHeight + levels[index] * (size.height - _minBarHeight);
+      final left = index * (_barWidth + _barGap);
+      final bar = RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, middle - height / 2, _barWidth, height),
+        const Radius.circular(_barWidth / 2),
+      );
+      // Le centre de la barre décide de son camp : sinon la barre courante
+      // clignoterait d'un pas à l'autre.
+      final passed = (index + 0.5) / levels.length <= progress;
+      canvas.drawRRect(bar, passed ? played : pending);
+    }
+  }
+
+  void _paintDots(Canvas canvas, Size size) {
     final y = size.height / 2;
     // La tête reste entière aux deux bouts : sans cette marge, elle serait
     // coupée en moitié au départ et à l'arrivée.
@@ -232,8 +300,8 @@ class _TrackPainter extends CustomPainter {
     if (travel <= 0) return;
     final headX = _headRadius + travel * progress.clamp(0.0, 1.0);
 
-    final dot = Paint()..color = color.withValues(alpha: 0.32);
-    for (var x = _headRadius; x <= size.width - _headRadius; x += _spacing) {
+    final dot = Paint()..color = color.withValues(alpha: _pendingAlpha);
+    for (var x = _headRadius; x <= size.width - _headRadius; x += _dotSpacing) {
       // Les points que la tête recouvre ne sont pas dessinés : ils
       // l'empâteraient au lieu de la souligner.
       if ((x - headX).abs() < _headRadius + 1.5) continue;
@@ -243,6 +311,8 @@ class _TrackPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_TrackPainter old) =>
-      old.progress != progress || old.color != color;
+  bool shouldRepaint(AudioTrackPainter old) =>
+      old.progress != progress ||
+      old.color != color ||
+      !identical(old.waveform, waveform);
 }

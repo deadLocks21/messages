@@ -2,6 +2,7 @@ import 'package:messages/core/domain/services/attachment.repository.dart';
 import 'package:messages/core/domain/services/attachment_compressor.service.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
 import 'package:messages/core/domain/services/audio_player.service.dart';
+import 'package:messages/core/domain/services/audio_waveform.service.dart';
 import 'package:messages/core/domain/services/mms_configuration.service.dart';
 import 'package:messages/core/domain/services/contact.repository.dart';
 import 'package:messages/core/domain/services/conversation.repository.dart';
@@ -19,7 +20,9 @@ import 'package:messages/infrastructure/attachments/in_memory.attachment.reposit
 import 'package:messages/infrastructure/attachments/in_memory.attachment_compressor.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
 import 'package:messages/infrastructure/audio/android.audio_player.service.dart';
+import 'package:messages/infrastructure/audio/android.audio_waveform.service.dart';
 import 'package:messages/infrastructure/audio/in_memory.audio_player.service.dart';
+import 'package:messages/infrastructure/audio/in_memory.audio_waveform.service.dart';
 import 'package:messages/infrastructure/contacts/flutter_contacts.contact.repository.dart';
 import 'package:messages/infrastructure/notifications/android.notification.gateway.dart';
 import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
@@ -75,6 +78,16 @@ AudioPlayerService audioPlayerService(Ref ref) {
   final player = InMemoryAudioPlayerService(ref.watch(inMemorySmsStoreProvider));
   ref.onDispose(player.dispose);
   return player;
+}
+
+/// Mesure de la silhouette des vocaux. Le cache est côté natif, là où se
+/// trouve le coût : décoder deux fois le même vocal ne dirait rien de plus.
+@Riverpod(keepAlive: true)
+AudioWaveformService audioWaveformService(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return const AndroidAudioWaveformService();
+  }
+  return const InMemoryAudioWaveformService();
 }
 
 @Riverpod(keepAlive: true)

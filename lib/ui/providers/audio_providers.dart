@@ -1,4 +1,5 @@
 import 'package:messages/core/domain/model/audio_playback.dart';
+import 'package:messages/core/domain/model/waveform.dart';
 import 'package:messages/infrastructure/providers/repository_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -17,3 +18,13 @@ part 'audio_providers.g.dart';
 @riverpod
 Stream<AudioPlayback> audioPlayback(Ref ref) =>
     ref.watch(audioPlayerServiceProvider).playback;
+
+/// Silhouette d'un vocal, mesurée à l'affichage de sa bulle.
+///
+/// Une famille par pièce jointe, comme pour les octets d'une image : la mesure
+/// se demande quand la bulle arrive à l'écran, une fois. Elle peut ne rien
+/// rendre — format indécodable, partie effacée — et la piste reste alors
+/// neutre plutôt que d'afficher un relief inventé.
+@riverpod
+Future<Waveform?> audioWaveform(Ref ref, String attachmentId) =>
+    ref.watch(audioWaveformServiceProvider).of(attachmentId);

@@ -213,7 +213,63 @@ final class AudioPlayerServiceProvider
 }
 
 String _$audioPlayerServiceHash() =>
-    r'edffa0375baf4b15f2da3e19fb0612a90335446d';
+    r'08c0de25b0b73261f4e772e91ef1511c2469a1ef';
+
+/// Mesure de la silhouette des vocaux. Le cache est côté natif, là où se
+/// trouve le coût : décoder deux fois le même vocal ne dirait rien de plus.
+
+@ProviderFor(audioWaveformService)
+final audioWaveformServiceProvider = AudioWaveformServiceProvider._();
+
+/// Mesure de la silhouette des vocaux. Le cache est côté natif, là où se
+/// trouve le coût : décoder deux fois le même vocal ne dirait rien de plus.
+
+final class AudioWaveformServiceProvider
+    extends
+        $FunctionalProvider<
+          AudioWaveformService,
+          AudioWaveformService,
+          AudioWaveformService
+        >
+    with $Provider<AudioWaveformService> {
+  /// Mesure de la silhouette des vocaux. Le cache est côté natif, là où se
+  /// trouve le coût : décoder deux fois le même vocal ne dirait rien de plus.
+  AudioWaveformServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'audioWaveformServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$audioWaveformServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<AudioWaveformService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  AudioWaveformService create(Ref ref) {
+    return audioWaveformService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AudioWaveformService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AudioWaveformService>(value),
+    );
+  }
+}
+
+String _$audioWaveformServiceHash() =>
+    r'a82f4074c9a0557936ff5a99c3273bb12a3eb09b';
 
 @ProviderFor(attachmentPicker)
 final attachmentPickerProvider = AttachmentPickerProvider._();
@@ -567,7 +623,7 @@ final class ConversationPreferencesRepositoryProvider
 }
 
 String _$conversationPreferencesRepositoryHash() =>
-    r'940bba9d9ba5bbdcdbe93e42f1998b62de153173';
+    r'83c0f90c6649ee12bbc2b891e142823fa37d9d7b';
 
 @ProviderFor(draftRepository)
 final draftRepositoryProvider = DraftRepositoryProvider._();
@@ -609,7 +665,7 @@ final class DraftRepositoryProvider
   }
 }
 
-String _$draftRepositoryHash() => r'776ffbdd7392fc14dbda0aa3bc501ec329a87555';
+String _$draftRepositoryHash() => r'74b5bf404875f33f46220a48aba43f275edc8ca4';
 
 @ProviderFor(themeRepository)
 final themeRepositoryProvider = ThemeRepositoryProvider._();

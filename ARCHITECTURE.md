@@ -112,9 +112,21 @@ règle du port et non une précaution de l'appelant.
 - Le lecteur demande le **focus audio** en transitoire : un vocal par-dessus de
   la musique ne s'entend pas. Il le rend à la pause, et se suspend quand on le
   lui reprend.
+- La **silhouette** du son (les barres de la piste) a son propre port,
+  `AudioWaveformService` : lire et mesurer n'ont ni le même coût ni le même
+  moment. La lecture suit un geste ; la mesure demande de décoder tout le
+  fichier (`MediaExtractor` + `MediaCodec` → PCM, dont on ne garde que
+  l'énergie), se fait **à l'affichage de la bulle**, sur un fil à part, et se
+  retient par `_id` — comme les vignettes d'image, et pour la même raison.
+  Elle est **normalisée sur le maximum du fichier** : deux vocaux enregistrés à
+  des volumes différents doivent se dessiner pareil, ce qu'on lit d'une forme
+  d'onde est un relief, pas un volume. Un son qui ne se décode pas laisse la
+  piste neutre, jamais un relief inventé.
 - Hors Android, `InMemoryAudioPlayerService` n'émet aucun son : il **avance**.
   C'est tout ce dont la démo et les tests ont besoin — que la bulle bascule en
-  pause, que le curseur progresse, qu'un second vocal arrête le premier.
+  pause, que le curseur progresse, qu'un second vocal arrête le premier. De
+  même, `InMemoryAudioWaveformService` ne décode rien : il dessine une
+  silhouette **stable**, tirée de l'identifiant.
 - Le provider du lecteur est `keepAlive`, celui du flux ne l'est pas : quitter
   le fil coupe l'écoute du flux, pas le son.
 

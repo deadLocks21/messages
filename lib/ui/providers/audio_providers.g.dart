@@ -78,3 +78,111 @@ final class AudioPlaybackProvider
 }
 
 String _$audioPlaybackHash() => r'05cef5d194505dc1800d8ab9b1459c067c5700e9';
+
+/// Silhouette d'un vocal, mesurée à l'affichage de sa bulle.
+///
+/// Une famille par pièce jointe, comme pour les octets d'une image : la mesure
+/// se demande quand la bulle arrive à l'écran, une fois. Elle peut ne rien
+/// rendre — format indécodable, partie effacée — et la piste reste alors
+/// neutre plutôt que d'afficher un relief inventé.
+
+@ProviderFor(audioWaveform)
+final audioWaveformProvider = AudioWaveformFamily._();
+
+/// Silhouette d'un vocal, mesurée à l'affichage de sa bulle.
+///
+/// Une famille par pièce jointe, comme pour les octets d'une image : la mesure
+/// se demande quand la bulle arrive à l'écran, une fois. Elle peut ne rien
+/// rendre — format indécodable, partie effacée — et la piste reste alors
+/// neutre plutôt que d'afficher un relief inventé.
+
+final class AudioWaveformProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<Waveform?>,
+          Waveform?,
+          FutureOr<Waveform?>
+        >
+    with $FutureModifier<Waveform?>, $FutureProvider<Waveform?> {
+  /// Silhouette d'un vocal, mesurée à l'affichage de sa bulle.
+  ///
+  /// Une famille par pièce jointe, comme pour les octets d'une image : la mesure
+  /// se demande quand la bulle arrive à l'écran, une fois. Elle peut ne rien
+  /// rendre — format indécodable, partie effacée — et la piste reste alors
+  /// neutre plutôt que d'afficher un relief inventé.
+  AudioWaveformProvider._({
+    required AudioWaveformFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'audioWaveformProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$audioWaveformHash();
+
+  @override
+  String toString() {
+    return r'audioWaveformProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<Waveform?> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<Waveform?> create(Ref ref) {
+    final argument = this.argument as String;
+    return audioWaveform(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is AudioWaveformProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$audioWaveformHash() => r'd27828f161481fc67af77ebb9ebe00fa981f055e';
+
+/// Silhouette d'un vocal, mesurée à l'affichage de sa bulle.
+///
+/// Une famille par pièce jointe, comme pour les octets d'une image : la mesure
+/// se demande quand la bulle arrive à l'écran, une fois. Elle peut ne rien
+/// rendre — format indécodable, partie effacée — et la piste reste alors
+/// neutre plutôt que d'afficher un relief inventé.
+
+final class AudioWaveformFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<Waveform?>, String> {
+  AudioWaveformFamily._()
+    : super(
+        retry: null,
+        name: r'audioWaveformProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Silhouette d'un vocal, mesurée à l'affichage de sa bulle.
+  ///
+  /// Une famille par pièce jointe, comme pour les octets d'une image : la mesure
+  /// se demande quand la bulle arrive à l'écran, une fois. Elle peut ne rien
+  /// rendre — format indécodable, partie effacée — et la piste reste alors
+  /// neutre plutôt que d'afficher un relief inventé.
+
+  AudioWaveformProvider call(String attachmentId) =>
+      AudioWaveformProvider._(argument: attachmentId, from: this);
+
+  @override
+  String toString() => r'audioWaveformProvider';
+}

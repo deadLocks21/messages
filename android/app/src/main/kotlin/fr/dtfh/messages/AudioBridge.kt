@@ -12,6 +12,7 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.Executors
 
 /**
  * Côté natif du canal `fr.dtfh.messages/audio` : l'écoute des vocaux.
@@ -45,6 +46,20 @@ class AudioBridge(
     private val methodChannel = MethodChannel(messenger, METHOD_CHANNEL)
     private val eventChannel = EventChannel(messenger, EVENT_CHANNEL)
     private val handler = Handler(Looper.getMainLooper())
+
+    /**
+     * Où se mesurent les formes d'onde.
+     *
+     * Tout le reste de ce pont est immédiat et tient sur le fil principal — un
+     * `MediaPlayer` y vit de toute façon. Décoder un vocal entier, non : c'est
+     * l'affaire de quelques centaines de millisecondes, pendant lesquelles
+     * aucune frame ne serait livrée. **Un seul thread**, pour que dix bulles
+     * qui apparaissent d'un coup se mesurent l'une après l'autre plutôt que de
+     * se disputer les décodeurs du système.
+     */
+    private val waveformExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "audio-waveform")
+    }
 
     private val audioManager: AudioManager
         get() = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -84,6 +99,7 @@ class AudioBridge(
         eventChannel.setStreamHandler(null)
         release()
         events = null
+        waveformExecutor.shutdown()
     }
 
     override fun onListen(arguments: Any?, sink: EventChannel.EventSink?) {
@@ -119,6 +135,15 @@ class AudioBridge(
                 release()
                 emit()
                 result.success(null)
+            }
+
+            "waveform" -> {
+                val id = call.argument<String>("id")!!
+                val buckets = call.argument<Int>("buckets") ?: 64
+                waveformExecutor.execute {
+                    val levels = AudioWaveform.of(context, id, buckets)
+                    handler.post { result.success(levels) }
+                }
             }
 
             else -> result.notImplemented()
