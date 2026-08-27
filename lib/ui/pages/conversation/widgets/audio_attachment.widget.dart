@@ -124,25 +124,47 @@ class _PlayButton extends StatelessWidget {
   final Color background;
   final VoidCallback onPressed;
 
+  /// Rayon du carré arrondi que devient le bouton pendant la lecture.
+  static const playingRadius = 14.0;
+
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: playing ? 'Mettre en pause' : 'Écouter le message audio',
-      child: GestureDetector(
-        key: Key('playAttachment_$id'),
-        onTap: onPressed,
-        child: Container(
-          width: AudioAttachment._buttonSize,
-          height: AudioAttachment._buttonSize,
-          decoration: BoxDecoration(color: foreground, shape: BoxShape.circle),
-          child: Icon(
-            playing ? Icons.pause : Icons.play_arrow,
-            color: background,
-            size: 24,
-          ),
-        ),
+    // Rond au repos, carré arrondi pendant la lecture : la forme porte l'état
+    // autant que l'icône. De loin, ou du coin de l'œil dans un fil qui défile,
+    // un disque et un carré arrondi se distinguent là où deux glyphes de 24 px
+    // se ressemblent.
+    //
+    // C'est un bouton **à bascule** de Material, pas un carré peint à la main :
+    // `isSelected` porte l'état, la forme se résout par état comme n'importe
+    // quelle autre propriété du style, et c'est `Material` qui interpole d'une
+    // forme à l'autre — le cercle et le rectangle arrondi savent se fondre l'un
+    // dans l'autre. Rien à animer nous-mêmes, et l'encre, le survol et la cible
+    // tactile de 48 px viennent avec.
+    return IconButton(
+      key: Key('playAttachment_$id'),
+      onPressed: onPressed,
+      isSelected: playing,
+      icon: const Icon(
+        Icons.play_arrow,
+        semanticLabel: 'Écouter le message audio',
       ),
+      selectedIcon: const Icon(Icons.pause, semanticLabel: 'Mettre en pause'),
+      iconSize: 24,
+      style:
+          IconButton.styleFrom(
+            backgroundColor: foreground,
+            foregroundColor: background,
+            fixedSize: const Size.square(AudioAttachment._buttonSize),
+            padding: EdgeInsets.zero,
+          ).copyWith(
+            shape: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(playingRadius),
+                    )
+                  : const CircleBorder(),
+            ),
+          ),
     );
   }
 }

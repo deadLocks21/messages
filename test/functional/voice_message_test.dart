@@ -92,6 +92,38 @@ void main() {
     expect(find.text('00:01'), findsOneWidget);
   });
 
+  testWidgets('le bouton est rond au repos et carré arrondi en lecture', (
+    tester,
+  ) async {
+    // La forme dit l'état autant que l'icône : deux glyphes de 24 px se
+    // ressemblent de loin, un disque et un carré arrondi non. C'est la forme
+    // *visée* qu'on lit ici — Material se charge de passer de l'une à l'autre.
+    final (device, threadId) = deviceWithVoiceMessages();
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+
+    ShapeBorder? shapeOf(String id) => tester
+        .widget<Material>(
+          find.descendant(of: playButton(id), matching: find.byType(Material)).first,
+        )
+        .shape;
+
+    expect(shapeOf('part-voice-1'), isA<CircleBorder>());
+
+    await tester.tap(playButton('part-voice-1'));
+    await tester.pump();
+
+    expect(iconIn('part-voice-1', Icons.pause), findsOneWidget);
+    expect(shapeOf('part-voice-1'), isA<RoundedRectangleBorder>());
+
+    // La pause la ramène au rond.
+    await tester.tap(playButton('part-voice-1'));
+    await tester.pump();
+
+    expect(iconIn('part-voice-1', Icons.play_arrow), findsOneWidget);
+    expect(shapeOf('part-voice-1'), isA<CircleBorder>());
+  });
+
   testWidgets('lancer un vocal arrête celui qui jouait', (tester) async {
     final (device, threadId) = deviceWithVoiceMessages();
 
