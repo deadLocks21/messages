@@ -101,6 +101,11 @@ class Attachment {
   final int? width;
   final int? height;
 
+  /// Durée en millisecondes d'un son ou d'une vidéo, quand le stock a su la
+  /// mesurer. Le lecteur d'une bulle l'affiche **avant** toute lecture — un
+  /// vocal annonce sa longueur, c'est ce qui décide de l'écouter ou non.
+  final int? durationMs;
+
   Attachment({
     required this.id,
     required this.mimeType,
@@ -108,11 +113,19 @@ class Attachment {
     this.byteSize = 0,
     this.width,
     this.height,
+    this.durationMs,
   }) : assert(id != '', 'id cannot be empty'),
        assert(mimeType != '', 'mimeType cannot be empty'),
-       assert(byteSize >= 0, 'byteSize cannot be negative');
+       assert(byteSize >= 0, 'byteSize cannot be negative'),
+       assert(
+         durationMs == null || durationMs >= 0,
+         'durationMs cannot be negative',
+       );
 
   AttachmentKind get kind => AttachmentKind.fromMimeType(mimeType);
+
+  Duration? get duration =>
+      durationMs == null ? null : Duration(milliseconds: durationMs!);
 
   @override
   bool operator ==(Object other) =>

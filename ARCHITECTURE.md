@@ -81,9 +81,42 @@ Un message sans pièce jointe suit la voie SMS d'avant, inchangée.
   (`AttachmentViewerPage`) — décodée entière cette fois, zoomable, sur fond
   noir. C'est une route locale du `Navigator`, pas du `GoRouter` : un aperçu ne
   se partage pas par une URL et ne survit pas au fil qui l'a ouvert.
+- Un **vocal** ne se lit pas, il s'écoute : sa bulle porte un lecteur
+  (bouton, piste pointillée, durée) et non la ligne « nom + poids » d'un PDF.
+  La durée annoncée avant lecture ne vient d'aucune colonne — rien dans
+  `content://mms/part` ne la porte : elle est **mesurée** au décodeur
+  (`MediaMetadataRetriever`) à la lecture des parties, puis retenue par `_id`,
+  le contenu d'une partie ne changeant jamais. Sans ce cache, rouvrir un fil de
+  vingt vocaux les remesurerait tous à chaque rafraîchissement.
 - La **réception** de MMS n'est pas gérée : `WAP_PUSH_DELIVER` ne porte qu'une
   notification de dépôt à décoder puis à télécharger auprès du MMSC. Ce qui est
   déjà dans `content://mms` s'affiche, en revanche.
+
+## Écouter un vocal : un seul lecteur, et il vit côté natif
+
+Le port `AudioPlayerService` ne rend pas un lecteur par bulle mais **un état de
+lecture unique**, que chaque bulle reconnaît — ou non — comme le sien. Deux
+vocaux superposés ne s'écoutent pas, et le `MediaPlayer` d'Android n'existe de
+toute façon qu'en un exemplaire : lancer un vocal arrête le précédent, c'est une
+règle du port et non une précaution de l'appelant.
+
+- `AudioBridge` a **son propre canal** (`fr.dtfh.messages/audio`), séparé de
+  `SmsBridge` : celui-ci sert le `ContentProvider` sur un fil dédié, alors qu'un
+  `MediaPlayer` vit sur le fil principal, où son `Looper` livre les rappels de
+  préparation et de fin.
+- Les **octets ne traversent pas le canal**, ici non plus : le natif ouvre
+  directement `content://mms/part/<id>`.
+- La position est **lue dans le lecteur** dix fois par seconde et poussée vers
+  Dart. Une horloge côté Dart dériverait de la lecture réelle — silence en tête
+  de fichier, décodage plus lent — et le curseur finirait par mentir.
+- Le lecteur demande le **focus audio** en transitoire : un vocal par-dessus de
+  la musique ne s'entend pas. Il le rend à la pause, et se suspend quand on le
+  lui reprend.
+- Hors Android, `InMemoryAudioPlayerService` n'émet aucun son : il **avance**.
+  C'est tout ce dont la démo et les tests ont besoin — que la bulle bascule en
+  pause, que le curseur progresse, qu'un second vocal arrête le premier.
+- Le provider du lecteur est `keepAlive`, celui du flux ne l'est pas : quitter
+  le fil coupe l'écoute du flux, pas le son.
 
 ## Le stock SMS est la source de vérité
 

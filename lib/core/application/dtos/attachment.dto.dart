@@ -17,6 +17,10 @@ class AttachmentDto {
   final int? width;
   final int? height;
 
+  /// Durée d'un son, quand le stock a su la mesurer. Le lecteur d'une bulle
+  /// l'annonce avant toute lecture.
+  final Duration? duration;
+
   const AttachmentDto({
     required this.id,
     required this.mimeType,
@@ -25,6 +29,7 @@ class AttachmentDto {
     required this.byteSize,
     this.width,
     this.height,
+    this.duration,
   });
 
   factory AttachmentDto.fromDomain(Attachment attachment) => AttachmentDto(
@@ -35,6 +40,7 @@ class AttachmentDto {
     byteSize: attachment.byteSize,
     width: attachment.width,
     height: attachment.height,
+    duration: attachment.duration,
   );
 
   /// Rapport largeur/hauteur, quand le stock l'a mesuré. Sert à réserver la
@@ -50,6 +56,12 @@ class AttachmentDto {
   /// « 240 Ko », « 1,2 Mo » — le poids tel que l'affiche l'app d'origine sous
   /// un fichier.
   String get sizeLabel => formatBytes(byteSize);
+
+  /// « 00:04 » — la longueur d'un vocal, ou des tirets tant qu'elle est
+  /// inconnue : une partie de MMS peut n'en annoncer aucune, et un lecteur qui
+  /// afficherait « 00:00 » mentirait.
+  String get durationLabel =>
+      duration == null ? '--:--' : formatDuration(duration!);
 
   /// Ce qui remplace le texte dans la liste des conversations et les
   /// notifications : « Photo », « Vidéo »…
@@ -70,6 +82,16 @@ class AttachmentDto {
     AttachmentKind.vcard => 'Contact.vcf',
     AttachmentKind.file => 'Fichier',
   };
+
+  /// « 00:04 », « 12:07 » — un vocal ne dépasse pas l'heure, deux champs
+  /// suffisent.
+  static String formatDuration(Duration duration) {
+    final total = duration.isNegative ? Duration.zero : duration;
+    final minutes = total.inMinutes;
+    final seconds = total.inSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
+  }
 
   /// Poids lisible, en unités françaises (Ko/Mo, virgule décimale).
   static String formatBytes(int bytes) {

@@ -276,6 +276,7 @@ class AndroidSmsChannel {
     byteSize: (data['byteSize'] as int?) ?? 0,
     width: data['width'] as int?,
     height: data['height'] as int?,
+    durationMs: data['durationMs'] as int?,
   );
 
   Message _message(Map<String, Object?> data) {

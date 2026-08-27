@@ -102,6 +102,16 @@ abstract final class DemoSeed {
       );
     }
 
+    /// Un vocal. Sans octets : la doublure de lecteur n'émet aucun son, elle
+    /// avance — ce qu'il lui faut, c'est la durée annoncée.
+    Attachment voice(String id, Duration duration) => Attachment(
+      id: id,
+      mimeType: 'audio/amr',
+      fileName: 'vocal.amr',
+      byteSize: 24 * 1024,
+      durationMs: duration.inMilliseconds,
+    );
+
     Attachment document(String id, String fileName, String content) {
       final bytes = Uint8List.fromList(content.codeUnits);
       store.putAttachmentBytes(id, bytes);
@@ -128,6 +138,14 @@ abstract final class DemoSeed {
         read: false,
         attachments: [photo('part-1', 'places.png', 0xFF8A5100)],
       ),
+      // Un vocal reçu : la bulle en fait un lecteur, pas une ligne de fichier.
+      make(
+        camille,
+        '',
+        const Duration(minutes: 9),
+        read: false,
+        attachments: [voice('part-4', const Duration(seconds: 4))],
+      ),
 
       // Un fil récent sans non-lu, avec un envoi encore en cours.
       make(julien, 'On se cale un créneau pour la revue ?', const Duration(hours: 3)),
@@ -152,6 +170,15 @@ abstract final class DemoSeed {
         const Duration(days: 1, hours: 3),
         outgoing: true,
         attachments: [photo('part-2', 'gateau.png', 0xFF5BB874)],
+      ),
+      // Le même lecteur, sur une bulle envoyée : le bouton s'y peint à
+      // l'envers, plein de la couleur du texte.
+      make(
+        maman,
+        '',
+        const Duration(days: 1, hours: 2),
+        outgoing: true,
+        attachments: [voice('part-5', const Duration(seconds: 12))],
       ),
 
       // Un envoi en échec, pour l'état « Non distribué ».

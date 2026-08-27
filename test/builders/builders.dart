@@ -60,6 +60,7 @@ abstract final class Build {
     int byteSize = 2048,
     int? width,
     int? height,
+    int? durationMs,
   }) {
     _sequence++;
     return Attachment(
@@ -69,6 +70,7 @@ abstract final class Build {
       byteSize: byteSize,
       width: width,
       height: height,
+      durationMs: durationMs,
     );
   }
 

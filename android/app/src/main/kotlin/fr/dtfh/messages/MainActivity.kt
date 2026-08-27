@@ -6,10 +6,15 @@ import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
     private var bridge: SmsBridge? = null
+    private var audio: AudioBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        bridge = SmsBridge(this, flutterEngine.dartExecutor.binaryMessenger).also { it.attach() }
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+        bridge = SmsBridge(this, messenger).also { it.attach() }
+        // La lecture des vocaux a son propre canal : elle ne parle pas au
+        // stock, et son lecteur vit sur le fil principal.
+        audio = AudioBridge(this, messenger).also { it.attach() }
     }
 
     // Notification touchée, lien `sms:` ouvert : l'activité étant `singleTop`,
@@ -29,6 +34,8 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         bridge?.detach()
         bridge = null
+        audio?.detach()
+        audio = null
         super.onDestroy()
     }
 }

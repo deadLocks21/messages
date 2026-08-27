@@ -5,20 +5,23 @@ import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/ui/pages/conversation/attachment_viewer.page.dart';
 import 'package:messages/ui/pages/conversation/widgets/attachment_thumbnail.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/audio_attachment.widget.dart';
 import 'package:messages/ui/providers/attachment_providers.dart';
 
 /// Les pièces jointes d'un message, telles qu'elles s'empilent dans sa bulle.
 ///
-/// Deux traitements, comme dans l'app d'origine :
+/// Trois traitements, comme dans l'app d'origine :
 /// - **visuel** (image, vidéo) : la pièce jointe *est* la bulle — elle occupe
 ///   toute la largeur disponible, sans le rembourrage qui entourerait du texte ;
-/// - **non visuel** (fichier, contact, audio) : une ligne icône + nom + poids,
-///   parce qu'il n'y a rien à montrer d'un PDF.
+/// - **sonore** : un lecteur, parce qu'un vocal ne se lit pas, il s'écoute ;
+/// - **le reste** (fichier, contact) : une ligne icône + nom + poids, parce
+///   qu'il n'y a rien à montrer d'un PDF.
 class MessageAttachments extends StatelessWidget {
   const MessageAttachments({
     super.key,
     required this.message,
     required this.foreground,
+    required this.background,
     required this.maxWidth,
   });
 
@@ -29,6 +32,11 @@ class MessageAttachments extends StatelessWidget {
   /// Couleur du texte de la bulle qui les porte : une pièce jointe reçue et une
   /// pièce jointe envoyée ne se lisent pas sur le même fond.
   final Color foreground;
+
+  /// Fond de cette même bulle. Le lecteur audio y découpe l'icône de son
+  /// bouton, qui est plein.
+  final Color background;
+
   final double maxWidth;
 
   List<AttachmentDto> get attachments => message.attachments;
@@ -46,16 +54,27 @@ class MessageAttachments extends StatelessWidget {
             padding: EdgeInsets.only(
               bottom: attachment == attachments.last ? 0 : 6,
             ),
-            child: attachment.kind.isVisual
-                ? _VisualAttachment(
-                    attachment: attachment,
-                    message: message,
-                    maxWidth: maxWidth,
-                  )
-                : _FileAttachment(
-                    attachment: attachment,
-                    foreground: foreground,
-                  ),
+            // Exhaustif à dessein : une nature de pièce jointe qui
+            // apparaîtrait plus tard doit obliger à décider de son sort, pas
+            // retomber silencieusement sur la ligne de fichier.
+            child: switch (attachment.kind) {
+              AttachmentKind.image || AttachmentKind.video => _VisualAttachment(
+                attachment: attachment,
+                message: message,
+                maxWidth: maxWidth,
+              ),
+              AttachmentKind.audio => AudioAttachment(
+                key: Key('attachment_${attachment.id}'),
+                attachment: attachment,
+                foreground: foreground,
+                background: background,
+                maxWidth: maxWidth,
+              ),
+              AttachmentKind.vcard || AttachmentKind.file => _FileAttachment(
+                attachment: attachment,
+                foreground: foreground,
+              ),
+            },
           ),
       ],
     );

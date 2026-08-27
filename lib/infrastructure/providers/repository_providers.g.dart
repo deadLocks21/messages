@@ -159,6 +159,62 @@ final class AttachmentRepositoryProvider
 String _$attachmentRepositoryHash() =>
     r'f8fe763169cac99841d091c3ffe732a7d6b228a2';
 
+/// Lecteur des vocaux. `keepAlive` : un son continue de jouer quand on quitte
+/// le fil pour la liste, comme dans l'app d'origine.
+
+@ProviderFor(audioPlayerService)
+final audioPlayerServiceProvider = AudioPlayerServiceProvider._();
+
+/// Lecteur des vocaux. `keepAlive` : un son continue de jouer quand on quitte
+/// le fil pour la liste, comme dans l'app d'origine.
+
+final class AudioPlayerServiceProvider
+    extends
+        $FunctionalProvider<
+          AudioPlayerService,
+          AudioPlayerService,
+          AudioPlayerService
+        >
+    with $Provider<AudioPlayerService> {
+  /// Lecteur des vocaux. `keepAlive` : un son continue de jouer quand on quitte
+  /// le fil pour la liste, comme dans l'app d'origine.
+  AudioPlayerServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'audioPlayerServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$audioPlayerServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<AudioPlayerService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  AudioPlayerService create(Ref ref) {
+    return audioPlayerService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AudioPlayerService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AudioPlayerService>(value),
+    );
+  }
+}
+
+String _$audioPlayerServiceHash() =>
+    r'edffa0375baf4b15f2da3e19fb0612a90335446d';
+
 @ProviderFor(attachmentPicker)
 final attachmentPickerProvider = AttachmentPickerProvider._();
 

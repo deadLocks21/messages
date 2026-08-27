@@ -100,6 +100,7 @@ class MessageBubble extends StatelessWidget {
                             foreground: failed
                                 ? colors.textPrimary
                                 : foreground,
+                            background: failed ? colors.surfaceAlt : background,
                             maxWidth: maxWidth - _attachmentPadding * 2,
                           ),
                         // Une légende sous ses pièces jointes retrouve le

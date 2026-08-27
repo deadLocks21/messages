@@ -1,6 +1,7 @@
 import 'package:messages/core/domain/services/attachment.repository.dart';
 import 'package:messages/core/domain/services/attachment_compressor.service.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
+import 'package:messages/core/domain/services/audio_player.service.dart';
 import 'package:messages/core/domain/services/mms_configuration.service.dart';
 import 'package:messages/core/domain/services/contact.repository.dart';
 import 'package:messages/core/domain/services/conversation.repository.dart';
@@ -17,6 +18,8 @@ import 'package:messages/infrastructure/attachments/android.mms_configuration.se
 import 'package:messages/infrastructure/attachments/in_memory.attachment.repository.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_compressor.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
+import 'package:messages/infrastructure/audio/android.audio_player.service.dart';
+import 'package:messages/infrastructure/audio/in_memory.audio_player.service.dart';
 import 'package:messages/infrastructure/contacts/flutter_contacts.contact.repository.dart';
 import 'package:messages/infrastructure/notifications/android.notification.gateway.dart';
 import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
@@ -59,6 +62,18 @@ AttachmentRepository attachmentRepository(Ref ref) {
     return AndroidAttachmentRepository(ref.watch(smsChannelProvider));
   }
   return InMemoryAttachmentRepository(ref.watch(inMemorySmsStoreProvider));
+}
+
+/// Lecteur des vocaux. `keepAlive` : un son continue de jouer quand on quitte
+/// le fil pour la liste, comme dans l'app d'origine.
+@Riverpod(keepAlive: true)
+AudioPlayerService audioPlayerService(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidAudioPlayerService();
+  }
+  final player = InMemoryAudioPlayerService(ref.watch(inMemorySmsStoreProvider));
+  ref.onDispose(player.dispose);
+  return player;
 }
 
 @Riverpod(keepAlive: true)

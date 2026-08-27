@@ -4,6 +4,7 @@ import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.provider.Telephony
@@ -11,6 +12,7 @@ import android.telephony.SmsManager
 import androidx.core.content.FileProvider
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Accès à `content://mms` : le pendant de [SmsStore] pour les messages à
@@ -69,6 +71,27 @@ class MmsStore(private val context: Context) {
         )
 
         private val PART_URI: Uri = Uri.parse("content://mms/part")
+
+        /**
+         * URI d'une partie de MMS. Seul endroit qui la construit : le lecteur
+         * audio ouvre exactement le même flux que la lecture des octets.
+         */
+        fun partUri(partId: String): Uri =
+            ContentUris.withAppendedId(PART_URI, partId.toLong())
+
+        /**
+         * Durées déjà mesurées, par identifiant de partie.
+         *
+         * Le contenu d'une partie ne change jamais — son `_id` est celui d'un
+         * fichier écrit une fois pour toutes — et la mesure coûte l'ouverture
+         * d'un décodeur. Sans ce cache, rouvrir un fil de vingt vocaux les
+         * remesurerait tous à chaque rafraîchissement, sur le fil qui sert les
+         * lectures du stock.
+         *
+         * `-1` mémorise une mesure impossible : sans lui, un fichier illisible
+         * serait retenté indéfiniment.
+         */
+        private val durations = ConcurrentHashMap<String, Int>()
     }
 
     private val resolver get() = context.contentResolver
@@ -223,9 +246,7 @@ class MmsStore(private val context: Context) {
 
     /** Contenu d'une partie, pour la vignette côté Dart. */
     fun readPart(partId: String): ByteArray? = runCatching {
-        resolver.openInputStream(
-            ContentUris.withAppendedId(PART_URI, partId.toLong())
-        )?.use { it.readBytes() }
+        resolver.openInputStream(partUri(partId))?.use { it.readBytes() }
     }.getOrNull()
 
     private fun query(
@@ -353,6 +374,15 @@ class MmsStore(private val context: Context) {
                             } else {
                                 sizeOf(partId)
                             },
+                            // Un vocal annonce sa longueur avant d'être joué —
+                            // c'est ce qui décide de l'écouter ou non. Rien
+                            // dans la table des parties ne la porte : elle se
+                            // lit dans le fichier, une fois, puis se retient.
+                            "durationMs" to if (contentType.startsWith("audio/")) {
+                                durationOf(partId)
+                            } else {
+                                null
+                            },
                         )
                     )
                 }
@@ -367,6 +397,22 @@ class MmsStore(private val context: Context) {
 
     private fun isVisual(contentType: String): Boolean =
         contentType.startsWith("image/") || contentType.startsWith("video/")
+
+    /** Durée d'une partie sonore, en millisecondes. Null si elle ne se lit pas. */
+    private fun durationOf(partId: String): Int? {
+        durations[partId]?.let { return if (it < 0) null else it }
+        val retriever = MediaMetadataRetriever()
+        val measured = runCatching {
+            retriever.setDataSource(context, partUri(partId))
+            retriever
+                .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toIntOrNull()
+        }.getOrNull()
+        // `close()` n'existe qu'à partir d'Android 10 ; `release()` partout.
+        runCatching { retriever.release() }
+        durations[partId] = measured ?: -1
+        return measured
+    }
 
     private fun sizeOf(partId: String): Int = runCatching {
         resolver.openFileDescriptor(

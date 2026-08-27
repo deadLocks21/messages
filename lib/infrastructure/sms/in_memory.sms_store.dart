@@ -237,6 +237,20 @@ class InMemorySmsStore implements SmsEventSource {
     return draft;
   }
 
+  /// La pièce jointe portant cet identifiant, où qu'elle soit dans le stock.
+  ///
+  /// Le vrai provider l'interroge par son `_id` ; ici, il faut la retrouver
+  /// dans le message qui la porte. Le lecteur audio simulé s'en sert pour
+  /// connaître la durée annoncée d'un vocal.
+  Attachment? attachmentById(String attachmentId) {
+    for (final message in _messages) {
+      for (final attachment in message.attachments) {
+        if (attachment.id == attachmentId) return attachment;
+      }
+    }
+    return null;
+  }
+
   /// Octets d'une pièce jointe du stock, servis à l'UI pour sa vignette.
   Uint8List? bytesOf(String attachmentId) => _attachmentBytes[attachmentId];
 
