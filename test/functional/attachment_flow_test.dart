@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
+import 'package:messages/infrastructure/attachments/sample_image.dart';
 import 'package:messages/ui/pages/conversation/conversation.page.dart';
 import 'package:messages/ui/pages/conversation/widgets/attachment_sheet.widget.dart';
 
@@ -149,6 +150,89 @@ void main() {
     expect(find.byKey(const Key('attachment_part-42')), findsOneWidget);
     expect(find.text('Contrat.pdf'), findsOneWidget);
     expect(find.text('4 Ko'), findsOneWidget);
+  });
+
+  /// Un fil où Camille a envoyé une photo, octets compris — sans eux, il n'y
+  /// aurait rien à agrandir.
+  (TestDevice, String) deviceWithReceivedPhoto() {
+    final (device, threadId) = deviceWithThread();
+    device.store.putAttachmentBytes(
+      'part-7',
+      SampleImage.solid(width: 8, height: 6, argb: 0xFF5BB874),
+    );
+    device.store.insert(
+      Build.message(
+        threadId: threadId,
+        body: '',
+        attachments: [
+          Build.attachment(
+            id: 'part-7',
+            mimeType: 'image/png',
+            width: 800,
+            height: 600,
+          ),
+        ],
+      ),
+    );
+    return (device, threadId);
+  }
+
+  testWidgets('toucher la photo d\'un MMS l\'ouvre en grand', (tester) async {
+    final (device, threadId) = deviceWithReceivedPhoto();
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.tap(find.byKey(const Key('attachment_part-7')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('attachmentViewer')), findsOneWidget);
+    expect(find.byKey(const Key('viewerImage_part-7')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('closeAttachmentViewer')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('attachmentViewer')), findsNothing);
+    expect(find.byKey(const Key('attachment_part-7')), findsOneWidget);
+  });
+
+  testWidgets('l\'appui long sur une photo reste celui de la bulle', (
+    tester,
+  ) async {
+    // L'ouverture en grand a posé un `onTap` *sous* le `onLongPress` de la
+    // bulle : les deux gestes doivent continuer à cohabiter, sinon les actions
+    // du message deviennent inatteignables sur un MMS.
+    final (device, threadId) = deviceWithReceivedPhoto();
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.longPress(find.byKey(const Key('attachment_part-7')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('attachmentViewer')), findsNothing);
+    expect(find.byKey(const Key('messageActionCopy')), findsOneWidget);
+  });
+
+  testWidgets('un PDF ne s\'ouvre pas en grand : il n\'y a rien à voir', (
+    tester,
+  ) async {
+    final (device, threadId) = deviceWithThread();
+    device.store.insert(
+      Build.message(
+        threadId: threadId,
+        body: '',
+        attachments: [
+          Build.attachment(
+            id: 'part-8',
+            mimeType: 'application/pdf',
+            fileName: 'Contrat.pdf',
+          ),
+        ],
+      ),
+    );
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.tap(find.byKey(const Key('attachment_part-8')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('attachmentViewer')), findsNothing);
   });
 
   testWidgets('une bulle se serre sur son texte, elle ne s\'étire pas', (

@@ -76,6 +76,11 @@ Un message sans pièce jointe suit la voie SMS d'avant, inchangée.
   300 Ko d'AOSP. Attention à ce qu'il signifie — c'est la limite de *notre*
   réseau pour l'émission ; celui du destinataire a la sienne et transcodera le
   média s'il est plus strict, sans que nous en soyons informés.
+- Dans une bulle, une image n'est qu'un **aperçu** : recadrée à la largeur de
+  la bulle et décodée à cette taille-là. L'appui la rouvre en grand
+  (`AttachmentViewerPage`) — décodée entière cette fois, zoomable, sur fond
+  noir. C'est une route locale du `Navigator`, pas du `GoRouter` : un aperçu ne
+  se partage pas par une URL et ne survit pas au fil qui l'a ouvert.
 - La **réception** de MMS n'est pas gérée : `WAP_PUSH_DELIVER` ne porte qu'une
   notification de dépôt à décoder puis à télécharger auprès du MMSC. Ce qui est
   déjà dans `content://mms` s'affiche, en revanche.

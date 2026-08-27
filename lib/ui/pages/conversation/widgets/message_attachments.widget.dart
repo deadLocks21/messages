@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:messages/core/application/dtos/attachment.dto.dart';
+import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/core/domain/model/attachment.dart';
+import 'package:messages/ui/pages/conversation/attachment_viewer.page.dart';
 import 'package:messages/ui/pages/conversation/widgets/attachment_thumbnail.widget.dart';
 import 'package:messages/ui/providers/attachment_providers.dart';
 
@@ -15,17 +17,21 @@ import 'package:messages/ui/providers/attachment_providers.dart';
 class MessageAttachments extends StatelessWidget {
   const MessageAttachments({
     super.key,
-    required this.attachments,
+    required this.message,
     required this.foreground,
     required this.maxWidth,
   });
 
-  final List<AttachmentDto> attachments;
+  /// Le message entier, et pas seulement sa liste de pièces jointes : ouvrir
+  /// une photo en grand affiche aussi de qui elle vient et de quand elle date.
+  final MessageDto message;
 
   /// Couleur du texte de la bulle qui les porte : une pièce jointe reçue et une
   /// pièce jointe envoyée ne se lisent pas sur le même fond.
   final Color foreground;
   final double maxWidth;
+
+  List<AttachmentDto> get attachments => message.attachments;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +47,11 @@ class MessageAttachments extends StatelessWidget {
               bottom: attachment == attachments.last ? 0 : 6,
             ),
             child: attachment.kind.isVisual
-                ? _VisualAttachment(attachment: attachment, maxWidth: maxWidth)
+                ? _VisualAttachment(
+                    attachment: attachment,
+                    message: message,
+                    maxWidth: maxWidth,
+                  )
                 : _FileAttachment(
                     attachment: attachment,
                     foreground: foreground,
@@ -53,9 +63,14 @@ class MessageAttachments extends StatelessWidget {
 }
 
 class _VisualAttachment extends ConsumerWidget {
-  const _VisualAttachment({required this.attachment, required this.maxWidth});
+  const _VisualAttachment({
+    required this.attachment,
+    required this.message,
+    required this.maxWidth,
+  });
 
   final AttachmentDto attachment;
+  final MessageDto message;
   final double maxWidth;
 
   /// Une image très haute serait une colonne interminable dans le fil : on la
@@ -67,7 +82,8 @@ class _VisualAttachment extends ConsumerWidget {
     // Seule une image se décode ici. Demander ses octets à une vidéo ferait
     // traverser des mégaoctets au canal pour n'afficher, au bout du compte,
     // qu'une pastille de lecture.
-    final bytes = attachment.kind == AttachmentKind.image
+    final isImage = attachment.kind == AttachmentKind.image;
+    final bytes = isImage
         ? ref.watch(attachmentBytesProvider(attachment.id)).value
         : null;
     final ratio = attachment.aspectRatio;
@@ -76,13 +92,34 @@ class _VisualAttachment extends ConsumerWidget {
         ? width
         : width / ratio.clamp(_maxAspectRatio, 3.0);
 
-    return AttachmentThumbnail(
+    final thumbnail = AttachmentThumbnail(
       key: Key('attachment_${attachment.id}'),
       kind: attachment.kind,
       bytes: bytes,
       width: width,
       height: height,
       borderRadius: 16,
+    );
+
+    // La vignette est recadrée à la largeur de la bulle : une photo en
+    // portrait y perd ses bords, un texte photographié y devient illisible.
+    // L'appui la rouvre entière. Une vidéo n'a rien à rouvrir — ses octets ne
+    // sont jamais lus ici — et reste inerte.
+    if (!isImage) return thumbnail;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // `onTap` seul : l'appui long reste celui de la bulle (actions du
+      // message), le premier laissant la main au second dans l'arène.
+      onTap: () => AttachmentViewerPage.open(
+        context,
+        attachment: attachment,
+        message: message,
+      ),
+      child: Hero(
+        tag: AttachmentViewerPage.heroTagFor(attachment.id),
+        child: thumbnail,
+      ),
     );
   }
 }

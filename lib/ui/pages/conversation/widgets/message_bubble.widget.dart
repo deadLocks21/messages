@@ -96,7 +96,7 @@ class MessageBubble extends StatelessWidget {
                       children: [
                         if (message.hasAttachments)
                           MessageAttachments(
-                            attachments: message.attachments,
+                            message: message,
                             foreground: failed
                                 ? colors.textPrimary
                                 : foreground,
