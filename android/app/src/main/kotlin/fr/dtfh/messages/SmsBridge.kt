@@ -245,6 +245,25 @@ class SmsBridge(
                 "readAttachment" ->
                     result.success(store.readAttachment(call.argument<String>("id")!!))
 
+                "openAttachment" -> {
+                    // La copie est de l'entrée-sortie, elle reste sur ce
+                    // fil-ci ; le lancement d'une activité, lui, ne se fait que
+                    // depuis le fil principal.
+                    val staged = AttachmentOpener.stage(
+                        activity,
+                        call.argument<String>("id")!!,
+                        call.argument<String>("fileName"),
+                    )
+                    if (staged == null) {
+                        result.success(false)
+                        return
+                    }
+                    val mimeType = call.argument<String>("mimeType").orEmpty()
+                    mainHandler.post {
+                        result.success(AttachmentOpener.view(activity, staged, mimeType))
+                    }
+                }
+
                 "readAttachmentUri" ->
                     result.success(store.readUri(call.argument<String>("uri")!!))
 

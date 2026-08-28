@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Ce que le FileProvider accepte d'exposer : uniquement les deux dossiers du
-  cache où l'app dépose ce qui doit sortir d'elle — les PDU des MMS en cours
-  d'envoi, et les fichiers produits par une sélection (photo prise, vCard
-  exportée). Rien d'autre du stockage de l'app n'est atteignable par ce biais.
+  Ce que le FileProvider accepte d'exposer : uniquement les dossiers du cache
+  où l'app dépose ce qui doit sortir d'elle — les PDU des MMS en cours d'envoi,
+  les fichiers produits par une sélection (photo prise, vCard exportée), et les
+  copies prêtées à une autre application le temps d'ouvrir une pièce jointe.
+  Rien d'autre du stockage de l'app n'est atteignable par ce biais.
 -->
 <paths>
     <cache-path name="mms" path="mms/"/>
     <cache-path name="captures" path="captures/"/>
+    <cache-path name="shared" path="shared/"/>
 </paths>

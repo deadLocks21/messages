@@ -230,6 +230,62 @@ final class InMemorySmsStoreProvider
 
 String _$inMemorySmsStoreHash() => r'62d064dc04a3c66053db38b5f3dbe8fc8e4faee3';
 
+/// Ouvreur de pièces jointes simulé. Exposé à part pour que les tests puissent
+/// lire ce qu'on lui a confié, et simuler un appareil qui ne sait pas l'ouvrir.
+
+@ProviderFor(inMemoryAttachmentOpener)
+final inMemoryAttachmentOpenerProvider = InMemoryAttachmentOpenerProvider._();
+
+/// Ouvreur de pièces jointes simulé. Exposé à part pour que les tests puissent
+/// lire ce qu'on lui a confié, et simuler un appareil qui ne sait pas l'ouvrir.
+
+final class InMemoryAttachmentOpenerProvider
+    extends
+        $FunctionalProvider<
+          InMemoryAttachmentOpener,
+          InMemoryAttachmentOpener,
+          InMemoryAttachmentOpener
+        >
+    with $Provider<InMemoryAttachmentOpener> {
+  /// Ouvreur de pièces jointes simulé. Exposé à part pour que les tests puissent
+  /// lire ce qu'on lui a confié, et simuler un appareil qui ne sait pas l'ouvrir.
+  InMemoryAttachmentOpenerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'inMemoryAttachmentOpenerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$inMemoryAttachmentOpenerHash();
+
+  @$internal
+  @override
+  $ProviderElement<InMemoryAttachmentOpener> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  InMemoryAttachmentOpener create(Ref ref) {
+    return inMemoryAttachmentOpener(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(InMemoryAttachmentOpener value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<InMemoryAttachmentOpener>(value),
+    );
+  }
+}
+
+String _$inMemoryAttachmentOpenerHash() =>
+    r'89c62f50347694ee47a7f806103e9dc56b07e322';
+
 /// Sélecteur de pièces jointes simulé. Exposé à part pour que les tests
 /// puissent lui demander d'annuler la prochaine sélection.
 

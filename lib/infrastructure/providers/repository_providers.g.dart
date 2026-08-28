@@ -271,6 +271,57 @@ final class AudioWaveformServiceProvider
 String _$audioWaveformServiceHash() =>
     r'9ccdbdf5a9788f4f46ee0e35ec1a1ad3d56cc2db';
 
+/// Ce que l'app ne sait pas montrer, elle le confie : PDF, vidéo, vCard.
+
+@ProviderFor(attachmentOpener)
+final attachmentOpenerProvider = AttachmentOpenerProvider._();
+
+/// Ce que l'app ne sait pas montrer, elle le confie : PDF, vidéo, vCard.
+
+final class AttachmentOpenerProvider
+    extends
+        $FunctionalProvider<
+          AttachmentOpener,
+          AttachmentOpener,
+          AttachmentOpener
+        >
+    with $Provider<AttachmentOpener> {
+  /// Ce que l'app ne sait pas montrer, elle le confie : PDF, vidéo, vCard.
+  AttachmentOpenerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'attachmentOpenerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$attachmentOpenerHash();
+
+  @$internal
+  @override
+  $ProviderElement<AttachmentOpener> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  AttachmentOpener create(Ref ref) {
+    return attachmentOpener(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AttachmentOpener value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AttachmentOpener>(value),
+    );
+  }
+}
+
+String _$attachmentOpenerHash() => r'3285d8f4674a2ac15c6b0e61dec24da6e42ea00d';
+
 @ProviderFor(attachmentPicker)
 final attachmentPickerProvider = AttachmentPickerProvider._();
 

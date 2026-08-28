@@ -3,6 +3,7 @@ import 'package:messages/core/domain/model/compose_request.dart';
 import 'package:messages/core/domain/model/sms_event.dart';
 import 'package:messages/core/domain/services/compose_request.source.dart';
 import 'package:messages/core/domain/services/sms_event.source.dart';
+import 'package:messages/infrastructure/attachments/in_memory.attachment_opener.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_picker.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
@@ -45,6 +46,12 @@ InMemorySmsStore inMemorySmsStore(Ref ref) {
   ref.onDispose(store.dispose);
   return store;
 }
+
+/// Ouvreur de pièces jointes simulé. Exposé à part pour que les tests puissent
+/// lire ce qu'on lui a confié, et simuler un appareil qui ne sait pas l'ouvrir.
+@Riverpod(keepAlive: true)
+InMemoryAttachmentOpener inMemoryAttachmentOpener(Ref ref) =>
+    InMemoryAttachmentOpener();
 
 /// Sélecteur de pièces jointes simulé. Exposé à part pour que les tests
 /// puissent lui demander d'annuler la prochaine sélection.

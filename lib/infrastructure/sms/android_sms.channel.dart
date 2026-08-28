@@ -144,6 +144,20 @@ class AndroidSmsChannel {
   Future<Uint8List?> readAttachment(String attachmentId) =>
       _invoke<Uint8List>('readAttachment', {'id': attachmentId});
 
+  /// Confie une partie du stock à l'application du système qui sait l'ouvrir.
+  /// Rend `false` quand aucune ne s'en charge.
+  Future<bool> openAttachment(
+    String attachmentId, {
+    required String mimeType,
+    String? fileName,
+  }) async =>
+      await _invoke<bool>('openAttachment', {
+        'id': attachmentId,
+        'mimeType': mimeType,
+        'fileName': fileName,
+      }) ??
+      false;
+
   /// Octets d'une pièce jointe encore en rédaction, désignée par son URI.
   Future<Uint8List?> readAttachmentUri(String uri) =>
       _invoke<Uint8List>('readAttachmentUri', {'uri': uri});

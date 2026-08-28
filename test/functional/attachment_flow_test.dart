@@ -236,6 +236,89 @@ void main() {
     expect(find.byKey(const Key('attachmentViewer')), findsNothing);
   });
 
+  testWidgets('un PDF s\'ouvre dans l\'application du système', (tester) async {
+    final (device, threadId) = deviceWithThread();
+    device.store.insert(
+      Build.message(
+        threadId: threadId,
+        body: '',
+        attachments: [
+          Build.attachment(
+            id: 'part-pdf',
+            mimeType: 'application/pdf',
+            fileName: 'Contrat.pdf',
+          ),
+        ],
+      ),
+    );
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.tap(find.byKey(const Key('attachment_part-pdf')));
+    await tester.pumpAndSettle();
+
+    // L'app ne sait pas afficher un PDF, et n'a pas à apprendre : elle le
+    // passe à qui sait le faire.
+    expect(device.opener.opened, ['part-pdf']);
+  });
+
+  testWidgets('une vidéo part au lecteur du système', (tester) async {
+    final (device, threadId) = deviceWithThread();
+    device.store.insert(
+      Build.message(
+        threadId: threadId,
+        body: '',
+        attachments: [
+          Build.attachment(
+            id: 'part-video',
+            mimeType: 'video/mp4',
+            width: 800,
+            height: 600,
+          ),
+        ],
+      ),
+    );
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.tap(find.byKey(const Key('attachment_part-video')));
+    await tester.pumpAndSettle();
+
+    expect(device.opener.opened, ['part-video']);
+    // Surtout pas le visionneur d'images : il n'aurait rien à décoder.
+    expect(find.byKey(const Key('attachmentViewer')), findsNothing);
+  });
+
+  testWidgets('sans application pour l\'ouvrir, la bulle le dit', (
+    tester,
+  ) async {
+    // Un appui qui ne produit rien du tout laisserait croire à une bulle
+    // cassée.
+    final (device, threadId) = deviceWithThread();
+    device.opener.canOpen = false;
+    device.store.insert(
+      Build.message(
+        threadId: threadId,
+        body: '',
+        attachments: [
+          Build.attachment(
+            id: 'part-exotique',
+            mimeType: 'application/x-inconnu',
+            fileName: 'truc.xyz',
+          ),
+        ],
+      ),
+    );
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.tap(find.byKey(const Key('attachment_part-exotique')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('noAppForAttachment')), findsOneWidget);
+    expect(
+      find.text('Aucune application ne peut ouvrir ce fichier'),
+      findsOneWidget,
+    );
+  });
+
   /// Les coins de la vignette d'une image, tels qu'ils sont réellement
   /// découpés.
   BorderRadius imageRadiusOf(WidgetTester tester, String attachmentId) {

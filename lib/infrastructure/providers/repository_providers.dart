@@ -1,5 +1,6 @@
 import 'package:messages/core/domain/services/attachment.repository.dart';
 import 'package:messages/core/domain/services/attachment_compressor.service.dart';
+import 'package:messages/core/domain/services/attachment_opener.service.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
 import 'package:messages/core/domain/services/audio_player.service.dart';
 import 'package:messages/core/domain/services/audio_waveform.service.dart';
@@ -14,6 +15,7 @@ import 'package:messages/core/domain/services/sms_permissions.service.dart';
 import 'package:messages/core/domain/services/theme.repository.dart';
 import 'package:messages/infrastructure/attachments/android.attachment.repository.dart';
 import 'package:messages/infrastructure/attachments/android.attachment_compressor.service.dart';
+import 'package:messages/infrastructure/attachments/android.attachment_opener.service.dart';
 import 'package:messages/infrastructure/attachments/android.attachment_picker.service.dart';
 import 'package:messages/infrastructure/attachments/android.mms_configuration.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment.repository.dart';
@@ -88,6 +90,15 @@ AudioWaveformService audioWaveformService(Ref ref) {
     return AndroidAudioWaveformService(logger: ref.watch(loggerProvider));
   }
   return const InMemoryAudioWaveformService();
+}
+
+/// Ce que l'app ne sait pas montrer, elle le confie : PDF, vidéo, vCard.
+@Riverpod(keepAlive: true)
+AttachmentOpener attachmentOpener(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidAttachmentOpener(ref.watch(smsChannelProvider));
+  }
+  return ref.watch(inMemoryAttachmentOpenerProvider);
 }
 
 @Riverpod(keepAlive: true)

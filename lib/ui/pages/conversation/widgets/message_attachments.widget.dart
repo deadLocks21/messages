@@ -6,6 +6,7 @@ import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/ui/pages/conversation/attachment_viewer.page.dart';
 import 'package:messages/ui/pages/conversation/widgets/attachment_thumbnail.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/audio_attachment.widget.dart';
+import 'package:messages/infrastructure/providers/repository_providers.dart';
 import 'package:messages/ui/providers/attachment_providers.dart';
 
 /// Les pièces jointes d'un message, telles qu'elles s'empilent dans sa bulle.
@@ -130,9 +131,17 @@ class _VisualAttachment extends ConsumerWidget {
 
     // La vignette est recadrée à la largeur de la bulle : une photo en
     // portrait y perd ses bords, un texte photographié y devient illisible.
-    // L'appui la rouvre entière. Une vidéo n'a rien à rouvrir — ses octets ne
-    // sont jamais lus ici — et reste inerte.
-    if (!isImage) return thumbnail;
+    // L'appui la rouvre entière.
+    //
+    // Une vidéo, elle, n'a rien à rouvrir ici — ses octets ne sont jamais lus,
+    // et l'app ne sait pas la jouer. L'appui la confie au lecteur du système.
+    if (!isImage) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _openElsewhere(context, ref, attachment),
+        child: thumbnail,
+      );
+    }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -151,46 +160,77 @@ class _VisualAttachment extends ConsumerWidget {
   }
 }
 
-class _FileAttachment extends StatelessWidget {
+/// Confie [attachment] à l'application du système la plus adaptée, et dit à
+/// l'utilisateur quand il n'y en a aucune — un appui qui ne produit rien du
+/// tout laisserait croire à une bulle cassée.
+Future<void> _openElsewhere(
+  BuildContext context,
+  WidgetRef ref,
+  AttachmentDto attachment,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final opened = await ref
+      .read(attachmentOpenerProvider)
+      .open(
+        attachment.id,
+        mimeType: attachment.mimeType,
+        fileName: attachment.fileName,
+      );
+  if (opened) return;
+  messenger.showSnackBar(
+    SnackBar(
+      key: const Key('noAppForAttachment'),
+      content: const Text('Aucune application ne peut ouvrir ce fichier'),
+    ),
+  );
+}
+
+class _FileAttachment extends ConsumerWidget {
   const _FileAttachment({required this.attachment, required this.foreground});
 
   final AttachmentDto attachment;
   final Color foreground;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      key: Key('attachment_${attachment.id}'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          AttachmentThumbnail.iconFor(attachment.kind),
-          size: 28,
-          color: foreground,
-        ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                attachment.fileName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: foreground, fontSize: 15),
-              ),
-              Text(
-                attachment.sizeLabel,
-                style: TextStyle(
-                  color: foreground.withValues(alpha: 0.75),
-                  fontSize: 12,
-                ),
-              ),
-            ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // Un PDF, une vCard : l'app ne sait pas les montrer, et le système a
+      // déjà, pour chacun, l'application que l'utilisateur a choisie.
+      onTap: () => _openElsewhere(context, ref, attachment),
+      child: Row(
+        key: Key('attachment_${attachment.id}'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            AttachmentThumbnail.iconFor(attachment.kind),
+            size: 28,
+            color: foreground,
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  attachment.fileName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: foreground, fontSize: 15),
+                ),
+                Text(
+                  attachment.sizeLabel,
+                  style: TextStyle(
+                    color: foreground.withValues(alpha: 0.75),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

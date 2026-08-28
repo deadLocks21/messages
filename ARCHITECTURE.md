@@ -93,6 +93,14 @@ Un message sans pièce jointe suit la voie SMS d'avant, inchangée.
   (`MediaMetadataRetriever`) à la lecture des parties, puis retenue par `_id`,
   le contenu d'une partie ne changeant jamais. Sans ce cache, rouvrir un fil de
   vingt vocaux les remesurerait tous à chaque rafraîchissement.
+- Ce que l'app ne sait pas montrer, elle le **confie** : un PDF, une vidéo, une
+  vCard s'ouvrent d'un appui dans l'application que l'utilisateur a déjà
+  choisie pour ce type. La partie ne peut pas être passée telle quelle —
+  `content://mms/part` n'est lisible que par l'app SMS par défaut, le provider
+  Telephony n'accordant pas de permission d'URI à un tiers — elle est donc
+  recopiée dans le cache, d'où le `FileProvider` de l'app la prête le temps
+  d'un intent. Quand aucune application ne sait l'ouvrir, la bulle le dit :
+  un appui sans effet passerait pour une panne.
 - La **réception** de MMS n'est pas gérée : `WAP_PUSH_DELIVER` ne porte qu'une
   notification de dépôt à décoder puis à télécharger auprès du MMSC. Ce qui est
   déjà dans `content://mms` s'affiche, en revanche.
