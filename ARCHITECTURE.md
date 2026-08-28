@@ -76,6 +76,11 @@ Un message sans pièce jointe suit la voie SMS d'avant, inchangée.
   300 Ko d'AOSP. Attention à ce qu'il signifie — c'est la limite de *notre*
   réseau pour l'émission ; celui du destinataire a la sienne et transcodera le
   média s'il est plus strict, sans que nous en soyons informés.
+- Une image **est** la bulle : pas de fond de message derrière elle, pas de
+  liseré autour. Elle prend les coins de la bulle — arrondis ou resserrés selon
+  la salve, comme n'importe quelle autre. Le fond ne revient que là où il sert
+  à lire : sous une légende, ou derrière un lecteur audio. L'image, elle, reste
+  bord à bord et resserre ses coins du bas, le message continuant en dessous.
 - Dans une bulle, une image n'est qu'un **aperçu** : recadrée à la largeur de
   la bulle et décodée à cette taille-là. L'appui la rouvre en grand
   (`AttachmentViewerPage`) — décodée entière cette fois, zoomable, sur fond

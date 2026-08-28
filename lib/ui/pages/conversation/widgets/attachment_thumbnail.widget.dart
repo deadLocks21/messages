@@ -18,7 +18,7 @@ class AttachmentThumbnail extends StatelessWidget {
     required this.bytes,
     required this.width,
     double? height,
-    this.borderRadius = 12,
+    this.borderRadius = const BorderRadius.all(Radius.circular(12)),
   }) : height = height ?? width;
 
   final AttachmentKind kind;
@@ -28,7 +28,10 @@ class AttachmentThumbnail extends StatelessWidget {
   /// Par défaut carrée — c'est la forme du plateau de rédaction. Une bulle, qui
   /// connaît le rapport de l'image, la donne explicitement.
   final double height;
-  final double borderRadius;
+
+  /// Coins de la vignette. Dans une bulle, ce sont **ceux de la bulle** : une
+  /// image reçue n'est pas posée sur un message, elle en tient lieu.
+  final BorderRadius borderRadius;
 
   static IconData iconFor(AttachmentKind kind) => switch (kind) {
     AttachmentKind.image => Icons.image_outlined,
@@ -44,7 +47,7 @@ class AttachmentThumbnail extends StatelessWidget {
     final data = bytes;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
+      borderRadius: borderRadius,
       child: SizedBox(
         height: height,
         width: width,

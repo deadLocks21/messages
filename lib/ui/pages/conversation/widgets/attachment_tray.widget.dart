@@ -69,7 +69,7 @@ class _TrayItem extends ConsumerWidget {
             kind: draft.kind,
             bytes: bytes,
             width: size,
-            borderRadius: 14,
+            borderRadius: const BorderRadius.all(Radius.circular(14)),
           ),
         ),
         Positioned(

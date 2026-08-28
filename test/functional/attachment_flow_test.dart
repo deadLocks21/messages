@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:messages/core/domain/model/attachment.dart';
+import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
 import 'package:messages/infrastructure/attachments/sample_image.dart';
 import 'package:messages/ui/pages/conversation/conversation.page.dart';
@@ -233,6 +234,126 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('attachmentViewer')), findsNothing);
+  });
+
+  /// Les coins de la vignette d'une image, tels qu'ils sont réellement
+  /// découpés.
+  BorderRadius imageRadiusOf(WidgetTester tester, String attachmentId) {
+    final clip = tester.widget<ClipRRect>(
+      find
+          .descendant(
+            of: find.byKey(Key('attachment_$attachmentId')),
+            matching: find.byType(ClipRRect),
+          )
+          .first,
+    );
+    return clip.borderRadius as BorderRadius;
+  }
+
+  BoxDecoration bubbleDecorationOf(WidgetTester tester, String messageId) =>
+      tester.widget<Container>(find.byKey(Key('bubble_$messageId'))).decoration
+          as BoxDecoration;
+
+  testWidgets('une image reçue n\'est pas posée sur un fond de message', (
+    tester,
+  ) async {
+    final (device, threadId) = deviceWithThread();
+    device.store.putAttachmentBytes(
+      'part-nu',
+      SampleImage.solid(width: 8, height: 6, argb: 0xFF5BB874),
+    );
+    device.store.insert(
+      Build.message(
+        id: 'photo-nue',
+        threadId: threadId,
+        body: '',
+        attachments: [Build.attachment(id: 'part-nu', mimeType: 'image/png')],
+      ),
+    );
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+
+    final decoration = bubbleDecorationOf(tester, 'photo-nue');
+    // Aucun fond : l'image *est* la bulle, on ne la pose pas dessus.
+    expect(decoration.color, Colors.transparent);
+    // Et elle en prend les coins, plutôt qu'un rayon à elle.
+    expect(imageRadiusOf(tester, 'part-nu'), decoration.borderRadius);
+  });
+
+  testWidgets('une légende ramène le fond, l\'image restant bord à bord', (
+    tester,
+  ) async {
+    final (device, threadId) = deviceWithThread();
+    device.store.insert(
+      Build.message(
+        id: 'photo-legendee',
+        threadId: threadId,
+        body: 'Les places',
+        // Bien après le message d'ouverture du fil : seule dans sa salve, la
+        // bulle a ses quatre coins arrondis, et c'est la légende — elle seule —
+        // qui resserre ceux du bas de l'image.
+        sentAt: DateTime(2026, 8, 25, 14),
+        attachments: [
+          Build.attachment(id: 'part-legende', mimeType: 'image/png'),
+        ],
+      ),
+    );
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+
+    // Le texte, lui, a besoin d'un fond pour se lire sur le fil.
+    expect(
+      bubbleDecorationOf(tester, 'photo-legendee').color,
+      isNot(Colors.transparent),
+    );
+    // L'image garde les coins hauts de la bulle et resserre ceux du bas : le
+    // message continue en dessous.
+    final radius = imageRadiusOf(tester, 'part-legende');
+    expect(radius.topLeft, const Radius.circular(20));
+    expect(radius.bottomLeft, const Radius.circular(4));
+    expect(radius.bottomRight, const Radius.circular(4));
+  });
+
+  testWidgets('les coins d\'une image suivent le groupement des bulles', (
+    tester,
+  ) async {
+    // Deux photos envoyées coup sur coup : elles forment une salve et se
+    // resserrent l'une vers l'autre, exactement comme deux bulles de texte.
+    final (device, threadId) = deviceWithThread();
+    for (final (index, id) in ['part-haut', 'part-bas'].indexed) {
+      device.store.insert(
+        Build.message(
+          threadId: threadId,
+          body: '',
+          direction: MessageDirection.outgoing,
+          sentAt: DateTime(2026, 8, 27, 10, index),
+          // Deux images larges plutôt que carrées : deux carrés de la largeur
+          // d'une bulle ne tiendraient pas dans la fenêtre du test, et la
+          // première ne serait même pas construite.
+          attachments: [
+            Build.attachment(
+              id: id,
+              mimeType: 'image/png',
+              width: 800,
+              height: 200,
+            ),
+          ],
+        ),
+      );
+    }
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+
+    const round = Radius.circular(20);
+    const tight = Radius.circular(4);
+
+    final first = imageRadiusOf(tester, 'part-haut');
+    expect(first.topRight, round, reason: 'ouvre la salve');
+    expect(first.bottomRight, tight, reason: 'colle à la suivante');
+
+    final second = imageRadiusOf(tester, 'part-bas');
+    expect(second.topRight, tight, reason: 'colle à la précédente');
+    expect(second.bottomRight, round, reason: 'ferme la salve');
   });
 
   testWidgets('une bulle se serre sur son texte, elle ne s\'étire pas', (

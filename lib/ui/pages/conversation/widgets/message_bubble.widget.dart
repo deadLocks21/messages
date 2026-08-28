@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:messages/core/application/dtos/conversation_timeline.dto.dart';
+import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_attachments.widget.dart';
 import 'package:messages/ui/theme/app_colors.dart';
 
@@ -41,6 +42,17 @@ class MessageBubble extends StatelessWidget {
         ? colors.onBubbleOutgoing
         : colors.onBubbleIncoming;
 
+    final radius = _radius(outgoing);
+
+    // Une image *est* la bulle : la poser sur un fond coloré lui ajoute un
+    // liseré qui ne dit rien et rétrécit la photo d'autant. Le fond ne reste
+    // que là où il sert à quelque chose — derrière du texte, ou derrière un
+    // lecteur audio, qui ne se lisent pas sur un fil d'écran.
+    final visualOnly =
+        message.hasAttachments &&
+        message.attachments.every((attachment) => attachment.kind.isVisual);
+    final bare = visualOnly && message.body.isEmpty;
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         14,
@@ -79,10 +91,15 @@ class MessageBubble extends StatelessWidget {
                   child: Container(
                     key: Key('bubble_${message.id}'),
                     constraints: BoxConstraints(maxWidth: maxWidth),
-                    padding: _padding(message.attachments.isNotEmpty),
+                    padding: _padding(message, visualOnly: visualOnly),
                     decoration: BoxDecoration(
-                      color: failed ? colors.surfaceAlt : background,
-                      borderRadius: _radius(outgoing),
+                      // Un envoi en échec garde son liseré rouge, même nu :
+                      // c'est la seule chose qui dise que le message n'est pas
+                      // parti.
+                      color: bare
+                          ? Colors.transparent
+                          : (failed ? colors.surfaceAlt : background),
+                      borderRadius: radius,
                       border: failed
                           ? Border.all(color: colors.danger, width: 1)
                           : null,
@@ -101,14 +118,32 @@ class MessageBubble extends StatelessWidget {
                                 ? colors.textPrimary
                                 : foreground,
                             background: failed ? colors.surfaceAlt : background,
-                            maxWidth: maxWidth - _attachmentPadding * 2,
+                            maxWidth: visualOnly
+                                ? maxWidth
+                                : maxWidth - _attachmentPadding * 2,
+                            // Les coins de la bulle deviennent ceux de l'image.
+                            // Sous une légende, ceux du bas se resserrent : le
+                            // message continue en dessous.
+                            visualRadius: message.body.isEmpty
+                                ? radius
+                                : BorderRadius.only(
+                                    topLeft: radius.topLeft,
+                                    topRight: radius.topRight,
+                                    bottomLeft: _tight,
+                                    bottomRight: _tight,
+                                  ),
                           ),
                         // Une légende sous ses pièces jointes retrouve le
                         // rembourrage qu'une bulle de texte a toujours : sans
                         // lui, elle collerait au bord de l'image.
                         if (message.body.isNotEmpty)
                           Padding(
-                            padding: message.hasAttachments
+                            padding: visualOnly
+                                // La légende retrouve le rembourrage d'une
+                                // bulle de texte : l'image, elle, va bord à
+                                // bord.
+                                ? const EdgeInsets.fromLTRB(14, 8, 14, 9)
+                                : message.hasAttachments
                                 ? const EdgeInsets.fromLTRB(6, 8, 6, 2)
                                 : EdgeInsets.zero,
                             child: Text(
@@ -144,15 +179,18 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  /// Le liseré qui reste autour d'une pièce jointe : assez pour que la bulle
-  /// se devine derrière l'image, pas assez pour l'encadrer.
+  /// Le liseré qui reste autour d'une pièce jointe **non visuelle** — un
+  /// lecteur audio, une ligne de fichier : assez pour que la bulle se devine
+  /// autour, pas assez pour l'encadrer.
   static const _attachmentPadding = 4.0;
 
-  /// Une bulle de texte respire ; une bulle qui porte une image se resserre
-  /// sur elle, sinon l'image flotterait dans un cadre coloré.
-  EdgeInsets _padding(bool hasAttachments) => hasAttachments
-      ? const EdgeInsets.all(_attachmentPadding)
-      : const EdgeInsets.symmetric(horizontal: 18, vertical: 9);
+  /// Une bulle de texte respire ; une image ne se rembourre pas du tout — elle
+  /// va bord à bord, et c'est sa propre découpe qui fait la bulle.
+  EdgeInsets _padding(MessageDto message, {required bool visualOnly}) {
+    if (visualOnly) return EdgeInsets.zero;
+    if (message.hasAttachments) return const EdgeInsets.all(_attachmentPadding);
+    return const EdgeInsets.symmetric(horizontal: 18, vertical: 9);
+  }
 
   /// Coins arrondis côté « extérieur », resserrés côté salve.
   BorderRadius _radius(bool outgoing) {

@@ -23,6 +23,7 @@ class MessageAttachments extends StatelessWidget {
     required this.foreground,
     required this.background,
     required this.maxWidth,
+    required this.visualRadius,
   });
 
   /// Le message entier, et pas seulement sa liste de pièces jointes : ouvrir
@@ -38,6 +39,10 @@ class MessageAttachments extends StatelessWidget {
   final Color background;
 
   final double maxWidth;
+
+  /// Coins d'une pièce jointe visuelle : ceux de la bulle qui la porte, une
+  /// image n'étant pas posée sur un message mais en tenant lieu.
+  final BorderRadius visualRadius;
 
   List<AttachmentDto> get attachments => message.attachments;
 
@@ -62,6 +67,7 @@ class MessageAttachments extends StatelessWidget {
                 attachment: attachment,
                 message: message,
                 maxWidth: maxWidth,
+                radius: visualRadius,
               ),
               AttachmentKind.audio => AudioAttachment(
                 key: Key('attachment_${attachment.id}'),
@@ -86,11 +92,13 @@ class _VisualAttachment extends ConsumerWidget {
     required this.attachment,
     required this.message,
     required this.maxWidth,
+    required this.radius,
   });
 
   final AttachmentDto attachment;
   final MessageDto message;
   final double maxWidth;
+  final BorderRadius radius;
 
   /// Une image très haute serait une colonne interminable dans le fil : on la
   /// borne, quitte à la recadrer, comme le fait l'app d'origine.
@@ -117,7 +125,7 @@ class _VisualAttachment extends ConsumerWidget {
       bytes: bytes,
       width: width,
       height: height,
-      borderRadius: 16,
+      borderRadius: radius,
     );
 
     // La vignette est recadrée à la largeur de la bulle : une photo en
