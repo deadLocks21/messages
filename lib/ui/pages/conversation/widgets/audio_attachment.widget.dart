@@ -272,24 +272,41 @@ class AudioTrackPainter extends CustomPainter {
     final count = ((size.width + _barGap) / (_barWidth + _barGap)).floor();
     if (count <= 0) return;
     final levels = waveform.resampled(count);
-
-    final played = Paint()..color = color;
-    final pending = Paint()..color = color.withValues(alpha: _pendingAlpha);
     final middle = size.height / 2;
 
-    for (var index = 0; index < levels.length; index++) {
-      final height =
-          _minBarHeight + levels[index] * (size.height - _minBarHeight);
-      final left = index * (_barWidth + _barGap);
-      final bar = RRect.fromRectAndRadius(
-        Rect.fromLTWH(left, middle - height / 2, _barWidth, height),
-        const Radius.circular(_barWidth / 2),
-      );
-      // Le centre de la barre décide de son camp : sinon la barre courante
-      // clignoterait d'un pas à l'autre.
-      final passed = (index + 0.5) / levels.length <= progress;
-      canvas.drawRRect(bar, passed ? played : pending);
+    final bars = [
+      for (var index = 0; index < levels.length; index++)
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            index * (_barWidth + _barGap),
+            middle -
+                (_minBarHeight + levels[index] * (size.height - _minBarHeight)) /
+                    2,
+            _barWidth,
+            _minBarHeight + levels[index] * (size.height - _minBarHeight),
+          ),
+          const Radius.circular(_barWidth / 2),
+        ),
+    ];
+
+    final pending = Paint()..color = color.withValues(alpha: _pendingAlpha);
+    for (final bar in bars) {
+      canvas.drawRRect(bar, pending);
     }
+
+    // Le trait de partage tombe là où en est la lecture, pas au bord de la
+    // barre la plus proche : la barre en cours se remplit peu à peu, et
+    // l'avancée devient continue au lieu de sauter d'une barre à l'autre.
+    final played = size.width * progress.clamp(0.0, 1.0);
+    if (played <= 0) return;
+
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, played, size.height));
+    final done = Paint()..color = color;
+    for (final bar in bars) {
+      canvas.drawRRect(bar, done);
+    }
+    canvas.restore();
   }
 
   void _paintDots(Canvas canvas, Size size) {

@@ -4,7 +4,10 @@ import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import java.io.File
+import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 import kotlin.math.sqrt
@@ -16,15 +19,29 @@ import kotlin.math.sqrt
  * Rien dans `content://mms/part` ne la porte — il faut décoder le son pour la
  * connaître. `MediaExtractor` sort les trames compressées de la partie,
  * `MediaCodec` les rend en PCM, et on n'en garde que l'énergie : quelques
- * dizaines de nombres pour un fichier qui en compte des millions.
+ * centaines de nombres pour un fichier qui en compte des millions.
  *
- * **Jamais sur le fil principal** : décoder une minute de parole prend des
- * centaines de millisecondes. [AudioBridge] l'appelle depuis son exécuteur.
+ * **Jamais sur le fil principal** : même écourté, un décodage se compte en
+ * dizaines ou centaines de millisecondes. [AudioBridge] l'appelle depuis son
+ * exécuteur.
  */
 object AudioWaveform {
 
-    /** Au-delà, on ne mesure plus : un MMS ne porte pas un album. */
-    private const val MAX_FRAMES = 20_000
+    /**
+     * Nombre de points visé.
+     *
+     * Une piste affiche entre quarante et soixante barres. Décoder les trois
+     * mille trames d'un vocal d'une minute pour n'en garder que soixante,
+     * c'est payer quarante-neuf cinquantièmes du travail pour rien : on n'en
+     * décode donc qu'une sur N, et N s'ajuste au fil de la lecture puisque la
+     * longueur du fichier n'est pas connue d'avance.
+     */
+    private const val TARGET_FRAMES = 240
+
+    /** Garde-fou sur un fichier aberrant : on ne parcourt pas une heure de son. */
+    private const val MAX_SOURCE_FRAMES = 200_000L
+
+    private const val TIMEOUT_US = 10_000L
 
     /**
      * Silhouettes déjà mesurées, par identifiant de partie. Le contenu d'une
@@ -40,18 +57,25 @@ object AudioWaveform {
         cache[partId]?.let { return resample(it, buckets) }
         if (partId in failed) return null
 
+        // Le cache mémoire meurt avec le processus : sans celui du disque,
+        // chaque lancement de l'app redécoderait les mêmes vocaux.
+        readCache(context, partId)?.let { stored ->
+            cache[partId] = stored
+            return resample(stored, buckets)
+        }
+
         val frames = runCatching { decode(context, partId) }.getOrNull()
         if (frames.isNullOrEmpty()) {
             failed.add(partId)
             return null
         }
         cache[partId] = frames
+        writeCache(context, partId, frames)
         return resample(frames, buckets)
     }
 
     /**
-     * Énergie (RMS) de chaque trame décodée, normalisée sur le maximum du
-     * fichier.
+     * Énergie (RMS) des trames décodées, normalisée sur le maximum du fichier.
      *
      * Normaliser est indispensable : un vocal enregistré à bout de bras et un
      * autre collé au micro n'ont pas le même niveau absolu, alors qu'ils
@@ -84,20 +108,47 @@ object AudioWaveform {
             var inputDone = false
             var outputDone = false
 
-            while (!outputDone && frames.size < MAX_FRAMES) {
+            // Une trame sur [stride] est décodée. Le pas double dès qu'on a
+            // deux fois trop de points, et ceux déjà mesurés sont fondus deux à
+            // deux : la silhouette couvre toujours tout le fichier, quel que
+            // soit sa longueur, pour un travail borné.
+            var stride = 1L
+            var seen = 0L
+
+            while (!outputDone && seen < MAX_SOURCE_FRAMES) {
                 if (!inputDone) {
                     val index = codec.dequeueInputBuffer(TIMEOUT_US)
                     if (index >= 0) {
                         val buffer = codec.getInputBuffer(index)
-                        val size = if (buffer == null) -1 else extractor.readSampleData(buffer, 0)
-                        if (size < 0) {
-                            codec.queueInputBuffer(
-                                index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM,
-                            )
-                            inputDone = true
-                        } else {
-                            codec.queueInputBuffer(index, 0, size, extractor.sampleTime, 0)
-                            extractor.advance()
+                        var queued = false
+                        while (!queued && !inputDone) {
+                            if (seen % stride != 0L) {
+                                // Sautée : la trame est passée sans être lue ni
+                                // décodée. C'est là qu'est l'économie.
+                                seen++
+                                if (!extractor.advance()) {
+                                    codec.queueInputBuffer(
+                                        index, 0, 0, 0,
+                                        MediaCodec.BUFFER_FLAG_END_OF_STREAM,
+                                    )
+                                    inputDone = true
+                                }
+                                continue
+                            }
+                            val size =
+                                if (buffer == null) -1 else extractor.readSampleData(buffer, 0)
+                            if (size < 0) {
+                                codec.queueInputBuffer(
+                                    index, 0, 0, 0,
+                                    MediaCodec.BUFFER_FLAG_END_OF_STREAM,
+                                )
+                                inputDone = true
+                            } else {
+                                codec.queueInputBuffer(index, 0, size, extractor.sampleTime, 0)
+                                queued = true
+                                seen++
+                                extractor.advance()
+                            }
                         }
                     }
                 }
@@ -111,6 +162,11 @@ object AudioWaveform {
                     }
                     codec.releaseOutputBuffer(index, false)
                     if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outputDone = true
+
+                    if (frames.size >= TARGET_FRAMES * 2) {
+                        foldByPairs(frames)
+                        stride *= 2
+                    }
                 }
             }
         } finally {
@@ -131,10 +187,20 @@ object AudioWaveform {
         }
     }
 
-    private const val TIMEOUT_US = 10_000L
+    /**
+     * Réduit de moitié en gardant le plus fort de chaque paire — jamais leur
+     * moyenne, qui gommerait les attaques.
+     */
+    private fun foldByPairs(frames: ArrayList<Double>) {
+        val kept = frames.size / 2
+        for (index in 0 until kept) {
+            frames[index] = max(frames[index * 2], frames[index * 2 + 1])
+        }
+        frames.subList(kept, frames.size).clear()
+    }
 
     /** Énergie moyenne d'un tampon PCM 16 bits. */
-    private fun rmsOf(buffer: java.nio.ByteBuffer, offset: Int, size: Int): Double {
+    private fun rmsOf(buffer: ByteBuffer, offset: Int, size: Int): Double {
         val samples = buffer.duplicate().apply {
             position(offset)
             limit(offset + size)
@@ -167,6 +233,37 @@ object AudioWaveform {
                 if (frames[i] > peak) peak = frames[i]
             }
             peak
+        }
+    }
+
+    // ---------------------------------------------------------- cache disque
+
+    /**
+     * `cacheDir` et non un stockage durable : une silhouette se remesure, et
+     * le système est libre de faire le ménage quand la place manque.
+     */
+    private fun cacheFile(context: Context, partId: String): File {
+        val digits = partId.filter { it.isDigit() }
+        val key = digits.ifEmpty { partId.hashCode().toString().replace('-', 'n') }
+        return File(context.cacheDir, "waveform-$key")
+    }
+
+    private fun readCache(context: Context, partId: String): List<Double>? = runCatching {
+        val file = cacheFile(context, partId)
+        if (!file.exists()) return null
+        file.readText()
+            .split(',')
+            .mapNotNull { it.toDoubleOrNull() }
+            .takeIf { it.isNotEmpty() }
+    }.getOrNull()
+
+    private fun writeCache(context: Context, partId: String, frames: List<Double>) {
+        runCatching {
+            // `Locale.US` : en français, `%.3f` écrirait « 0,123 » dans une
+            // liste séparée par des virgules.
+            cacheFile(context, partId).writeText(
+                frames.joinToString(",") { String.format(Locale.US, "%.3f", it) }
+            )
         }
     }
 }

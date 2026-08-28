@@ -85,7 +85,7 @@ AudioPlayerService audioPlayerService(Ref ref) {
 @Riverpod(keepAlive: true)
 AudioWaveformService audioWaveformService(Ref ref) {
   if (ref.watch(useNativeSmsStackProvider)) {
-    return const AndroidAudioWaveformService();
+    return AndroidAudioWaveformService(logger: ref.watch(loggerProvider));
   }
   return const InMemoryAudioWaveformService();
 }

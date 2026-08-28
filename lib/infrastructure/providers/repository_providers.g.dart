@@ -269,7 +269,7 @@ final class AudioWaveformServiceProvider
 }
 
 String _$audioWaveformServiceHash() =>
-    r'a82f4074c9a0557936ff5a99c3273bb12a3eb09b';
+    r'9ccdbdf5a9788f4f46ee0e35ec1a1ad3d56cc2db';
 
 @ProviderFor(attachmentPicker)
 final attachmentPickerProvider = AttachmentPickerProvider._();
