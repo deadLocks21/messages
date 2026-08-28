@@ -99,8 +99,12 @@ Un message sans pièce jointe suit la voie SMS d'avant, inchangée.
   `content://mms/part` n'est lisible que par l'app SMS par défaut, le provider
   Telephony n'accordant pas de permission d'URI à un tiers — elle est donc
   recopiée dans le cache, d'où le `FileProvider` de l'app la prête le temps
-  d'un intent. Quand aucune application ne sait l'ouvrir, la bulle le dit :
-  un appui sans effet passerait pour une panne.
+  d'un intent. Quand aucune application ne sait l'ouvrir, la bulle le dit et
+  propose de l'**enregistrer** : la pièce jointe n'est pas perdue pour autant,
+  et un appui sans effet passerait pour une panne. L'enregistrement passe par
+  `ACTION_CREATE_DOCUMENT` plutôt que par un dossier « Téléchargements » écrit
+  en direct — aucune permission requise, à n'importe quelle version d'Android,
+  et c'est l'utilisateur qui décide où le fichier atterrit.
 - La **réception** de MMS n'est pas gérée : `WAP_PUSH_DELIVER` ne porte qu'une
   notification de dépôt à décoder puis à télécharger auprès du MMSC. Ce qui est
   déjà dans `content://mms` s'affiche, en revanche.

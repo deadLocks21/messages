@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:messages/core/application/dtos/attachment.dto.dart';
 import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/core/domain/model/attachment.dart';
+import 'package:messages/core/domain/services/attachment_opener.service.dart';
 import 'package:messages/ui/pages/conversation/attachment_viewer.page.dart';
 import 'package:messages/ui/pages/conversation/widgets/attachment_thumbnail.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/audio_attachment.widget.dart';
@@ -160,27 +161,59 @@ class _VisualAttachment extends ConsumerWidget {
   }
 }
 
-/// Confie [attachment] à l'application du système la plus adaptée, et dit à
-/// l'utilisateur quand il n'y en a aucune — un appui qui ne produit rien du
-/// tout laisserait croire à une bulle cassée.
+/// Confie [attachment] à l'application du système la plus adaptée.
+///
+/// Quand il n'y en a aucune, la pièce jointe n'est pas perdue pour autant :
+/// l'app propose de l'enregistrer. Un appui qui ne produirait rien du tout
+/// laisserait croire à une bulle cassée, là où il ne s'agit que d'un type que
+/// personne, sur cet appareil, ne sait ouvrir.
 Future<void> _openElsewhere(
   BuildContext context,
   WidgetRef ref,
   AttachmentDto attachment,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
-  final opened = await ref
-      .read(attachmentOpenerProvider)
-      .open(
-        attachment.id,
-        mimeType: attachment.mimeType,
-        fileName: attachment.fileName,
-      );
-  if (opened) return;
+  // Le service est saisi maintenant : le bandeau survit à la bulle si le fil
+  // défile, et son action ne pourra plus rien demander à un `ref` démonté.
+  final opener = ref.read(attachmentOpenerProvider);
+
+  if (await opener.open(
+    attachment.id,
+    mimeType: attachment.mimeType,
+    fileName: attachment.fileName,
+  )) {
+    return;
+  }
+
   messenger.showSnackBar(
     SnackBar(
       key: const Key('noAppForAttachment'),
       content: const Text('Aucune application ne peut ouvrir ce fichier'),
+      action: SnackBarAction(
+        label: 'Enregistrer',
+        onPressed: () => _saveElsewhere(messenger, opener, attachment),
+      ),
+    ),
+  );
+}
+
+Future<void> _saveElsewhere(
+  ScaffoldMessengerState messenger,
+  AttachmentOpener opener,
+  AttachmentDto attachment,
+) async {
+  final saved = await opener.save(
+    attachment.id,
+    mimeType: attachment.mimeType,
+    fileName: attachment.fileName,
+  );
+  // Renoncer n'appelle pas de confirmation : l'utilisateur sait ce qu'il vient
+  // de faire.
+  if (!saved) return;
+  messenger.showSnackBar(
+    const SnackBar(
+      key: Key('attachmentSaved'),
+      content: Text('Pièce jointe enregistrée'),
     ),
   );
 }

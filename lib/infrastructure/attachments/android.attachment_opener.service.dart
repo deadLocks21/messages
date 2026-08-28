@@ -21,4 +21,15 @@ class AndroidAttachmentOpener implements AttachmentOpener {
     mimeType: mimeType,
     fileName: fileName,
   );
+
+  @override
+  Future<bool> save(
+    String attachmentId, {
+    required String mimeType,
+    String? fileName,
+  }) => _channel.saveAttachment(
+    attachmentId,
+    mimeType: mimeType,
+    fileName: fileName,
+  );
 }

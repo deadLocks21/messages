@@ -317,6 +317,68 @@ void main() {
       find.text('Aucune application ne peut ouvrir ce fichier'),
       findsOneWidget,
     );
+    // Et une porte de sortie : le fichier peut au moins être gardé.
+    expect(find.text('Enregistrer'), findsOneWidget);
+  });
+
+  testWidgets('faute de pouvoir l\'ouvrir, on peut l\'enregistrer', (
+    tester,
+  ) async {
+    final (device, threadId) = deviceWithThread();
+    device.opener.canOpen = false;
+    device.store.insert(
+      Build.message(
+        threadId: threadId,
+        body: '',
+        attachments: [
+          Build.attachment(
+            id: 'part-exotique',
+            mimeType: 'application/x-inconnu',
+            fileName: 'truc.xyz',
+          ),
+        ],
+      ),
+    );
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.tap(find.byKey(const Key('attachment_part-exotique')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    expect(device.opener.saved, ['part-exotique']);
+    expect(find.byKey(const Key('attachmentSaved')), findsOneWidget);
+  });
+
+  testWidgets('renoncer à l\'enregistrement ne dit rien', (tester) async {
+    // L'utilisateur qui ferme le sélecteur de destination sait ce qu'il vient
+    // de faire : le lui confirmer serait du bruit.
+    final (device, threadId) = deviceWithThread();
+    device.opener
+      ..canOpen = false
+      ..canSave = false;
+    device.store.insert(
+      Build.message(
+        threadId: threadId,
+        body: '',
+        attachments: [
+          Build.attachment(
+            id: 'part-exotique',
+            mimeType: 'application/x-inconnu',
+            fileName: 'truc.xyz',
+          ),
+        ],
+      ),
+    );
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.tap(find.byKey(const Key('attachment_part-exotique')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    expect(device.opener.saved, ['part-exotique']);
+    expect(find.byKey(const Key('attachmentSaved')), findsNothing);
   });
 
   /// Les coins de la vignette d'une image, tels qu'ils sont réellement

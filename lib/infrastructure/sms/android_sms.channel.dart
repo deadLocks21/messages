@@ -158,6 +158,20 @@ class AndroidSmsChannel {
       }) ??
       false;
 
+  /// Enregistre une partie du stock dans le fichier que l'utilisateur choisit.
+  /// Rend `false` s'il renonce ou si l'écriture échoue.
+  Future<bool> saveAttachment(
+    String attachmentId, {
+    required String mimeType,
+    String? fileName,
+  }) async =>
+      await _invoke<bool>('saveAttachment', {
+        'id': attachmentId,
+        'mimeType': mimeType,
+        'fileName': fileName,
+      }) ??
+      false;
+
   /// Octets d'une pièce jointe encore en rédaction, désignée par son URI.
   Future<Uint8List?> readAttachmentUri(String uri) =>
       _invoke<Uint8List>('readAttachmentUri', {'uri': uri});

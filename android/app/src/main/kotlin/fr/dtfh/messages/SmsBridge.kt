@@ -99,12 +99,22 @@ class SmsBridge(
     private val mainHandler = Handler(Looper.getMainLooper())
 
     /**
+     * Ce à quoi l'app confie une pièce jointe qu'elle ne sait pas montrer :
+     * l'application du système qui l'ouvrira, ou le fichier où l'utilisateur
+     * veut la garder. Il lui faut les deux fils — la copie est de
+     * l'entrée-sortie, le lancement d'une activité non.
+     */
+    private val opener = AttachmentOpener(activity, storeExecutor, mainHandler)
+
+    /**
      * Les appels qui doivent rester sur le fil principal : ils lancent une
      * `Activity` ou lisent son état, ce qu'on ne fait pas d'ailleurs. Ils sont
      * tous immédiats — aucun ne touche le provider.
      */
     private val mainThreadMethods = setOf(
         "pickAttachments",
+        "openAttachment",
+        "saveAttachment",
         "requestDefaultSmsApp",
         "consumeLaunchRequest",
         "checkAccess",
@@ -245,24 +255,19 @@ class SmsBridge(
                 "readAttachment" ->
                     result.success(store.readAttachment(call.argument<String>("id")!!))
 
-                "openAttachment" -> {
-                    // La copie est de l'entrée-sortie, elle reste sur ce
-                    // fil-ci ; le lancement d'une activité, lui, ne se fait que
-                    // depuis le fil principal.
-                    val staged = AttachmentOpener.stage(
-                        activity,
-                        call.argument<String>("id")!!,
-                        call.argument<String>("fileName"),
-                    )
-                    if (staged == null) {
-                        result.success(false)
-                        return
-                    }
-                    val mimeType = call.argument<String>("mimeType").orEmpty()
-                    mainHandler.post {
-                        result.success(AttachmentOpener.view(activity, staged, mimeType))
-                    }
-                }
+                "openAttachment" -> opener.open(
+                    call.argument<String>("id")!!,
+                    call.argument<String>("mimeType").orEmpty(),
+                    call.argument<String>("fileName"),
+                    result,
+                )
+
+                "saveAttachment" -> opener.save(
+                    call.argument<String>("id")!!,
+                    call.argument<String>("mimeType").orEmpty(),
+                    call.argument<String>("fileName"),
+                    result,
+                )
 
                 "readAttachmentUri" ->
                     result.success(store.readUri(call.argument<String>("uri")!!))
@@ -382,6 +387,7 @@ class SmsBridge(
     /** Relaie l'issue de la boîte de dialogue de rôle vers l'appel Dart en attente. */
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         if (picker.onActivityResult(requestCode, resultCode, data)) return true
+        if (opener.onActivityResult(requestCode, resultCode, data)) return true
         if (requestCode != ROLE_REQUEST_CODE) return false
         // On ne se fie pas au `resultCode` : sur certains OEM il vaut CANCELED
         // alors que le rôle a bien été accordé. La seule vérité est l'état du

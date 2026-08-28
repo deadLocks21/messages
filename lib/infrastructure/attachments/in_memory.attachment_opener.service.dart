@@ -8,11 +8,13 @@ import 'package:messages/core/domain/services/attachment_opener.service.dart';
 /// application ne sait le faire.
 class InMemoryAttachmentOpener implements AttachmentOpener {
   final List<String> opened = [];
+  final List<String> saved = [];
 
-  /// Ce que répondra la prochaine ouverture.
+  /// Ce que répondront la prochaine ouverture et le prochain enregistrement.
   bool canOpen;
+  bool canSave;
 
-  InMemoryAttachmentOpener({this.canOpen = true});
+  InMemoryAttachmentOpener({this.canOpen = true, this.canSave = true});
 
   @override
   Future<bool> open(
@@ -22,5 +24,15 @@ class InMemoryAttachmentOpener implements AttachmentOpener {
   }) async {
     opened.add(attachmentId);
     return canOpen;
+  }
+
+  @override
+  Future<bool> save(
+    String attachmentId, {
+    required String mimeType,
+    String? fileName,
+  }) async {
+    saved.add(attachmentId);
+    return canSave;
   }
 }
