@@ -16,8 +16,10 @@ import 'package:messages/ui/pages/conversation/widgets/message_bubble.widget.dar
 import 'package:messages/ui/pages/conversation/widgets/message_composer.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_options.sheet.dart';
 import 'package:messages/ui/pages/conversation/widgets/timeline_separator.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/voice_recorder.widget.dart';
 import 'package:messages/ui/providers/attachment_providers.dart';
 import 'package:messages/ui/providers/conversation_providers.dart';
+import 'package:messages/ui/providers/voice_recorder.provider.dart';
 import 'package:messages/ui/router/app_router.dart';
 import 'package:messages/ui/theme/app_colors.dart';
 import 'package:messages/ui/widgets/avatar.widget.dart';
@@ -120,13 +122,32 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                       ),
               ),
             ),
-            AttachmentTrayBar(threadId: widget.threadId),
-            MessageComposer(
-              controller: _composer,
-              enabled: canSend,
-              onSend: _send,
-              onAttach: _onAttach,
-              hasAttachments: attachments.isNotEmpty,
+            // Une seule zone sûre pour tout le bas de l'écran : le champ et
+            // le panneau s'y empilent, et l'encoche du bas n'est comptée
+            // qu'une fois.
+            SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AttachmentTrayBar(threadId: widget.threadId),
+                  MessageComposer(
+                    controller: _composer,
+                    enabled: canSend,
+                    onSend: _send,
+                    onAttach: _onAttach,
+                    onVoice: _onVoice,
+                    hasAttachments: attachments.isNotEmpty,
+                  ),
+                  // Sous le champ, et non par-dessus : dans l'app d'origine le
+                  // panneau pousse le fil vers le haut sans jamais masquer ce
+                  // qu'on vient d'écrire.
+                  VoiceRecorderPanel(
+                    threadId: widget.threadId,
+                    onError: _onVoiceError,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -242,6 +263,23 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       case MessageAction.resend:
         await _resend(message);
     }
+  }
+
+  /// Ouvre le panneau d'enregistrement, sans encore ouvrir le micro : la
+  /// permission se demandera au geste suivant, là où l'utilisateur comprend
+  /// pourquoi on la lui demande.
+  void _onVoice() =>
+      ref.read(voiceRecorderProvider(widget.threadId).notifier).open();
+
+  /// Le micro refusé, ou l'enregistrement qui ne démarre pas. Les deux laissent
+  /// l'utilisateur devant un panneau qui ne fait rien : le silence passerait
+  /// pour une panne.
+  void _onVoiceError(Object error) {
+    if (error is SmsException) {
+      _announce(error.message);
+      return;
+    }
+    _announce('L\'enregistrement n\'a pas pu démarrer.');
   }
 
   /// Ouvre le panneau des sources, puis pose sur le plateau ce qui en revient.

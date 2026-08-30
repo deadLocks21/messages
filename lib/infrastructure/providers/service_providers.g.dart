@@ -339,6 +339,54 @@ final class PickAttachmentsUseCaseProvider
 String _$pickAttachmentsUseCaseHash() =>
     r'cc02faed15327d26aac818147c315c624f294549';
 
+@ProviderFor(recordVoiceMessageUseCase)
+final recordVoiceMessageUseCaseProvider = RecordVoiceMessageUseCaseProvider._();
+
+final class RecordVoiceMessageUseCaseProvider
+    extends
+        $FunctionalProvider<
+          RecordVoiceMessageUseCase,
+          RecordVoiceMessageUseCase,
+          RecordVoiceMessageUseCase
+        >
+    with $Provider<RecordVoiceMessageUseCase> {
+  RecordVoiceMessageUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'recordVoiceMessageUseCaseProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$recordVoiceMessageUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<RecordVoiceMessageUseCase> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  RecordVoiceMessageUseCase create(Ref ref) {
+    return recordVoiceMessageUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(RecordVoiceMessageUseCase value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<RecordVoiceMessageUseCase>(value),
+    );
+  }
+}
+
+String _$recordVoiceMessageUseCaseHash() =>
+    r'fb8045132fcf2212236cf6f3239654141c8188e3';
+
 @ProviderFor(resendMessageUseCase)
 final resendMessageUseCaseProvider = ResendMessageUseCaseProvider._();
 

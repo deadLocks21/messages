@@ -57,11 +57,19 @@ object AudioWaveform {
         cache[partId]?.let { return resample(it, buckets) }
         if (partId in failed) return null
 
+        // Seules les parties du stock se retiennent sur le disque : leur
+        // contenu ne change jamais, et leur `_id` en est la clé. Un brouillon,
+        // lui, vit le temps d'une rédaction — le retenir laisserait des
+        // silhouettes orphelines derrière chaque vocal jeté.
+        val durable = AudioSource.isStoredPart(partId)
+
         // Le cache mémoire meurt avec le processus : sans celui du disque,
         // chaque lancement de l'app redécoderait les mêmes vocaux.
-        readCache(context, partId)?.let { stored ->
-            cache[partId] = stored
-            return resample(stored, buckets)
+        if (durable) {
+            readCache(context, partId)?.let { stored ->
+                cache[partId] = stored
+                return resample(stored, buckets)
+            }
         }
 
         val frames = runCatching { decode(context, partId) }.getOrNull()
@@ -70,7 +78,7 @@ object AudioWaveform {
             return null
         }
         cache[partId] = frames
-        writeCache(context, partId, frames)
+        if (durable) writeCache(context, partId, frames)
         return resample(frames, buckets)
     }
 
@@ -88,7 +96,7 @@ object AudioWaveform {
         val frames = ArrayList<Double>()
 
         try {
-            extractor.setDataSource(context, MmsStore.partUri(partId), null)
+            extractor.setDataSource(context, AudioSource.uriOf(partId), null)
 
             val track = (0 until extractor.trackCount).firstOrNull { index ->
                 extractor.getTrackFormat(index)

@@ -11,6 +11,10 @@
     <!-- Envoi d'un MMS : le PDU part vers le MMSC par le réseau de données de
          l'opérateur, que le service MMS du système active à la demande. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Message vocal. Demandée au moment du geste, jamais à l'accueil avec les
+         SMS : qui n'envoie pas de vocal n'a aucune raison d'accorder son micro
+         à une application de SMS. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
     <application
         android:label="Messages"

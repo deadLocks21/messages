@@ -342,6 +342,62 @@ final class InMemoryAttachmentPickerProvider
 String _$inMemoryAttachmentPickerHash() =>
     r'57759d6437a4b3e4f1538d4f1583d9a69883bb30';
 
+/// Enregistreur simulé. Exposé à part pour la même raison que le sélecteur :
+/// c'est par lui qu'un test simule un micro refusé.
+
+@ProviderFor(inMemoryAudioRecorder)
+final inMemoryAudioRecorderProvider = InMemoryAudioRecorderProvider._();
+
+/// Enregistreur simulé. Exposé à part pour la même raison que le sélecteur :
+/// c'est par lui qu'un test simule un micro refusé.
+
+final class InMemoryAudioRecorderProvider
+    extends
+        $FunctionalProvider<
+          InMemoryAudioRecorderService,
+          InMemoryAudioRecorderService,
+          InMemoryAudioRecorderService
+        >
+    with $Provider<InMemoryAudioRecorderService> {
+  /// Enregistreur simulé. Exposé à part pour la même raison que le sélecteur :
+  /// c'est par lui qu'un test simule un micro refusé.
+  InMemoryAudioRecorderProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'inMemoryAudioRecorderProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$inMemoryAudioRecorderHash();
+
+  @$internal
+  @override
+  $ProviderElement<InMemoryAudioRecorderService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  InMemoryAudioRecorderService create(Ref ref) {
+    return inMemoryAudioRecorder(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(InMemoryAudioRecorderService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<InMemoryAudioRecorderService>(value),
+    );
+  }
+}
+
+String _$inMemoryAudioRecorderHash() =>
+    r'a4c80bbf10fe006c6597245de22739d28a9115a6';
+
 /// Source des changements du stock. La doublure InMemory *est* sa propre
 /// source : elle émet quand on la modifie.
 

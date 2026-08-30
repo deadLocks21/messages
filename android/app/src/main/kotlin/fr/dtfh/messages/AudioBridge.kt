@@ -15,7 +15,8 @@ import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.Executors
 
 /**
- * Côté natif du canal `fr.dtfh.messages/audio` : l'écoute des vocaux.
+ * Côté natif du canal `fr.dtfh.messages/audio` : l'écoute des vocaux, et leur
+ * enregistrement.
  *
  * Un canal à part de [SmsBridge], et non une poignée de méthodes ajoutées au
  * sien : celui-ci parle au `ContentProvider` sur un fil dédié, alors qu'un
@@ -39,13 +40,29 @@ class AudioBridge(
         const val METHOD_CHANNEL = "fr.dtfh.messages/audio"
         const val EVENT_CHANNEL = "fr.dtfh.messages/audio_events"
 
+        /**
+         * L'enregistrement a son propre flux : la lecture publie une position
+         * dix fois par seconde, l'enregistrement un niveau de micro, et les
+         * mêler obligerait chaque abonné à trier ce qui ne le regarde pas.
+         */
+        const val RECORDER_EVENT_CHANNEL = "fr.dtfh.messages/recorder_events"
+
         /** Cadence de publication de la position. */
         private const val TICK_MS = 100L
     }
 
     private val methodChannel = MethodChannel(messenger, METHOD_CHANNEL)
     private val eventChannel = EventChannel(messenger, EVENT_CHANNEL)
+    private val recorderChannel = EventChannel(messenger, RECORDER_EVENT_CHANNEL)
     private val handler = Handler(Looper.getMainLooper())
+
+    /**
+     * Le micro, sur ce canal-ci et pas un autre : lecture et enregistrement
+     * vivent tous deux sur le fil principal et se disputent le même focus
+     * audio. On n'enregistre pas pendant qu'on écoute — c'est `recordStart`
+     * qui arrête le lecteur, pas l'appelant.
+     */
+    private val recorder = AudioRecorder(context)
 
     /**
      * Où se mesurent les formes d'onde.
@@ -92,14 +109,36 @@ class AudioBridge(
     fun attach() {
         methodChannel.setMethodCallHandler(this)
         eventChannel.setStreamHandler(this)
+        recorderChannel.setStreamHandler(recorderEvents)
+        recorder.listener = AudioRecorder.Listener { state ->
+            handler.post { recorderSink?.success(state) }
+        }
     }
 
     fun detach() {
         methodChannel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
+        recorderChannel.setStreamHandler(null)
+        recorder.detach()
         release()
         events = null
+        recorderSink = null
         waveformExecutor.shutdown()
+    }
+
+    private var recorderSink: EventChannel.EventSink? = null
+
+    private val recorderEvents = object : EventChannel.StreamHandler {
+        override fun onListen(arguments: Any?, sink: EventChannel.EventSink?) {
+            recorderSink = sink
+            // Un panneau qui se rouvre pendant un enregistrement doit savoir
+            // immédiatement quoi peindre, sans attendre le relevé suivant.
+            recorder.publishCurrentState()
+        }
+
+        override fun onCancel(arguments: Any?) {
+            recorderSink = null
+        }
     }
 
     override fun onListen(arguments: Any?, sink: EventChannel.EventSink?) {
@@ -134,6 +173,31 @@ class AudioBridge(
             "stop" -> {
                 release()
                 emit()
+                result.success(null)
+            }
+
+            "recordStart" -> {
+                // Écouter et parler en même temps n'a pas de sens, et le focus
+                // audio ne se partage pas : le vocal qui jouait s'arrête.
+                release()
+                emit()
+                runCatching {
+                    recorder.start(call.argument<Int>("maxDurationMs") ?: 0)
+                }.fold(
+                    onSuccess = { result.success(null) },
+                    onFailure = { error ->
+                        result.error("record_failed", error.message, null)
+                    },
+                )
+            }
+
+            "recordStop" -> {
+                val minimumMs = call.argument<Int>("minimumMs") ?: 0
+                result.success(recorder.take(minimumMs))
+            }
+
+            "recordDiscard" -> {
+                recorder.discard()
                 result.success(null)
             }
 
@@ -226,7 +290,7 @@ class AudioBridge(
         player = created
 
         val opened = runCatching {
-            created.setDataSource(context, MmsStore.partUri(attachmentId))
+            created.setDataSource(context, AudioSource.uriOf(attachmentId))
             created.prepareAsync()
         }.isSuccess
         if (!opened) finish() else emit()

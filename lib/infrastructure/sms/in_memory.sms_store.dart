@@ -210,15 +210,35 @@ class InMemorySmsStore implements SmsEventSource {
     _events.add(const StoreChanged());
   }
 
+  /// Durée d'un brouillon sonore, par son **URI**.
+  ///
+  /// Indexée par l'URI et non par l'identifiant du brouillon : c'est l'URI que
+  /// le lecteur reçoit quand on réécoute un vocal qui n'est pas encore parti.
+  final Map<String, Duration> _draftDurations = {};
+
   /// Déclare un brouillon et son contenu : ce que produit le sélecteur
   /// simulé, en attendant l'envoi.
-  void registerDraft(AttachmentDraft draft, Uint8List bytes) =>
-      _draftBytes[draft.id] = bytes;
+  void registerDraft(AttachmentDraft draft, Uint8List bytes) {
+    _draftBytes[draft.id] = bytes;
+    final duration = draft.duration;
+    if (duration != null) _draftDurations[draft.uri] = duration;
+  }
 
   Uint8List? draftBytesOf(String draftId) => _draftBytes[draftId];
 
   /// Un brouillon retiré du plateau libère son contenu.
   void discardDraft(String draftId) => _draftBytes.remove(draftId);
+
+  /// Un brouillon jeté avant même d'avoir été posé sur le plateau — le vocal
+  /// que « Recommencer » efface.
+  void discardDraftSource(String uri) => _draftDurations.remove(uri);
+
+  /// Durée d'un son, qu'il soit dans le stock ou encore en rédaction.
+  ///
+  /// Les deux formes qu'accepte `AudioPlayerService` : un identifiant de
+  /// partie, ou l'URI d'un brouillon.
+  Duration? soundDurationOf(String source) =>
+      attachmentById(source)?.duration ?? _draftDurations[source];
 
   /// Une pièce jointe du stock, relue comme un brouillon — ce dont a besoin le
   /// renvoi d'un MMS en échec.
@@ -270,6 +290,10 @@ class InMemorySmsStore implements SmsEventSource {
       byteSize: draft.byteSize,
       width: draft.width,
       height: draft.height,
+      // La durée d'un vocal enregistré est déjà connue : c'est nous qui tenions
+      // le micro. Le vrai stock, lui, la remesure au décodeur — il n'a pas
+      // assisté à l'enregistrement.
+      durationMs: draft.durationMs,
     );
     final bytes = _draftBytes[draft.id];
     if (bytes != null) _attachmentBytes[attachment.id] = bytes;

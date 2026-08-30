@@ -116,6 +116,9 @@ class InMemoryAudioPlayerService implements AudioPlayerService {
     if (!_events.isClosed) _events.add(state);
   }
 
+  /// Le port accepte deux formes d'identifiant — une partie du stock, ou l'URI
+  /// d'un brouillon qu'on réécoute avant de l'envoyer. Le stock simulé sait
+  /// répondre pour les deux.
   Duration _durationOf(String attachmentId) =>
-      _store.attachmentById(attachmentId)?.duration ?? unknownDuration;
+      _store.soundDurationOf(attachmentId) ?? unknownDuration;
 }

@@ -279,14 +279,15 @@ class AttachmentPicker(private val activity: Activity) {
 }
 
 /**
- * Supprime ce qu'une sélection a laissé dans notre cache (photo prise puis
- * retirée du plateau, vCard exportée). Une URI que l'app ne possède pas est
- * laissée intacte : ce n'est pas à nous d'effacer la galerie de l'utilisateur.
+ * Supprime ce qu'une rédaction a laissé dans notre cache (photo prise puis
+ * retirée du plateau, vCard exportée, vocal enregistré). Une URI que l'app ne
+ * possède pas est laissée intacte : ce n'est pas à nous d'effacer la galerie
+ * de l'utilisateur.
  */
 fun discard(activity: Activity, uri: Uri) {
     if (uri.authority != "${activity.packageName}.fileprovider") return
     val name = uri.lastPathSegment?.substringAfterLast('/') ?: return
-    for (directory in listOf("captures", "mms")) {
+    for (directory in listOf("captures", "mms", "voice")) {
         val file = File(File(activity.cacheDir, directory), name)
         if (file.exists()) {
             file.delete()

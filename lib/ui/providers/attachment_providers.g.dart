@@ -88,7 +88,7 @@ final class AttachmentTrayProvider
   }
 }
 
-String _$attachmentTrayHash() => r'9d5e53367e8a6b230a9f0631db93541ac7a4ff99';
+String _$attachmentTrayHash() => r'911668accf9f7869ec099a84c7d571e9165a42f7';
 
 /// Plateau de pièces jointes d'un fil en cours de rédaction.
 ///

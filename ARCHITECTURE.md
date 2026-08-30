@@ -62,15 +62,24 @@ d'imposer le sien.
   | `accentSoft` (bandeaux, puces) | primaire | 90 | 30 | `#DAE2FF` |
   | `fab` | primaire | 66 | 66 | `#789DFF` |
   | `bubbleOutgoing` | primaire | 90 | 77 | `#DAE2FF` / `#A7BAFF` |
+  | `voice` (bouton du vocal) | tertiaire | 90 | 30 | `#FFD6F7` / `#DBE9A0` |
+  | `panel` (enregistrement) | secondaire | 90 | 30 | `#DAE5FB` / `#F1E3D0` |
+  | `record` (bouton micro) | secondaire | 40 | 80 | `#3C4279` |
 
-  Trois de ces tons ne sont **pas** des rôles Material standard, et c'est ce qui
-  distingue l'app d'origine d'une app Material par défaut : le FAB a un ton
-  médian, le même en clair et en sombre ; et la bulle envoyée reste **claire à
-  texte foncé** en thème sombre (t77) au lieu de basculer sur le conteneur
-  sombre (t30).
+  Trois de ces tons — ceux du **FAB** et de la **bulle envoyée** — ne sont pas
+  des rôles Material standard, et c'est ce qui distingue l'app d'origine d'une
+  app Material par défaut : le FAB a un ton médian, le même en clair et en
+  sombre ; et la bulle envoyée reste **claire à texte foncé** en thème sombre
+  (t77) au lieu de basculer sur le conteneur sombre (t30). Les autres sont bien
+  les rôles de la spécification, appliqués là où l'app d'origine les applique.
 - Dans l'app d'origine, les barres, les bulles reçues et le champ de rédaction
   sont **exactement la même couleur** — d'où `surfaceAlt == background`. Un bloc
   posé à même le fond doit donc prendre `surface`, pas `surfaceAlt`.
+- Le **bouton du message vocal** est la seule chose de l'app peinte dans la
+  palette **tertiaire**, et c'est ce qui le fait repérer au bout d'un champ de
+  saisie : il n'a la couleur d'aucun autre bouton — rose sur un appareil bleu,
+  vert sur un appareil pêche. Les deux relevés de la table ci-dessus sont bien
+  le même token sur deux appareils.
 - Exception assumée : les **pastilles d'avatar** (`GmPalette.avatarSlots`) ne
   suivent pas le thème. L'app d'origine non plus : sur un appareil à palette
   bleue, elle affiche les mêmes pastilles jaune et orange. Elles servent à
@@ -143,6 +152,65 @@ Un message sans pièce jointe suit la voie SMS d'avant, inchangée.
 - La **réception** de MMS n'est pas gérée : `WAP_PUSH_DELIVER` ne porte qu'une
   notification de dépôt à décoder puis à télécharger auprès du MMSC. Ce qui est
   déjà dans `content://mms` s'affiche, en revanche.
+
+## Enregistrer un vocal : la limite se pose sur la durée, pas sur le fichier
+
+Une photo trop lourde s'allège ; une phrase, non. La seule façon de faire tenir
+un vocal dans un MMS est de le **raccourcir**, et cela ne se décide pas après
+coup : découvrir au retour du MMSC que le message était trop long ferait perdre
+ce qui vient d'être dit, et une phrase se redit mal.
+
+- Le port `AudioRecorderService` est le jumeau du lecteur : **un seul micro**,
+  un état publié que le panneau reconnaît, et des octets qui ne traversent pas
+  le canal — ce que rend `stop()` est une URI, comme le sélecteur de pièces
+  jointes.
+- **AMR-NB, 12,2 kbit/s.** C'est le codec de parole du cœur de la spécification
+  MMS — celui qu'un téléphone d'en face lit sans transcodage — et son débit
+  *constant* est ce qui permet de dire, **avant** d'enregistrer, combien de
+  temps le vocal peut durer. `VoiceRecording.maxDurationIn(limits)` divise le
+  budget de l'opérateur par ce débit ; c'est la même limite lue que pour les
+  photos, exprimée en secondes. Un AAC de meilleure qualité tiendrait quatre
+  fois moins longtemps dans le même budget, sans garantie d'être lu à l'arrivée.
+- L'arrêt au budget est confié à `MediaRecorder.setMaxDuration` : compter côté
+  Dart pour couper laisserait passer le trajet du message, et un fichier hors
+  budget. Le micro se referme donc seul, le port passe en `recorded`, et ce qui
+  a été dit reste joignable.
+- La **permission micro se demande au geste**, pas à l'accueil avec les SMS :
+  qui n'envoie jamais de vocal n'a aucune raison d'accorder son micro à une
+  application de SMS. C'est aussi ce que fait l'app d'origine.
+- La source est `VOICE_COMMUNICATION` — celle que le système traite (bruit de
+  fond, écho, gain), et c'est ce que le panneau annonce sous « Suppression du
+  bruit ». Là où l'appareil ne la sert pas, le micro nu prend le relais et le
+  panneau **ne promet plus rien** : la pastille disparaît, sa place reste
+  réservée pour que la piste ne se déplace pas d'un appareil à l'autre.
+- Le niveau du micro est **relevé**, dix fois par seconde, par
+  `getMaxAmplitude()` — le pendant exact de la position de lecture. La piste
+  est **ancrée à droite** : le relevé le plus récent au bord droit, les
+  précédents défilant vers la gauche (relevé à l'émulateur : la piste part du
+  bord droit à deux secondes, atteint le bord gauche vers cinq, puis défile).
+  Un silence y reste une barre de hauteur minimale — c'est ce minimum, et non
+  un dessin de secours, qui donne à un enregistrement muet l'allure pointillée
+  de l'app d'origine.
+- La durée annoncée est **relue du fichier** (`MediaMetadataRetriever`) et non
+  reprise du compteur : c'est ce qui a réellement été écrit qui partira. Elle
+  voyage ensuite dans `AttachmentDraft.durationMs` — un vocal qu'on vient
+  d'enregistrer n'a pas à être remesuré, contrairement à celui qu'on reçoit.
+- Le fichier vit dans `cacheDir/voice/`, prêté par le `FileProvider` comme les
+  photos prises et les vCards : c'est sous cette forme que l'envoi du MMS le
+  relit. « Annuler » et « Recommencer » l'effacent — une seule règle, dans les
+  deux états où le bouton existe ; seul le sort du **panneau** les distingue.
+- Le panneau reprend les trois états de l'app d'origine (invitation,
+  enregistrement, relecture) et ses trois boutons. **Exception assumée** :
+  l'app d'origine ouvre sur une illustration, remplacée ici par le geste à
+  faire — une illustration qui n'existe pas dans l'app se dessinerait mal et
+  vieillirait seule. Le maintien-appuyé (« Faire glisser pour annuler », verrou
+  à faire glisser vers le haut) n'est **pas** repris : c'est un raccourci vers
+  le même enregistrement, et le panneau le couvre entièrement.
+- Le vocal enregistré s'écoute **avec le lecteur des bulles**, pas avec un
+  aperçu à part : `AudioPlayerService` accepte indifféremment l'identifiant
+  d'une partie du stock et l'URI d'un brouillon (`AudioSource.uriOf` côté
+  natif), et `AudioWaveform` aussi. Seules les parties du stock se retiennent
+  sur le disque : la silhouette d'un brouillon vivrait plus longtemps que lui.
 
 ## Écouter un vocal : un seul lecteur, et il vit côté natif
 

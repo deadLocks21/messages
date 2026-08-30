@@ -88,6 +88,33 @@ abstract final class GmTones {
   /// puisque la bulle reste claire. Relevé #13183D / #141E42.
   static const GmTone onBubbleOutgoing = (light: 10, dark: 10);
 
+  /// Le bouton du message vocal, à droite du champ. La seule chose de l'app
+  /// qui puise dans la palette **tertiaire** — d'où sa couleur, qui n'est
+  /// celle d'aucun autre bouton : rose sur un appareil bleu (relevé #FFD6F7),
+  /// vert sur un appareil pêche (relevé #DBE9A0). C'est le `tertiaryContainer`
+  /// de Material 3.
+  static const GmTone voice = (light: 90, dark: 30);
+  static const GmTone onVoice = (light: 10, dark: 90);
+
+  /// Le panneau d'enregistrement, sous le champ de rédaction. Puise dans la
+  /// palette **secondaire** — ni le fond (`background`), ni la bulle
+  /// (`accentSoft`) : un panneau qui prendrait le ton du fond ne se
+  /// détacherait plus du fil qu'il recouvre.
+  ///
+  /// Relevé #DAE5FB sur l'émulateur, #F1E3D0 sur l'appareil pêche. Le
+  /// `secondaryContainer` reconstruit ici en donne #DFE0FF : la teinte n'est
+  /// pas au pixel près, l'app d'origine ne dérivant pas ses palettes tout à
+  /// fait comme nous. C'est le rôle qui est juste — et il est le seul, entre
+  /// le fond et la bulle, à tenir cette place-là.
+  static const GmTone panel = (light: 90, dark: 30);
+  static const GmTone onPanel = (light: 10, dark: 90);
+
+  /// Le bouton d'enregistrement au milieu du panneau : le ton médian de la
+  /// même palette secondaire — relevé #3C4279, un indigo sourd et non le
+  /// presque-noir du texte.
+  static const GmTone record = (light: 40, dark: 80);
+  static const GmTone onRecord = (light: 100, dark: 20);
+
   static const GmTone danger = (light: 40, dark: 80);
 }
 
@@ -161,6 +188,12 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.onBubbleIncoming,
     required this.bubbleOutgoing,
     required this.onBubbleOutgoing,
+    required this.voice,
+    required this.onVoice,
+    required this.panel,
+    required this.onPanel,
+    required this.record,
+    required this.onRecord,
     required this.danger,
   });
 
@@ -193,6 +226,12 @@ class AppColors extends ThemeExtension<AppColors> {
       onBubbleIncoming: onSurface,
       bubbleOutgoing: p.primary.tone(t(GmTones.bubbleOutgoing)),
       onBubbleOutgoing: p.neutral.tone(t(GmTones.onBubbleOutgoing)),
+      voice: p.tertiary.tone(t(GmTones.voice)),
+      onVoice: p.tertiary.tone(t(GmTones.onVoice)),
+      panel: p.secondary.tone(t(GmTones.panel)),
+      onPanel: p.secondary.tone(t(GmTones.onPanel)),
+      record: p.secondary.tone(t(GmTones.record)),
+      onRecord: p.secondary.tone(t(GmTones.onRecord)),
       danger: p.error.tone(t(GmTones.danger)),
     );
   }
@@ -228,6 +267,19 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color onBubbleIncoming;
   final Color bubbleOutgoing;
   final Color onBubbleOutgoing;
+
+  /// Le bouton du message vocal — la seule tache de tertiaire de l'app.
+  final Color voice;
+  final Color onVoice;
+
+  /// Le panneau d'enregistrement, posé sous le champ de rédaction.
+  final Color panel;
+  final Color onPanel;
+
+  /// Le bouton qui ouvre le micro, au milieu de ce panneau.
+  final Color record;
+  final Color onRecord;
+
   final Color danger; // échec d'envoi, suppression
 
   /// Couleur de la pastille d'avatar pour un créneau donné.
@@ -263,6 +315,12 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? onBubbleIncoming,
     Color? bubbleOutgoing,
     Color? onBubbleOutgoing,
+    Color? voice,
+    Color? onVoice,
+    Color? panel,
+    Color? onPanel,
+    Color? record,
+    Color? onRecord,
     Color? danger,
   }) {
     return AppColors(
@@ -283,6 +341,12 @@ class AppColors extends ThemeExtension<AppColors> {
       onBubbleIncoming: onBubbleIncoming ?? this.onBubbleIncoming,
       bubbleOutgoing: bubbleOutgoing ?? this.bubbleOutgoing,
       onBubbleOutgoing: onBubbleOutgoing ?? this.onBubbleOutgoing,
+      voice: voice ?? this.voice,
+      onVoice: onVoice ?? this.onVoice,
+      panel: panel ?? this.panel,
+      onPanel: onPanel ?? this.onPanel,
+      record: record ?? this.record,
+      onRecord: onRecord ?? this.onRecord,
       danger: danger ?? this.danger,
     );
   }
@@ -308,6 +372,12 @@ class AppColors extends ThemeExtension<AppColors> {
       onBubbleIncoming: Color.lerp(onBubbleIncoming, other.onBubbleIncoming, t)!,
       bubbleOutgoing: Color.lerp(bubbleOutgoing, other.bubbleOutgoing, t)!,
       onBubbleOutgoing: Color.lerp(onBubbleOutgoing, other.onBubbleOutgoing, t)!,
+      voice: Color.lerp(voice, other.voice, t)!,
+      onVoice: Color.lerp(onVoice, other.onVoice, t)!,
+      panel: Color.lerp(panel, other.panel, t)!,
+      onPanel: Color.lerp(onPanel, other.onPanel, t)!,
+      record: Color.lerp(record, other.record, t)!,
+      onRecord: Color.lerp(onRecord, other.onRecord, t)!,
       danger: Color.lerp(danger, other.danger, t)!,
     );
   }

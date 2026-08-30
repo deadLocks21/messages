@@ -10,6 +10,9 @@ import 'package:messages/core/domain/model/waveform.dart';
 abstract interface class AudioWaveformService {
   /// Silhouette de [attachmentId] en [buckets] tranches.
   ///
+  /// [attachmentId] désigne, comme pour [AudioPlayerService], soit une partie
+  /// du stock, soit l'URI d'un brouillon en cours de rédaction.
+  ///
   /// Rend `null` quand le son ne se décode pas — format inconnu, partie
   /// effacée du stock : la bulle garde alors une piste neutre plutôt que de
   /// dessiner un relief imaginaire.

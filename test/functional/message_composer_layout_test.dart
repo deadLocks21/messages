@@ -23,6 +23,7 @@ void main() {
               onSend: (_) {},
               enabled: true,
               onAttach: () {},
+              onVoice: () {},
             ),
           ),
         ),
@@ -64,13 +65,45 @@ void main() {
     expect(plus.center.dy, greaterThan(box.center.dy));
   });
 
-  testWidgets('le disque d\'envoi fait la même hauteur que la pilule', (
+  testWidgets('le disque fait la même hauteur que la pilule, vocal ou envoi', (
     tester,
   ) async {
-    await pumpComposer(tester);
+    // Les deux boutons se succèdent au même endroit : ils doivent se mesurer
+    // sur la pilule de la même façon, sinon la ligne saute à la première
+    // lettre tapée.
+    final controller = await pumpComposer(tester);
+
+    final voice = tester.getRect(find.byKey(const Key('recordVoice')));
+    expect(voice.height, MessageComposer.pillHeight);
+    expect(voice.center.dy, closeTo(pill(tester).center.dy, 0.5));
+
+    controller.text = 'Coucou';
+    await tester.pumpAndSettle();
 
     final send = tester.getRect(find.byKey(const Key('sendMessage')));
-    expect(send.height, MessageComposer.pillHeight);
-    expect(send.center.dy, closeTo(pill(tester).center.dy, 0.5));
+    expect(send, voice);
+  });
+
+  testWidgets('le disque est le vocal tant qu\'il n\'y a rien à envoyer', (
+    tester,
+  ) async {
+    // C'est le geste qui rend le vocal atteignable : il occupe la place d'un
+    // bouton d'envoi qui, le champ vide, n'aurait rien à envoyer.
+    final controller = await pumpComposer(tester);
+
+    expect(find.byKey(const Key('recordVoice')), findsOneWidget);
+    expect(find.byKey(const Key('sendMessage')), findsNothing);
+
+    controller.text = 'Coucou';
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('sendMessage')), findsOneWidget);
+    expect(find.byKey(const Key('recordVoice')), findsNothing);
+
+    // Un champ vidé rend la place au vocal.
+    controller.text = '';
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('recordVoice')), findsOneWidget);
   });
 }

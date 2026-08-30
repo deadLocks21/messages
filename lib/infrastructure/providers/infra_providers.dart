@@ -5,6 +5,7 @@ import 'package:messages/core/domain/services/compose_request.source.dart';
 import 'package:messages/core/domain/services/sms_event.source.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_opener.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_picker.service.dart';
+import 'package:messages/infrastructure/audio/in_memory.audio_recorder.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/seed/demo_seed.dart';
@@ -58,6 +59,17 @@ InMemoryAttachmentOpener inMemoryAttachmentOpener(Ref ref) =>
 @Riverpod(keepAlive: true)
 InMemoryAttachmentPicker inMemoryAttachmentPicker(Ref ref) =>
     InMemoryAttachmentPicker(ref.watch(inMemorySmsStoreProvider));
+
+/// Enregistreur simulé. Exposé à part pour la même raison que le sélecteur :
+/// c'est par lui qu'un test simule un micro refusé.
+@Riverpod(keepAlive: true)
+InMemoryAudioRecorderService inMemoryAudioRecorder(Ref ref) {
+  final recorder = InMemoryAudioRecorderService(
+    ref.watch(inMemorySmsStoreProvider),
+  );
+  ref.onDispose(recorder.dispose);
+  return recorder;
+}
 
 /// Source des changements du stock. La doublure InMemory *est* sa propre
 /// source : elle émet quand on la modifie.

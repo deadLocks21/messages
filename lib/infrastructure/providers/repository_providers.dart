@@ -3,6 +3,7 @@ import 'package:messages/core/domain/services/attachment_compressor.service.dart
 import 'package:messages/core/domain/services/attachment_opener.service.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
 import 'package:messages/core/domain/services/audio_player.service.dart';
+import 'package:messages/core/domain/services/audio_recorder.service.dart';
 import 'package:messages/core/domain/services/audio_waveform.service.dart';
 import 'package:messages/core/domain/services/mms_configuration.service.dart';
 import 'package:messages/core/domain/services/contact.repository.dart';
@@ -22,6 +23,7 @@ import 'package:messages/infrastructure/attachments/in_memory.attachment.reposit
 import 'package:messages/infrastructure/attachments/in_memory.attachment_compressor.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
 import 'package:messages/infrastructure/audio/android.audio_player.service.dart';
+import 'package:messages/infrastructure/audio/android.audio_recorder.service.dart';
 import 'package:messages/infrastructure/audio/android.audio_waveform.service.dart';
 import 'package:messages/infrastructure/audio/in_memory.audio_player.service.dart';
 import 'package:messages/infrastructure/audio/in_memory.audio_waveform.service.dart';
@@ -80,6 +82,16 @@ AudioPlayerService audioPlayerService(Ref ref) {
   final player = InMemoryAudioPlayerService(ref.watch(inMemorySmsStoreProvider));
   ref.onDispose(player.dispose);
   return player;
+}
+
+/// Enregistreur de vocaux. `keepAlive`, comme le lecteur : un enregistrement
+/// en cours ne doit pas s'interrompre parce qu'un écran s'est reconstruit.
+@Riverpod(keepAlive: true)
+AudioRecorderService audioRecorderService(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidAudioRecorderService(logger: ref.watch(loggerProvider));
+  }
+  return ref.watch(inMemoryAudioRecorderProvider);
 }
 
 /// Mesure de la silhouette des vocaux. Le cache est côté natif, là où se

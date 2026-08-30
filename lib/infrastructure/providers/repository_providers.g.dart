@@ -215,6 +215,62 @@ final class AudioPlayerServiceProvider
 String _$audioPlayerServiceHash() =>
     r'08c0de25b0b73261f4e772e91ef1511c2469a1ef';
 
+/// Enregistreur de vocaux. `keepAlive`, comme le lecteur : un enregistrement
+/// en cours ne doit pas s'interrompre parce qu'un écran s'est reconstruit.
+
+@ProviderFor(audioRecorderService)
+final audioRecorderServiceProvider = AudioRecorderServiceProvider._();
+
+/// Enregistreur de vocaux. `keepAlive`, comme le lecteur : un enregistrement
+/// en cours ne doit pas s'interrompre parce qu'un écran s'est reconstruit.
+
+final class AudioRecorderServiceProvider
+    extends
+        $FunctionalProvider<
+          AudioRecorderService,
+          AudioRecorderService,
+          AudioRecorderService
+        >
+    with $Provider<AudioRecorderService> {
+  /// Enregistreur de vocaux. `keepAlive`, comme le lecteur : un enregistrement
+  /// en cours ne doit pas s'interrompre parce qu'un écran s'est reconstruit.
+  AudioRecorderServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'audioRecorderServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$audioRecorderServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<AudioRecorderService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  AudioRecorderService create(Ref ref) {
+    return audioRecorderService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AudioRecorderService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AudioRecorderService>(value),
+    );
+  }
+}
+
+String _$audioRecorderServiceHash() =>
+    r'6a86e3b42f2632dc0a6d8433df9162ebbffac2eb';
+
 /// Mesure de la silhouette des vocaux. Le cache est côté natif, là où se
 /// trouve le coût : décoder deux fois le même vocal ne dirait rien de plus.
 

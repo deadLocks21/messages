@@ -43,6 +43,23 @@ class AttachmentDto {
     duration: attachment.duration,
   );
 
+  /// Un brouillon vu comme une pièce jointe, pour l'**écouter avant l'envoi**.
+  ///
+  /// L'identifiant est la source audio, pas celui du brouillon : c'est elle que
+  /// le lecteur sait ouvrir, et c'est elle qui distingue deux vocaux dans
+  /// l'état de lecture publié. Un vocal s'écoute d'une seule façon, avant comme
+  /// après l'envoi — le même lecteur, la même bulle.
+  factory AttachmentDto.fromDraft(AttachmentDraftDto draft) => AttachmentDto(
+    id: draft.audioSource,
+    mimeType: draft.mimeType,
+    kind: draft.kind,
+    fileName: draft.fileName,
+    byteSize: draft.byteSize,
+    width: draft.width,
+    height: draft.height,
+    duration: draft.duration,
+  );
+
   /// Rapport largeur/hauteur, quand le stock l'a mesuré. Sert à réserver la
   /// bonne place avant que l'image soit décodée, plutôt que de faire sauter le
   /// fil.
@@ -113,14 +130,28 @@ class AttachmentDraftDto {
   final int? width;
   final int? height;
 
+  /// Durée d'un vocal qu'on vient d'enregistrer. Le plateau l'annonce avant
+  /// l'envoi, comme la bulle le fera après.
+  final Duration? duration;
+
+  /// De quoi **écouter** ce brouillon avant de l'envoyer.
+  ///
+  /// C'est la seule chose que l'UI reçoive de l'URI d'un brouillon, et elle ne
+  /// la lit pas : elle la passe à [AudioPlayerService], qui la comprend au même
+  /// titre qu'un identifiant de partie du stock. Sans elle, un vocal ne serait
+  /// réécoutable qu'une fois parti — trop tard pour le refaire.
+  final String audioSource;
+
   const AttachmentDraftDto({
     required this.id,
     required this.mimeType,
     required this.kind,
     required this.fileName,
     required this.byteSize,
+    required this.audioSource,
     this.width,
     this.height,
+    this.duration,
   });
 
   factory AttachmentDraftDto.fromDomain(AttachmentDraft draft) =>
@@ -130,9 +161,15 @@ class AttachmentDraftDto {
         kind: draft.kind,
         fileName: draft.fileName,
         byteSize: draft.byteSize,
+        audioSource: draft.uri,
         width: draft.width,
         height: draft.height,
+        duration: draft.duration,
       );
 
   String get sizeLabel => AttachmentDto.formatBytes(byteSize);
+
+  /// « 00:06 », ou des tirets tant que la longueur n'est pas connue.
+  String get durationLabel =>
+      duration == null ? '--:--' : AttachmentDto.formatDuration(duration!);
 }

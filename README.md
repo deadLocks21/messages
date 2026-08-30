@@ -15,6 +15,8 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 | **Conversations** | Liste triée (épinglés d'abord), pastille de non-lus, recherche et ses filtres (« Non lues », « Archivées »), archives, mode sélection multiple (épingler, archiver, sourdine, marquer lu, supprimer). |
 | **Fil** | Bulles groupées à la Google Messages, séparateurs de date, états `Envoi… / Envoyé / Distribué / Non distribué`, appui long (copier, transférer, supprimer, détails, réessayer), appel du correspondant. |
 | **Envoi** | SMS simple et multi-parties (compteur de segments), envoi optimiste, accusés de dépôt et de remise, renvoi d'un échec. |
+| **Pièces jointes** | Galerie, appareil photo, fichiers, fiche de contact ; compression des images au plafond de l'opérateur, une pièce jointe par MMS, image rouverte en grand, PDF et vidéos confiés au système. |
+| **Vocaux** | Enregistrement depuis le champ de rédaction (panneau à trois états : invitation, enregistrement avec compteur et piste, relecture), durée bornée au budget MMS de l'opérateur, suppression du bruit annoncée quand l'appareil la sert, envoi en MMS `audio/amr`. |
 | **Réception** | `SMS_DELIVER` → écriture dans le stock + notification + rafraîchissement live de l'UI. |
 | **Rédaction** | Sélecteur de contacts (nom ou numéro), numéro libre, brouillons persistés, transfert d'un message. |
 | **Notifications** | `MessagingStyle` (fil des derniers échanges, nom du contact), **réponse directe** et **marquer comme lu** depuis le volet, groupement + résumé, sourdine par fil respectée, annulation quand le fil est lu dans l'app. |
@@ -24,9 +26,12 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 Reste à faire : notifier les **échecs d'envoi** (« Message non envoyé »), et
 couvrir le Kotlin par des tests instrumentés — `flutter_test` ne l'atteint pas.
 
-Hors périmètre : **MMS** et **RCS**. Les composants Android exigés par le rôle
-d'app par défaut existent (`MmsDeliverReceiver`, `HeadlessSmsSendService`), mais
-les MMS ne sont ni téléchargés ni composés.
+Hors périmètre : le **RCS** ; la **réception** de MMS — les composants exigés
+par le rôle d'app par défaut existent (`MmsDeliverReceiver`,
+`HeadlessSmsSendService`), mais un MMS entrant n'est pas téléchargé auprès du
+MMSC ; et le **maintien-appuyé** sur le bouton du vocal (« Faire glisser pour
+annuler »), raccourci vers le même enregistrement que le panneau couvre déjà
+entièrement.
 
 ## Le stock SMS est la source de vérité
 
@@ -87,12 +92,17 @@ enregistrements pour s'orienter :
 | `sms.platform_error`, `sms.channel_missing` | Le natif a refusé — avec la méthode appelée et son code d'erreur. |
 | `sms.default_app_refused`, `sms.default_app_changed` | L'app n'a pas (ou plus) le droit d'écrire dans le stock. |
 | `attachment.rejected`, `attachment.compressed`, `mms.limits_fallback` | Pourquoi une photo est refusée, ou part plus dégradée que prévu. |
+| `voice.record_started`, `voice.recorded`, `voice.record_discarded`, `voice.record_refused` | Un enregistrement, sa durée, son poids — ou le micro qu'on n'a pas obtenu. |
 | `flutter.error`, `dart.uncaught` | Ce que personne n'avait attrapé. |
 | `provider.failed`, `provider.recovered` | Un provider en échec — l'écran affiche « Erreur : … », et Riverpod ayant attrapé, aucun des deux gestionnaires ci-dessus ne se déclenche. |
 | `app.start_failed` | Le démarrage n'est pas allé au bout. Expédié immédiatement : il n'y aura pas de session suivante pour le raconter. |
 
 Aucun de ces enregistrements ne porte de texte de message ni de numéro : ce sont
 des mesures (`body.length`, `recipients.count`, `attachments.bytes`).
+
+Le **micro** ne figure pas dans cette salve : il est demandé au moment du
+premier enregistrement, là où l'utilisateur comprend pourquoi. Une application
+de SMS n'a pas à réclamer un micro à qui n'enverra jamais de vocal.
 
 Sur un téléphone, l'app doit être définie **application SMS par défaut** pour
 envoyer, recevoir et écrire dans le stock : l'écran d'accueil enchaîne les deux

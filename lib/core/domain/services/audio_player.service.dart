@@ -6,6 +6,14 @@ import 'package:messages/core/domain/model/audio_playback.dart';
 /// celle qui jouait : deux vocaux superposés ne s'écoutent pas, et le lecteur
 /// du système n'existe de toute façon qu'en un exemplaire. C'est donc une règle
 /// du port, pas une précaution de l'appelant.
+///
+/// ## Ce que désigne `attachmentId`
+///
+/// Deux formes, et l'appelant n'a pas à les distinguer : l'identifiant d'une
+/// **partie du stock** (`content://mms/part/<id>`), ou l'**URI d'un brouillon**
+/// pas encore envoyé — le vocal qu'on vient d'enregistrer et qu'on veut
+/// réécouter avant de le joindre. Un son est un son ; c'est l'implémentation
+/// qui sait lequel des deux elle a sous la main.
 abstract interface class AudioPlayerService {
   /// État de la lecture, republié à chaque avancée.
   ///

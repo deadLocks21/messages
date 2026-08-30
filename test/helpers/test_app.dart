@@ -7,6 +7,8 @@ import 'package:messages/core/domain/model/contact.dart';
 import 'package:messages/core/domain/model/sms_access.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_opener.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_picker.service.dart';
+import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
+import 'package:messages/infrastructure/audio/in_memory.audio_recorder.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
 import 'package:messages/infrastructure/permissions/in_memory.sms_permissions.service.dart';
@@ -46,6 +48,16 @@ class TestDevice {
   /// vidéo. Les tests y lisent ce qui a été passé, et peuvent simuler un
   /// appareil qui n'a rien pour l'ouvrir.
   final InMemoryAttachmentOpener opener = InMemoryAttachmentOpener();
+
+  /// Le micro : c'est par lui qu'un test enregistre un vocal, ou simule un
+  /// micro refusé.
+  late final InMemoryAudioRecorderService voice = InMemoryAudioRecorderService(
+    store,
+  );
+
+  /// La configuration de l'opérateur. Modifiable pour rejouer le cas d'un
+  /// opérateur avare — c'est elle qui décide de la longueur d'un vocal.
+  final InMemoryMmsConfiguration carrier = InMemoryMmsConfiguration();
 
   TestDevice({
     List<Contact> contacts = const [],
@@ -117,6 +129,8 @@ Future<void> _pump(WidgetTester tester, TestDevice device, Widget child) async {
         notificationGatewayProvider.overrideWithValue(device.notifications),
         inMemoryAttachmentPickerProvider.overrideWithValue(device.attachments),
         inMemoryAttachmentOpenerProvider.overrideWithValue(device.opener),
+        inMemoryAudioRecorderProvider.overrideWithValue(device.voice),
+        mmsConfigurationProvider.overrideWithValue(device.carrier),
       ],
       child: child,
     ),

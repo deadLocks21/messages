@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:messages/core/application/dtos/attachment.dto.dart';
 import 'package:messages/core/application/dtos/message.dto.dart';
+import 'package:messages/core/domain/exceptions/sms.exception.dart';
 import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
 import 'package:messages/infrastructure/providers/repository_providers.dart';
@@ -36,6 +37,19 @@ class AttachmentTray extends _$AttachmentTray {
         .read(pickAttachmentsUseCaseProvider)
         .execute(source, current: List.unmodifiable(_drafts));
     _replaceWith(merged);
+  }
+
+  /// Pose sur le plateau un vocal qu'on vient d'enregistrer.
+  ///
+  /// Il n'entre pas par [add] : il n'y a pas de sélecteur à ouvrir, et rien à
+  /// alléger — un vocal ne se comprime pas, sa longueur a déjà été bornée au
+  /// budget de l'opérateur pendant l'enregistrement. Seul le nombre de pièces
+  /// jointes reste à vérifier, et c'est la même règle que pour une photo.
+  Future<void> addRecording(AttachmentDraft draft) async {
+    if (_drafts.length >= MmsLimits.maxCount) {
+      throw const TooManyAttachmentsException();
+    }
+    _replaceWith([..._drafts, draft]);
   }
 
   /// Retire une vignette du plateau et libère ce qu'elle occupait.

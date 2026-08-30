@@ -123,9 +123,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('attachmentTray')), findsNothing);
-    // Plus rien à envoyer : le bouton doit s'être rééteint.
-    await tester.tap(find.byKey(const Key('sendMessage')));
-    await tester.pumpAndSettle();
+    // Plus rien à envoyer : le disque redevient celui du vocal, et il n'y a
+    // plus de bouton d'envoi à toucher.
+    expect(find.byKey(const Key('sendMessage')), findsNothing);
+    expect(find.byKey(const Key('recordVoice')), findsOneWidget);
     expect(device.store.messagesFor(threadId).where((m) => m.isOutgoing),
         isEmpty);
   });

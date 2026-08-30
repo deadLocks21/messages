@@ -163,6 +163,13 @@ class AttachmentDraft {
   final int? width;
   final int? height;
 
+  /// Durée en millisecondes d'un vocal qu'on vient d'enregistrer.
+  ///
+  /// Connue **sans mesure** dans ce sens-là, contrairement à celle d'une pièce
+  /// jointe reçue : c'est nous qui avons tenu le micro, et le compteur du
+  /// panneau est la durée. Rien à redemander à un décodeur.
+  final int? durationMs;
+
   AttachmentDraft({
     required this.id,
     required this.uri,
@@ -172,13 +179,21 @@ class AttachmentDraft {
     this.byteSize = 0,
     this.width,
     this.height,
+    this.durationMs,
   }) : sourceUri = sourceUri ?? uri,
        assert(id != '', 'id cannot be empty'),
        assert(uri != '', 'uri cannot be empty'),
        assert(mimeType != '', 'mimeType cannot be empty'),
-       assert(byteSize >= 0, 'byteSize cannot be negative');
+       assert(byteSize >= 0, 'byteSize cannot be negative'),
+       assert(
+         durationMs == null || durationMs >= 0,
+         'durationMs cannot be negative',
+       );
 
   AttachmentKind get kind => AttachmentKind.fromMimeType(mimeType);
+
+  Duration? get duration =>
+      durationMs == null ? null : Duration(milliseconds: durationMs!);
 
   /// Cette pièce jointe peut-elle être allégée ?
   ///
@@ -210,6 +225,7 @@ class AttachmentDraft {
       byteSize: byteSize,
       width: width ?? this.width,
       height: height ?? this.height,
+      durationMs: durationMs,
     );
   }
 
