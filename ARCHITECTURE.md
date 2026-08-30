@@ -33,13 +33,48 @@ UI → Application → Domain ← Infrastructure
    - `router/` : go_router + `AppRoutes` + redirect piloté par l'état des permissions SMS.
    - `theme/` : `AppThemeData` + `GmPalette` + `AppColors` (ThemeExtension) + `context.appColors`.
 
-## Règles
+## Les couleurs viennent de l'appareil, pas de l'app
 
-- **Imports absolus** (`package:messages/...`), jamais de `../`.
-- **Modèles écrits à la main** — pas de freezed/json_serializable. `build_runner` seulement pour
-  le codegen Riverpod. Lint : `flutter_lints` + `riverpod_lint`.
-- Chaque interface a une impl réelle **et** une impl `InMemory*` (tests + dev/web/desktop).
-- **Tests** : miroir de `lib/` avec les `InMemory*` comme doublures (pas de mockito).
+Google Messages ne porte pas de palette : il porte des **tons**, appliqués aux
+palettes tonales que le système tire du fond d'écran (Material You). L'app fait
+pareil — c'est la seule façon qu'elle suive le thème de l'appareil au lieu
+d'imposer le sien.
+
+- `SystemPalettesBuilder` lit les **cinq palettes tonales** du système
+  (`dynamic_color`, Android 12+) ; à défaut, la couleur d'accentuation du bureau
+  (macOS, Windows, Linux) ; à défaut encore, elles sont **semées** sur l'ambre
+  de `GmPalette` avec la recette d'Android (« tonal spot »). Une seule table de
+  tons sert les trois cas.
+- On ne prend pas le `ColorScheme` que `dynamic_color` sait dériver : c'est
+  celui de Material 3 **2021**, où les cinq `surfaceContainer` n'existent pas
+  encore et retombent tous sur la même valeur — l'app se peindrait d'un blanc
+  plat là où l'originale empile fond, panneau et champs. `messagesScheme`
+  reconstruit donc le schéma depuis les palettes, aux tons de la spécification.
+- **`GmTones` est le relevé.** Chaque token dit dans quelle palette puiser et à
+  quel ton, mesuré au pixel sur l'app d'origine (émulateur Android 16, écran de
+  liste et écran de fil, clair puis sombre) :
+
+  | Token | Palette | Clair | Sombre | Relevé |
+  |---|---|---|---|---|
+  | `surface` (panneau) | neutre | 97 | 5 | `#F8F5FF` / `#05092F` |
+  | `background` (barres, bulles reçues, champs) | neutre | 92 | 11 | `#E6E6FF` / `#161E40` |
+  | `accent` (liens, envoi, non-lus) | primaire | 40 | 80 | `#0055D5` |
+  | `accentSoft` (bandeaux, puces) | primaire | 90 | 30 | `#DAE2FF` |
+  | `fab` | primaire | 66 | 66 | `#789DFF` |
+  | `bubbleOutgoing` | primaire | 90 | 77 | `#DAE2FF` / `#A7BAFF` |
+
+  Trois de ces tons ne sont **pas** des rôles Material standard, et c'est ce qui
+  distingue l'app d'origine d'une app Material par défaut : le FAB a un ton
+  médian, le même en clair et en sombre ; et la bulle envoyée reste **claire à
+  texte foncé** en thème sombre (t77) au lieu de basculer sur le conteneur
+  sombre (t30).
+- Dans l'app d'origine, les barres, les bulles reçues et le champ de rédaction
+  sont **exactement la même couleur** — d'où `surfaceAlt == background`. Un bloc
+  posé à même le fond doit donc prendre `surface`, pas `surfaceAlt`.
+- Exception assumée : les **pastilles d'avatar** (`GmPalette.avatarSlots`) ne
+  suivent pas le thème. L'app d'origine non plus : sur un appareil à palette
+  bleue, elle affiche les mêmes pastilles jaune et orange. Elles servent à
+  distinguer les correspondants, pas à décorer.
 
 ## Pièces jointes : le SMS ne les porte pas, le MMS oui
 

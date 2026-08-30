@@ -40,6 +40,11 @@ dependencies:
   intl: ^0.20.2
   google_fonts: ^6.2.1
 
+  # Couleurs du système (Material You) : palettes tonales d'Android 12+,
+  # couleur d'accentuation ailleurs. Les tons, eux, sont dans `GmTones`.
+  dynamic_color: ^1.7.0
+  material_color_utilities: ^0.13.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -275,7 +275,9 @@ class _ForwardPreview extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colors.surfaceAlt,
+        // Posé à même le fond, comme le champ au-dessus : `surface`, sinon le
+        // bloc se confondrait avec lui.
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(

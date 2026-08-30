@@ -1,62 +1,31 @@
-// messages — tokens de couleur relevés sur Google Messages : le thème
-// Material You « pêche » que produit un fond d'écran chaud (ambre sur neutres
-// beige). Pattern kidflix/motorz : palette brute + ThemeExtension `AppColors`
-// + `context.appColors`.
+// messages — les couleurs ne sont pas à l'app, elles sont à l'appareil.
+//
+// Google Messages ne porte pas de palette : il porte des **tons**, appliqués
+// aux palettes tonales que le système tire du fond d'écran (Material You).
+// Ce fichier fait la même chose — les tons de [GmTones] sont relevés sur
+// l'app d'origine, pixel par pixel, sur un émulateur Android 16.
+//
+// Pattern kidflix/motorz conservé : palettes brutes + ThemeExtension
+// `AppColors` + `context.appColors`.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:material_color_utilities/material_color_utilities.dart';
 
-/// Palette brute (tokens bas niveau). Ne pas utiliser directement dans l'UI :
-/// toujours passer par [AppColors] / `context.appColors`.
-///
-/// Les valeurs claires sont échantillonnées sur des captures de l'app
-/// d'origine ; les sombres en sont le pendant Material 3 sur la même teinte.
+/// Ce qui reste écrit en dur, faute de système à interroger.
 abstract final class GmPalette {
-  // Ambre — couleur de marque, des bulles envoyées, des pastilles de non-lus.
-  static const amber = Color(0xFF8A5100); // primary (clair)
-  static const onAmber = Color(0xFFFFFFFF);
-  static const amberContainer = Color(0xFFFFDCBE); // FAB, bandeaux (clair)
-  static const onAmberContainer = Color(0xFF2E1500);
-
-  static const amberLight = Color(0xFFFFB77C); // primary (sombre)
-  static const onAmberLight = Color(0xFF4C2700);
-  static const amberContainerDark = Color(0xFF6D3C00);
-  static const onAmberContainerDark = Color(0xFFFFDCBE);
-
-  // Neutres chauds, clairs. Trois niveaux de surface, et c'est leur empilement
-  // qui fait la mise en page de l'app d'origine : les barres et le fond
-  // d'écran en `container`, le panneau de contenu en `surface`, les champs et
-  // les bulles reçues en `containerHigh`.
-  static const surfaceLight = Color(0xFFFFF8F3);
-  static const surfaceContainerLight = Color(0xFFFCEAE0);
-  static const surfaceContainerHighLight = Color(0xFFF8E5DA);
-  static const inkLight = Color(0xFF221A14);
-  static const mutedLight = Color(0xFF52443B);
-  static const outlineLight = Color(0xFF85736A);
-  static const outlineVariantLight = Color(0xFFD8C2B4);
-
-  // Neutres chauds, sombres.
-  static const surfaceDark = Color(0xFF1A120B);
-  static const surfaceContainerDark = Color(0xFF271E17);
-  static const surfaceContainerHighDark = Color(0xFF322921);
-  static const inkDark = Color(0xFFF1DFD4);
-  static const mutedDark = Color(0xFFD8C2B4);
-  static const outlineDark = Color(0xFFA08C82);
-  static const outlineVariantDark = Color(0xFF52443B);
-
-  // Bulle envoyée : ambre plein sur texte blanc en clair, container ambré sur
-  // texte pâle en sombre — l'inversion que fait Google Messages.
-  static const bubbleOutLight = amber;
-  static const onBubbleOutLight = onAmber;
-  static const bubbleOutDark = amberContainerDark;
-  static const onBubbleOutDark = onAmberContainerDark;
-
-  static const errorLight = Color(0xFFBA1A1A);
-  static const errorDark = Color(0xFFFFB4AB);
+  /// Teinte de repli — l'ambre des captures de l'app d'origine. Ne sert que là
+  /// où le système n'expose pas ses palettes (Android < 12, iOS, web, bureau).
+  static const amber = Color(0xFF8A5100);
 
   /// Couleurs d'avatar, dans l'ordre des créneaux rendus par
   /// `AvatarPaletteService.slotFor` (8 créneaux, initiale toujours blanche).
-  /// Relevées une à une sur les captures : ces pastilles-là ne suivent pas le
-  /// thème, elles sont les mêmes quelle que soit la couleur dominante.
+  ///
+  /// Celles-ci ne suivent **pas** le thème, et c'est délibéré : sur
+  /// l'émulateur, dont la palette est bleue, Google Messages affiche toujours
+  /// ses pastilles jaune et orange. Elles servent à distinguer les
+  /// correspondants, pas à décorer.
   static const avatarSlots = <Color>[
     Color(0xFFAC5BF2), // violet
     Color(0xFFFC63B5), // rose
@@ -67,6 +36,108 @@ abstract final class GmPalette {
     Color(0xFF5BB874), // vert
     Color(0xFF5C93F5), // bleu
   ];
+}
+
+/// Un ton en clair, son pendant en sombre.
+typedef GmTone = ({int light, int dark});
+
+/// **Les tons relevés sur Google Messages.**
+///
+/// Chaque ligne dit : dans quelle palette puiser, et à quel ton. C'est tout ce
+/// que l'app fixe de ses couleurs ; le reste appartient à l'appareil.
+///
+/// Relevé sur un émulateur Android 16 (palette système bleu-lavande), écran de
+/// liste et écran de fil, en clair puis en sombre. La plupart de ces tons sont
+/// ceux des rôles Material 3 standard (92/12 pour les conteneurs, 40/80 pour
+/// `primary`…) ; trois ne le sont pas et sont signalés comme tels.
+abstract final class GmTones {
+  /// Panneau de contenu — le blanc cassé posé sur le fond, coins hauts
+  /// arrondis. Relevé #F8F5FF / #05092F.
+  static const GmTone surface = (light: 97, dark: 5);
+
+  /// Barres, fond d'écran, bulles reçues, champs de saisie : dans l'app
+  /// d'origine c'est **une seule et même couleur**. Relevé #E6E6FF / #161E40.
+  static const GmTone background = (light: 92, dark: 11);
+
+  static const GmTone textPrimary = (light: 10, dark: 90);
+  static const GmTone textMuted = (light: 30, dark: 80);
+  static const GmTone outline = (light: 50, dark: 60);
+  static const GmTone outlineVariant = (light: 80, dark: 30);
+
+  /// Accent : liens, pastille de non-lus, bouton d'envoi. Relevé #0055D5.
+  static const GmTone accent = (light: 40, dark: 80);
+  static const GmTone onAccent = (light: 100, dark: 20);
+
+  /// Conteneur d'accent — bandeaux, puce de filtre, fil sélectionné. C'est le
+  /// `primaryContainer` de Material 3, celui de la bulle envoyée en clair.
+  static const GmTone accentSoft = (light: 90, dark: 30);
+  static const GmTone onAccentSoft = (light: 10, dark: 90);
+
+  /// FAB « Démarrer une discussion ». **Hors rôles standard** : ni `primary`
+  /// (t40) ni `primaryContainer` (t90), mais un ton médian, et le *même* en
+  /// clair et en sombre — relevé #789DFF dans les deux modes, libellé #001E58.
+  static const GmTone fab = (light: 66, dark: 66);
+  static const GmTone onFab = (light: 14, dark: 14);
+
+  /// Bulle envoyée. En clair c'est `primaryContainer` (t90) ; en sombre l'app
+  /// d'origine ne bascule pas sur le conteneur sombre (t30) mais garde une
+  /// bulle **claire à texte foncé** — relevé #DAE2FF / #A7BAFF.
+  static const GmTone bubbleOutgoing = (light: 90, dark: 77);
+
+  /// Le texte de la bulle envoyée est le même bleu-nuit dans les deux modes,
+  /// puisque la bulle reste claire. Relevé #13183D / #141E42.
+  static const GmTone onBubbleOutgoing = (light: 10, dark: 10);
+
+  static const GmTone danger = (light: 40, dark: 80);
+}
+
+/// Les cinq palettes tonales de Material You : celles du système quand il en
+/// expose (Android 12+), sinon celles semées sur [GmPalette.amber].
+@immutable
+class MessagesPalettes {
+  const MessagesPalettes({
+    required this.primary,
+    required this.secondary,
+    required this.tertiary,
+    required this.neutral,
+    required this.neutralVariant,
+    required this.error,
+  });
+
+  /// Reconstitue les palettes à la façon d'Android (« tonal spot ») à partir
+  /// d'une teinte : même recette de chroma, pour que le repli se comporte
+  /// comme le système et non comme une palette à part.
+  factory MessagesPalettes.seeded(Color seed) {
+    final hct = Hct.fromInt(seed.toARGB32());
+    return MessagesPalettes(
+      primary: TonalPalette.of(hct.hue, math.max(48, hct.chroma)),
+      secondary: TonalPalette.of(hct.hue, 16),
+      tertiary: TonalPalette.of(hct.hue + 60, 24),
+      neutral: TonalPalette.of(hct.hue, 4),
+      neutralVariant: TonalPalette.of(hct.hue, 8),
+      error: TonalPalette.of(25, 84),
+    );
+  }
+
+  final TonalPalette primary;
+  final TonalPalette secondary;
+  final TonalPalette tertiary;
+
+  /// Les neutres — d'où viennent le fond, le panneau et le texte. Sur Android
+  /// ils ne sont pas gris : ils portent une pointe de la teinte dominante.
+  final TonalPalette neutral;
+  final TonalPalette neutralVariant;
+
+  final TonalPalette error;
+
+  /// Le repli, quand le système ne dit rien.
+  static final MessagesPalettes fallback = MessagesPalettes.seeded(
+    GmPalette.amber,
+  );
+}
+
+extension _Tones on TonalPalette {
+  Color tone(int value) => Color(get(value));
 }
 
 /// Tokens sémantiques exposés à l'UI via `context.appColors`.
@@ -84,6 +155,8 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.onAccent,
     required this.accentSoft,
     required this.onAccentSoft,
+    required this.fab,
+    required this.onFab,
     required this.bubbleIncoming,
     required this.onBubbleIncoming,
     required this.bubbleOutgoing,
@@ -91,7 +164,40 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.danger,
   });
 
-  /// Fond d'écran et barres — la teinte pêche sur laquelle tout se pose.
+  /// Applique le relevé de [GmTones] aux palettes de l'appareil.
+  factory AppColors.from(MessagesPalettes p, Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    int t(GmTone tone) => isDark ? tone.dark : tone.light;
+
+    final background = p.neutral.tone(t(GmTones.background));
+    final onSurface = p.neutral.tone(t(GmTones.textPrimary));
+
+    return AppColors(
+      background: background,
+      surface: p.neutral.tone(t(GmTones.surface)),
+      // Champs et bulles reçues partagent la couleur des barres : c'est ce que
+      // fait l'app d'origine, où le composeur et le fond d'en-tête sont
+      // exactement le même bleu-lavande.
+      surfaceAlt: background,
+      outline: p.neutralVariant.tone(t(GmTones.outline)),
+      outlineVariant: p.neutralVariant.tone(t(GmTones.outlineVariant)),
+      textPrimary: onSurface,
+      textMuted: p.neutralVariant.tone(t(GmTones.textMuted)),
+      accent: p.primary.tone(t(GmTones.accent)),
+      onAccent: p.primary.tone(t(GmTones.onAccent)),
+      accentSoft: p.primary.tone(t(GmTones.accentSoft)),
+      onAccentSoft: p.primary.tone(t(GmTones.onAccentSoft)),
+      fab: p.primary.tone(t(GmTones.fab)),
+      onFab: p.primary.tone(t(GmTones.onFab)),
+      bubbleIncoming: background,
+      onBubbleIncoming: onSurface,
+      bubbleOutgoing: p.primary.tone(t(GmTones.bubbleOutgoing)),
+      onBubbleOutgoing: p.neutral.tone(t(GmTones.onBubbleOutgoing)),
+      danger: p.error.tone(t(GmTones.danger)),
+    );
+  }
+
+  /// Fond d'écran et barres — la teinte sur laquelle tout se pose.
   final Color background;
 
   /// Panneau de contenu (listes, cartes) : posé sur [background], coins hauts
@@ -109,10 +215,15 @@ class AppColors extends ThemeExtension<AppColors> {
 
   final Color textPrimary;
   final Color textMuted;
-  final Color accent; // ambre — pastille de non-lus, envoi, sélection
+  final Color accent; // pastille de non-lus, envoi, sélection
   final Color onAccent;
-  final Color accentSoft; // FAB, bandeaux
+  final Color accentSoft; // bandeaux, puces, sélection
   final Color onAccentSoft;
+
+  /// Le FAB, et lui seul : l'app d'origine lui donne un ton à part, plus vif
+  /// que [accentSoft] et identique en clair comme en sombre.
+  final Color fab;
+  final Color onFab;
   final Color bubbleIncoming;
   final Color onBubbleIncoming;
   final Color bubbleOutgoing;
@@ -123,42 +234,14 @@ class AppColors extends ThemeExtension<AppColors> {
   static Color avatarColor(int slot) =>
       GmPalette.avatarSlots[slot % GmPalette.avatarSlots.length];
 
-  static const AppColors light = AppColors(
-    background: GmPalette.surfaceContainerLight,
-    surface: GmPalette.surfaceLight,
-    surfaceAlt: GmPalette.surfaceContainerHighLight,
-    outline: GmPalette.outlineLight,
-    outlineVariant: GmPalette.outlineVariantLight,
-    textPrimary: GmPalette.inkLight,
-    textMuted: GmPalette.mutedLight,
-    accent: GmPalette.amber,
-    onAccent: GmPalette.onAmber,
-    accentSoft: GmPalette.amberContainer,
-    onAccentSoft: GmPalette.onAmberContainer,
-    bubbleIncoming: GmPalette.surfaceContainerHighLight,
-    onBubbleIncoming: GmPalette.inkLight,
-    bubbleOutgoing: GmPalette.bubbleOutLight,
-    onBubbleOutgoing: GmPalette.onBubbleOutLight,
-    danger: GmPalette.errorLight,
+  /// Repli, hors Android 12+.
+  static final AppColors light = AppColors.from(
+    MessagesPalettes.fallback,
+    Brightness.light,
   );
-
-  static const AppColors dark = AppColors(
-    background: GmPalette.surfaceContainerDark,
-    surface: GmPalette.surfaceDark,
-    surfaceAlt: GmPalette.surfaceContainerHighDark,
-    outline: GmPalette.outlineDark,
-    outlineVariant: GmPalette.outlineVariantDark,
-    textPrimary: GmPalette.inkDark,
-    textMuted: GmPalette.mutedDark,
-    accent: GmPalette.amberLight,
-    onAccent: GmPalette.onAmberLight,
-    accentSoft: GmPalette.amberContainerDark,
-    onAccentSoft: GmPalette.onAmberContainerDark,
-    bubbleIncoming: GmPalette.surfaceContainerHighDark,
-    onBubbleIncoming: GmPalette.inkDark,
-    bubbleOutgoing: GmPalette.bubbleOutDark,
-    onBubbleOutgoing: GmPalette.onBubbleOutDark,
-    danger: GmPalette.errorDark,
+  static final AppColors dark = AppColors.from(
+    MessagesPalettes.fallback,
+    Brightness.dark,
   );
 
   @override
@@ -174,6 +257,8 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? onAccent,
     Color? accentSoft,
     Color? onAccentSoft,
+    Color? fab,
+    Color? onFab,
     Color? bubbleIncoming,
     Color? onBubbleIncoming,
     Color? bubbleOutgoing,
@@ -192,6 +277,8 @@ class AppColors extends ThemeExtension<AppColors> {
       onAccent: onAccent ?? this.onAccent,
       accentSoft: accentSoft ?? this.accentSoft,
       onAccentSoft: onAccentSoft ?? this.onAccentSoft,
+      fab: fab ?? this.fab,
+      onFab: onFab ?? this.onFab,
       bubbleIncoming: bubbleIncoming ?? this.bubbleIncoming,
       onBubbleIncoming: onBubbleIncoming ?? this.onBubbleIncoming,
       bubbleOutgoing: bubbleOutgoing ?? this.bubbleOutgoing,
@@ -215,6 +302,8 @@ class AppColors extends ThemeExtension<AppColors> {
       onAccent: Color.lerp(onAccent, other.onAccent, t)!,
       accentSoft: Color.lerp(accentSoft, other.accentSoft, t)!,
       onAccentSoft: Color.lerp(onAccentSoft, other.onAccentSoft, t)!,
+      fab: Color.lerp(fab, other.fab, t)!,
+      onFab: Color.lerp(onFab, other.onFab, t)!,
       bubbleIncoming: Color.lerp(bubbleIncoming, other.bubbleIncoming, t)!,
       onBubbleIncoming: Color.lerp(onBubbleIncoming, other.onBubbleIncoming, t)!,
       bubbleOutgoing: Color.lerp(bubbleOutgoing, other.bubbleOutgoing, t)!,
@@ -229,41 +318,55 @@ extension AppColorsX on BuildContext {
   AppColors get appColors => Theme.of(this).extension<AppColors>()!;
 }
 
-/// Schémas Material 3 — l'ambre en `primary`, les neutres chauds en surfaces.
-final ColorScheme messagesLightScheme = ColorScheme.fromSeed(
-  seedColor: GmPalette.amber,
-  brightness: Brightness.light,
-).copyWith(
-  primary: GmPalette.amber,
-  onPrimary: GmPalette.onAmber,
-  primaryContainer: GmPalette.amberContainer,
-  onPrimaryContainer: GmPalette.onAmberContainer,
-  surface: GmPalette.surfaceLight,
-  onSurface: GmPalette.inkLight,
-  onSurfaceVariant: GmPalette.mutedLight,
-  surfaceContainer: GmPalette.surfaceContainerLight,
-  surfaceContainerHigh: GmPalette.surfaceContainerHighLight,
-  surfaceContainerHighest: GmPalette.surfaceContainerHighLight,
-  outline: GmPalette.outlineLight,
-  outlineVariant: GmPalette.outlineVariantLight,
-  error: GmPalette.errorLight,
-);
+/// Le [ColorScheme] Material 3 servi aux widgets du framework.
+///
+/// Reconstruit à la main depuis les palettes plutôt que pris tel quel : le
+/// schéma que rend `dynamic_color` est celui de Material 3 **2021**, où les
+/// cinq niveaux de `surfaceContainer` n'existent pas encore et retombent tous
+/// sur la même valeur. Un `BottomSheet` ou un `Card` s'y peindraient d'un blanc
+/// plat, là où l'app d'origine les empile.
+///
+/// Les tons sont ceux de la spécification Material 3, sauf `surface`, repris de
+/// [GmTones] pour que le framework et l'app parlent de la même couleur.
+ColorScheme messagesScheme(MessagesPalettes p, Brightness brightness) {
+  final isDark = brightness == Brightness.dark;
+  int t(GmTone tone) => isDark ? tone.dark : tone.light;
 
-final ColorScheme messagesDarkScheme = ColorScheme.fromSeed(
-  seedColor: GmPalette.amber,
-  brightness: Brightness.dark,
-).copyWith(
-  primary: GmPalette.amberLight,
-  onPrimary: GmPalette.onAmberLight,
-  primaryContainer: GmPalette.amberContainerDark,
-  onPrimaryContainer: GmPalette.onAmberContainerDark,
-  surface: GmPalette.surfaceDark,
-  onSurface: GmPalette.inkDark,
-  onSurfaceVariant: GmPalette.mutedDark,
-  surfaceContainer: GmPalette.surfaceContainerDark,
-  surfaceContainerHigh: GmPalette.surfaceContainerHighDark,
-  surfaceContainerHighest: GmPalette.surfaceContainerHighDark,
-  outline: GmPalette.outlineDark,
-  outlineVariant: GmPalette.outlineVariantDark,
-  error: GmPalette.errorDark,
-);
+  return ColorScheme(
+    brightness: brightness,
+    primary: p.primary.tone(isDark ? 80 : 40),
+    onPrimary: p.primary.tone(isDark ? 20 : 100),
+    primaryContainer: p.primary.tone(isDark ? 30 : 90),
+    onPrimaryContainer: p.primary.tone(isDark ? 90 : 10),
+    secondary: p.secondary.tone(isDark ? 80 : 40),
+    onSecondary: p.secondary.tone(isDark ? 20 : 100),
+    secondaryContainer: p.secondary.tone(isDark ? 30 : 90),
+    onSecondaryContainer: p.secondary.tone(isDark ? 90 : 10),
+    tertiary: p.tertiary.tone(isDark ? 80 : 40),
+    onTertiary: p.tertiary.tone(isDark ? 20 : 100),
+    tertiaryContainer: p.tertiary.tone(isDark ? 30 : 90),
+    onTertiaryContainer: p.tertiary.tone(isDark ? 90 : 10),
+    error: p.error.tone(isDark ? 80 : 40),
+    onError: p.error.tone(isDark ? 20 : 100),
+    errorContainer: p.error.tone(isDark ? 30 : 90),
+    onErrorContainer: p.error.tone(isDark ? 90 : 10),
+    surface: p.neutral.tone(t(GmTones.surface)),
+    onSurface: p.neutral.tone(t(GmTones.textPrimary)),
+    surfaceDim: p.neutral.tone(isDark ? 6 : 87),
+    surfaceBright: p.neutral.tone(isDark ? 24 : 98),
+    surfaceContainerLowest: p.neutral.tone(isDark ? 4 : 100),
+    surfaceContainerLow: p.neutral.tone(isDark ? 10 : 96),
+    surfaceContainer: p.neutral.tone(isDark ? 12 : 94),
+    surfaceContainerHigh: p.neutral.tone(isDark ? 17 : 92),
+    surfaceContainerHighest: p.neutral.tone(isDark ? 22 : 90),
+    onSurfaceVariant: p.neutralVariant.tone(t(GmTones.textMuted)),
+    outline: p.neutralVariant.tone(t(GmTones.outline)),
+    outlineVariant: p.neutralVariant.tone(t(GmTones.outlineVariant)),
+    inverseSurface: p.neutral.tone(isDark ? 90 : 20),
+    onInverseSurface: p.neutral.tone(isDark ? 20 : 95),
+    inversePrimary: p.primary.tone(isDark ? 40 : 80),
+    shadow: p.neutral.tone(0),
+    scrim: p.neutral.tone(0),
+    surfaceTint: p.primary.tone(isDark ? 80 : 40),
+  );
+}

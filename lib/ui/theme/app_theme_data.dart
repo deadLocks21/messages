@@ -5,6 +5,9 @@ import 'package:messages/ui/theme/app_colors.dart';
 
 /// Assemble les thèmes Material 3 clair/sombre.
 ///
+/// Les couleurs viennent des palettes de l'appareil (`AppColors.from`), pas
+/// d'ici : ce fichier n'assemble que les formes, les tailles et la typo.
+///
 /// Typo : **Roboto**, la police système d'Android — Google Sans n'étant pas
 /// distribuée, c'est ce qui rapproche le plus l'app de l'originale sur les
 /// plateformes de développement (macOS, web).
@@ -19,11 +22,19 @@ abstract final class AppThemeData {
   /// Cartes de la recherche, des contacts et des paramètres.
   static const cardRadius = 20.0;
 
-  static ThemeData buildLightTheme() =>
-      _build(messagesLightScheme, AppColors.light, Brightness.light);
+  /// [palettes] : les palettes tonales du système (Android 12+), ou `null` là
+  /// où la plateforme n'en expose pas — auquel cas on retombe sur celles
+  /// semées sur l'ambre de l'app d'origine.
+  static ThemeData buildLightTheme([MessagesPalettes? palettes]) =>
+      _buildFrom(palettes, Brightness.light);
 
-  static ThemeData buildDarkTheme() =>
-      _build(messagesDarkScheme, AppColors.dark, Brightness.dark);
+  static ThemeData buildDarkTheme([MessagesPalettes? palettes]) =>
+      _buildFrom(palettes, Brightness.dark);
+
+  static ThemeData _buildFrom(MessagesPalettes? palettes, Brightness b) {
+    final p = palettes ?? MessagesPalettes.fallback;
+    return _build(messagesScheme(p, b), AppColors.from(p, b), b);
+  }
 
   static ThemeMode toFlutterThemeMode(AppThemeMode mode) => switch (mode) {
     AppThemeMode.light => ThemeMode.light,
@@ -68,10 +79,11 @@ abstract final class AppThemeData {
         iconTheme: IconThemeData(color: colors.textPrimary, size: 24),
         actionsIconTheme: IconThemeData(color: colors.textPrimary, size: 24),
       ),
-      // Le FAB « Démarrer une discussion » : ambre pâle, pas d'ombre marquée.
+      // Le FAB « Démarrer une discussion » : le ton vif que lui réserve l'app
+      // d'origine, pas d'ombre marquée.
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: colors.accentSoft,
-        foregroundColor: colors.onAccentSoft,
+        backgroundColor: colors.fab,
+        foregroundColor: colors.onFab,
         elevation: 2,
         highlightElevation: 3,
         extendedTextStyle: GoogleFonts.roboto(

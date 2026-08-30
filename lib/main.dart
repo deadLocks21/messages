@@ -15,6 +15,7 @@ import 'package:messages/infrastructure/providers/theme_providers.dart';
 import 'package:messages/ui/providers/conversation_providers.dart';
 import 'package:messages/ui/router/app_router.dart';
 import 'package:messages/ui/theme/app_theme_data.dart';
+import 'package:messages/ui/theme/system_palettes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -281,22 +282,26 @@ class _MessagesAppState extends ConsumerState<MessagesApp>
       if (request != null) _open(request);
     });
 
-    return MaterialApp.router(
-      title: 'Messages',
-      debugShowCheckedModeBanner: false,
-      routerConfig: ref.watch(goRouterProvider),
-      theme: AppThemeData.buildLightTheme(),
-      darkTheme: AppThemeData.buildDarkTheme(),
-      themeMode: themeMode == null
-          ? ThemeMode.system
-          : AppThemeData.toFlutterThemeMode(themeMode),
-      locale: const Locale('fr'),
-      supportedLocales: const [Locale('fr'), Locale('en')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
+    // Les couleurs de l'app ne lui appartiennent pas : sur Android 12+, c'est
+    // le système qui les tire du fond d'écran, et Google Messages les suit.
+    return SystemPalettesBuilder(
+      builder: (palettes) => MaterialApp.router(
+        title: 'Messages',
+        debugShowCheckedModeBanner: false,
+        routerConfig: ref.watch(goRouterProvider),
+        theme: AppThemeData.buildLightTheme(palettes),
+        darkTheme: AppThemeData.buildDarkTheme(palettes),
+        themeMode: themeMode == null
+            ? ThemeMode.system
+            : AppThemeData.toFlutterThemeMode(themeMode),
+        locale: const Locale('fr'),
+        supportedLocales: const [Locale('fr'), Locale('en')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+      ),
     );
   }
 }

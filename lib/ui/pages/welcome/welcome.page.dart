@@ -100,7 +100,9 @@ class _Step extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 14,
-          backgroundColor: done ? colors.accent : colors.surfaceAlt,
+          // `surface` et non `surfaceAlt` : cet écran-ci est posé à même le
+          // fond, où `surfaceAlt` a la même couleur que lui.
+          backgroundColor: done ? colors.accent : colors.surface,
           child: done
               ? Icon(Icons.check, size: 16, color: colors.onAccent)
               : Text(
