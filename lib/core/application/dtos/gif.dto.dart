@@ -83,25 +83,3 @@ class GifPageDto {
   GifPageDto loading(bool value) =>
       GifPageDto(gifs: gifs, hasMore: hasMore, loadingMore: value);
 }
-
-/// Une puce de recherche toute faite, sous le champ.
-class GifCategoryDto {
-  final String label;
-  final String query;
-
-  const GifCategoryDto({required this.label, required this.query});
-
-  factory GifCategoryDto.fromDomain(GifCategory category) =>
-      GifCategoryDto(label: category.label, query: category.query);
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is GifCategoryDto &&
-          runtimeType == other.runtimeType &&
-          label == other.label &&
-          query == other.query;
-
-  @override
-  int get hashCode => Object.hash(label, query);
-}

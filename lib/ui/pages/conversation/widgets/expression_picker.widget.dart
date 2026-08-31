@@ -95,9 +95,6 @@ class ExpressionPicker extends StatefulWidget {
   static const tabGap = 2.0;
   static const searchRowHeight = 48.0;
   static const searchFieldHeight = 40.0;
-  static const chipRowHeight = 48.0;
-  static const chipHeight = 32.0;
-  static const chipRadius = 8.0;
   static const tileRadius = 8.0;
   static const columns = 2;
 
@@ -170,12 +167,6 @@ class _ExpressionPickerState extends State<ExpressionPicker> {
     });
   }
 
-  void _onCategory(String query) {
-    _debounce?.cancel();
-    _search.text = query;
-    setState(() => _query = query);
-  }
-
   /// Le panneau se déplie et se replie au doigt, et se referme d'un dernier
   /// glissé vers le bas.
   ///
@@ -244,7 +235,6 @@ class _ExpressionPickerState extends State<ExpressionPicker> {
                 onPicked: widget.onPicked,
                 onError: widget.onError,
                 onClose: widget.onClose,
-                onCategory: _onCategory,
               ),
             },
           ),

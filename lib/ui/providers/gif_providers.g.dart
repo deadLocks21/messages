@@ -8,61 +8,6 @@ part of 'gif_providers.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// Les puces de recherche toute faite, sous le champ.
-///
-/// `keepAlive` implicite par le cache de Riverpod le temps que le panneau est
-/// ouvert : ce sont des mots, ils ne changent pas d'une frappe à l'autre.
-
-@ProviderFor(gifCategories)
-final gifCategoriesProvider = GifCategoriesProvider._();
-
-/// Les puces de recherche toute faite, sous le champ.
-///
-/// `keepAlive` implicite par le cache de Riverpod le temps que le panneau est
-/// ouvert : ce sont des mots, ils ne changent pas d'une frappe à l'autre.
-
-final class GifCategoriesProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<List<GifCategoryDto>>,
-          List<GifCategoryDto>,
-          FutureOr<List<GifCategoryDto>>
-        >
-    with
-        $FutureModifier<List<GifCategoryDto>>,
-        $FutureProvider<List<GifCategoryDto>> {
-  /// Les puces de recherche toute faite, sous le champ.
-  ///
-  /// `keepAlive` implicite par le cache de Riverpod le temps que le panneau est
-  /// ouvert : ce sont des mots, ils ne changent pas d'une frappe à l'autre.
-  GifCategoriesProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'gifCategoriesProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$gifCategoriesHash();
-
-  @$internal
-  @override
-  $FutureProviderElement<List<GifCategoryDto>> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
-
-  @override
-  FutureOr<List<GifCategoryDto>> create(Ref ref) {
-    return gifCategories(ref);
-  }
-}
-
-String _$gifCategoriesHash() => r'2b7e66071b782ac350d9a1ebb16d11af7e6d7480';
-
 /// Ce que montre la grille pour un terme donné — vide pour les GIF mis en
 /// avant.
 ///

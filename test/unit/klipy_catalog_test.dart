@@ -219,24 +219,6 @@ void main() {
       // perdue.
       expect(gifs.map((g) => g.id), ['42']);
     });
-
-    test('les puces portent le dièse que Klipy ne met pas', () async {
-      final klipy = recorder({
-        'result': true,
-        'data': {
-          'locale': 'fr_FR',
-          'categories': [
-            {'category': 'mdr', 'query': 'mdr'},
-            {'category': 'désolé', 'query': 'désolé'},
-          ],
-        },
-      });
-
-      final categories = await catalogOn(klipy.client).categories();
-
-      expect(categories.map((c) => c.label), ['#mdr', '#désolé']);
-      expect(categories.map((c) => c.query), ['mdr', 'désolé']);
-    });
   });
 
   group('Ce qui ne casse rien', () {

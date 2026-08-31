@@ -225,17 +225,20 @@ void main() {
     expect(device.gifs.searched, ['chat']);
   });
 
-  testWidgets('une puce lance sa recherche', (tester) async {
+  testWidgets('la grille suit le terme cherché', (tester) async {
     final (device, threadId) = deviceWithThread();
 
     await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
     await openPicker(tester);
-    await tester.tap(find.byKey(const Key('gifCategory_bravo')));
+    await tester.enterText(
+      find.byKey(const Key('expressionSearchField')),
+      'bravo',
+    );
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
 
     expect(device.gifs.searched, ['bravo']);
-    // La puce remplit aussi le champ : ce qui est cherché doit se lire.
-    expect(find.text('bravo'), findsWidgets);
+    expect(find.byKey(const Key('gifGrid')), findsOneWidget);
   });
 
   testWidgets('un catalogue muet le dit au lieu de rester vide', (

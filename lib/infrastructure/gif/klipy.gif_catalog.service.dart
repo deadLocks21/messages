@@ -73,19 +73,6 @@ class KlipyGifCatalog implements GifCatalog {
     return _page('search', {'q': query.trim()}, cursor);
   }
 
-  @override
-  Future<List<GifCategory>> categories() async {
-    final body = await _get('categories', const {});
-    final categories = _data(body)?['categories'];
-    if (categories is! List) return const [];
-
-    return categories
-        .whereType<Map<String, Object?>>()
-        .map(_category)
-        .nonNulls
-        .toList(growable: false);
-  }
-
   Future<GifPage> _page(
     String endpoint,
     Map<String, String> query,
@@ -235,18 +222,6 @@ class KlipyGifCatalog implements GifCatalog {
   /// Ce qu'on prête à une déclinaison dont Klipy tait le poids : assez pour
   /// qu'aucun budget d'opérateur ne l'accepte.
   static const _unknownSize = 1 << 30;
-
-  GifCategory? _category(Map<String, Object?> data) {
-    final query = data['query'] ?? data['category'];
-    if (query is! String || query.trim().isEmpty) return null;
-    final label = data['category'];
-    return GifCategory(
-      // Klipy libelle ses catégories sans dièse ; la puce le porte, comme dans
-      // l'app d'origine.
-      label: '#${(label is String && label.trim().isNotEmpty ? label : query).trim()}',
-      query: query.trim(),
-    );
-  }
 
   static int? _int(Object? value) => switch (value) {
     int() => value,

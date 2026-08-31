@@ -7,16 +7,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'gif_providers.g.dart';
 
-/// Les puces de recherche toute faite, sous le champ.
-///
-/// `keepAlive` implicite par le cache de Riverpod le temps que le panneau est
-/// ouvert : ce sont des mots, ils ne changent pas d'une frappe à l'autre.
-@riverpod
-Future<List<GifCategoryDto>> gifCategories(Ref ref) async {
-  final categories = await ref.watch(gifCatalogProvider).categories();
-  return categories.map(GifCategoryDto.fromDomain).toList(growable: false);
-}
-
 /// Ce que montre la grille pour un terme donné — vide pour les GIF mis en
 /// avant.
 ///

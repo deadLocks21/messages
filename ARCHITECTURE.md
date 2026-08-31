@@ -189,7 +189,7 @@ tard.
 
 ### Deux ports, parce que ce sont deux métiers
 
-`GifCatalog` ne rend que des **adresses** (mis en avant, recherche, puces) : une
+`GifCatalog` ne rend que des **adresses** (mis en avant, recherche) : une
 grille qui garderait ses GIF en mémoire pèserait plus lourd que le fil qu'elle
 recouvre. Il masque aussi la forme de la pagination — Klipy numérote ses pages
 (`page`, `has_next`) là où d'autres rendent une position opaque, et
@@ -235,7 +235,6 @@ l'un à l'autre sans que rien bouge. Relevé sur l'émulateur (1080 × 2400,
 | En-tête | **112 dp** : 8 + onglets 40 + 8 + recherche 48 + 8 |
 | Onglets | **40 dp**, `SegmentedButton` à deux segments égaux (197,7 dp chacun sur 411) ; actif en `accent`, texte en `onAccent`, l'autre en `surface` |
 | Champ de recherche | boîte de 48 dp, pilule de **40 dp** entièrement arrondie, loupe dans un carré de 48 dp calé au bord gauche |
-| Puces (GIF) | rangée de 48 dp, puces de **32 dp** à coins de 8 dp, bordées, 8 dp entre elles |
 | Grille (GIF) | **deux colonnes** de 193,5 dp, gouttière de 8 dp, coins de 8 dp |
 | Panneau | **282 dp** à l'ouverture, dépliable jusqu'à 686 dp sur un écran de 914 (soit ¾) |
 
@@ -253,10 +252,6 @@ l'un à l'autre sans que rien bouge. Relevé sur l'émulateur (1080 × 2400,
   moitié du catalogue. Elle est écrite à la main, sans paquet tiers : le
   catalogue publie les dimensions de l'aperçu, il n'y a donc rien à mesurer —
   un GIF va dans la colonne la plus courte, et c'est tout l'algorithme.
-- **Le champ de recherche reste, les puces défilent.** Dans l'app d'origine
-  l'en-tête est une vue à part posée sur la grille, tandis que les puces en sont
-  le premier élément. Chercher doit rester à portée après dix écrans ; les
-  puces, elles, ne servent qu'au départ.
 - La recherche de GIF part **quand la frappe s'arrête** (300 ms) : sans ce
   délai, « chat » lancerait quatre requêtes dont trois seraient jetées, et la
   grille clignoterait à chaque lettre. Celle des emoji, non — le délai n'existe
@@ -306,6 +301,11 @@ avoir voulu agrandir les emoji.
   d'origine : il relève du RCS, que l'app ne fait pas. Le panneau des sources
   applique déjà cette règle — un onglet mort ferait une capture plus
   ressemblante et une app qui promet ce qu'elle ne tient pas.
+- **Les puces de tendances (`#mdr`, `#amour`…) ne sont pas reprises** non plus.
+  Elles proposent des idées à qui n'en a pas ; le champ de recherche fait la
+  même chose sans occuper une rangée en permanence, et la grille commence alors
+  au premier pixel du défilement. Le port a perdu sa méthode `categories()`
+  avec elles : ce qui ne s'affiche plus n'a pas à continuer d'être lu.
 - **Un appui joint, il n'envoie pas.** L'app d'origine ne montre pas d'étape
   intermédiaire — ni aperçu ni confirmation — et celle-ci non plus : le GIF part
   sur le plateau, exactement comme un vocal qu'on vient d'enregistrer, et c'est

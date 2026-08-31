@@ -64,18 +64,6 @@ class InMemoryGifCatalog implements GifCatalog {
     return _page(query.trim(), cursor);
   }
 
-  @override
-  Future<List<GifCategory>> categories() async => empty
-      ? const []
-      : const [
-          GifCategory(label: '#bravo', query: 'bravo'),
-          GifCategory(label: '#merci', query: 'merci'),
-          GifCategory(label: '#lol', query: 'lol'),
-          GifCategory(label: '#désolé', query: 'désolé'),
-          GifCategory(label: '#bonjour', query: 'bonjour'),
-          GifCategory(label: '#bisous', query: 'bisous'),
-        ];
-
   GifPage _page(String seed, String? cursor) {
     if (empty) return GifPage.empty;
     final page = int.tryParse(cursor ?? '0') ?? 0;

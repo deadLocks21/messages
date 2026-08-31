@@ -18,17 +18,12 @@ class GifBody extends ConsumerStatefulWidget {
     required this.onPicked,
     required this.onError,
     required this.onClose,
-    required this.onCategory,
   });
 
   final String query;
   final ValueChanged<AttachmentDraft> onPicked;
   final ValueChanged<Object> onError;
   final VoidCallback onClose;
-
-  /// Une puce touchée remplit le champ de recherche partagé : ce qui est
-  /// cherché doit se lire.
-  final ValueChanged<String> onCategory;
 
   @override
   ConsumerState<GifBody> createState() => _GifBodyState();
@@ -108,12 +103,10 @@ class _GifBodyState extends ConsumerState<GifBody> {
         }
         return GifGrid(
           gifs: page.gifs,
-          categories: ref.watch(gifCategoriesProvider).value ?? const [],
           scroll: _scroll,
           loadingMore: page.loadingMore,
           downloading: _downloading,
           onTap: _onTap,
-          onCategory: (category) => widget.onCategory(category.query),
         );
       },
     );
@@ -139,21 +132,17 @@ class GifGrid extends StatefulWidget {
   const GifGrid({
     super.key,
     required this.gifs,
-    required this.categories,
     required this.scroll,
     required this.loadingMore,
     required this.downloading,
     required this.onTap,
-    required this.onCategory,
   });
 
   final List<GifDto> gifs;
-  final List<GifCategoryDto> categories;
   final ScrollController scroll;
   final bool loadingMore;
   final String? downloading;
   final ValueChanged<GifDto> onTap;
-  final ValueChanged<GifCategoryDto> onCategory;
 
   /// De combien il faut avoir défilé pour reconsidérer ce qui s'anime. Assez
   /// pour ne pas recalculer à chaque image, assez peu pour que la marge d'une
@@ -207,16 +196,11 @@ class _GifGridState extends State<GifGrid> {
           heights[shortest] += height + gutter;
         }
 
-        // Ce qui précède la grille dans le défilement : les puces, quand il y
-        // en a. Sans ce décalage, la fenêtre du calcul serait fausse d'une
-        // rangée — assez peu pour se perdre dans la marge, mais autant le
-        // poser juste.
-        final headerHeight = widget.categories.isEmpty
-            ? 0.0
-            : ExpressionPicker.chipRowHeight;
+        // La grille commence au premier pixel du défilement : rien ne la
+        // précède.
         final margin = constraints.maxHeight;
-        final from = _offset - headerHeight - margin;
-        final to = _offset - headerHeight + constraints.maxHeight + margin;
+        final from = _offset - margin;
+        final to = _offset + constraints.maxHeight + margin;
 
         return NotificationListener<ScrollNotification>(
           onNotification: _onScroll,
@@ -226,13 +210,6 @@ class _GifGridState extends State<GifGrid> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Un catalogue qui ne publie pas de puces ne laisse pas une
-                // bande vide : la grille remonte contre le champ de recherche.
-                if (widget.categories.isNotEmpty)
-                  _Categories(
-                    categories: widget.categories,
-                    onSelected: widget.onCategory,
-                  ),
                 Padding(
                   padding: const EdgeInsets.all(gutter),
                   child: Row(
@@ -272,59 +249,6 @@ class _GifGridState extends State<GifGrid> {
           ),
         );
       },
-    );
-  }
-}
-
-/// Les puces de recherche toute faite. Premier élément de la grille, et non de
-/// l'en-tête : elles défilent avec les GIF (relevé).
-class _Categories extends StatelessWidget {
-  const _Categories({required this.categories, required this.onSelected});
-
-  final List<GifCategoryDto> categories;
-  final ValueChanged<GifCategoryDto> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-
-    return SizedBox(
-      height: ExpressionPicker.chipRowHeight,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(
-          horizontal: ExpressionPicker.padding,
-        ),
-        itemCount: categories.length,
-        separatorBuilder: (_, _) =>
-            const SizedBox(width: ExpressionPicker.padding),
-        itemBuilder: (context, index) {
-          final category = categories[index];
-          return Center(
-            child: Material(
-              color: colors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(ExpressionPicker.chipRadius),
-                side: BorderSide(color: colors.outline),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                key: Key('gifCategory_${category.query}'),
-                onTap: () => onSelected(category),
-                child: Container(
-                  height: ExpressionPicker.chipHeight,
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    category.label,
-                    style: TextStyle(fontSize: 14, color: colors.textPrimary),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 }

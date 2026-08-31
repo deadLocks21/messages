@@ -120,31 +120,6 @@ class Gif {
   int get hashCode => id.hashCode;
 }
 
-/// Une des puces sous le champ de recherche (`#lazy`, `#stressed`…).
-///
-/// Ce n'est pas un filtre mais une **recherche toute faite** : la toucher
-/// revient à taper son terme. D'où les deux champs — ce qui s'affiche n'est
-/// pas toujours ce qui se cherche.
-class GifCategory {
-  final String label;
-  final String query;
-
-  const GifCategory({required this.label, required this.query})
-    : assert(label != '', 'label cannot be empty'),
-      assert(query != '', 'query cannot be empty');
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is GifCategory &&
-          runtimeType == other.runtimeType &&
-          label == other.label &&
-          query == other.query;
-
-  @override
-  int get hashCode => Object.hash(label, query);
-}
-
 /// Une tranche de résultats, et de quoi demander la suivante.
 ///
 /// La grille est sans fin : le catalogue rend une position (`cursor`) plutôt
