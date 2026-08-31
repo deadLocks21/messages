@@ -37,6 +37,7 @@ class MessageComposer extends StatefulWidget {
     this.onAttach,
     this.onEmoji,
     this.emojiOpen = false,
+    this.onGallery,
     this.onVoice,
     this.onVoiceHold,
     this.onVoiceCancel,
@@ -57,6 +58,14 @@ class MessageComposer extends StatefulWidget {
   /// main est déjà là, et c'est le geste le plus court pour récupérer le
   /// clavier.
   final VoidCallback? onEmoji;
+
+  /// Ouvre directement la galerie, sans passer par le panneau des sources.
+  ///
+  /// L'app d'origine pose ce bouton au bout du champ, juste après l'emoji :
+  /// joindre une photo est de loin ce qu'on joint le plus souvent, et le
+  /// raccourci épargne les deux gestes du « + » puis de la case « Galerie ».
+  /// C'est le même chemin qu'elle, en un appui.
+  final VoidCallback? onGallery;
 
   /// Le panneau est-il ouvert ? Le bouton le dit en se remplissant, comme le
   /// « + » se remplit quand le plateau porte quelque chose.
@@ -376,6 +385,20 @@ class _MessageComposerState extends State<MessageComposer> {
                             ),
                             color: colors.textPrimary,
                             onPressed: widget.onEmoji,
+                          ),
+                        ),
+                        // Et le dernier ouvre la galerie tout de suite : dans
+                        // l'app d'origine c'est le seul raccourci du champ
+                        // vers une source, parce que c'est la seule qu'on
+                        // ouvre à longueur de journée.
+                        SizedBox(
+                          height: MessageComposer.pillHeight,
+                          child: IconButton(
+                            key: const Key('composerGallery'),
+                            tooltip: 'Galerie',
+                            icon: const Icon(Icons.image_outlined, size: 26),
+                            color: colors.textPrimary,
+                            onPressed: widget.onGallery,
                           ),
                         ),
                       ],

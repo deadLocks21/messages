@@ -7,6 +7,7 @@ import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/core/application/usecases/save_draft.usecase.dart';
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
 import 'package:messages/core/domain/model/attachment.dart';
+import 'package:messages/core/domain/services/attachment_picker.service.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/providers/service_providers.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
@@ -146,6 +147,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                     onSend: _send,
                     onAttach: _onAttach,
                     onEmoji: _toggleEmoji,
+                    onGallery: _onGallery,
                     emojiOpen: _picker != null,
                     onVoice: _onVoice,
                     onVoiceHold: _onVoiceHold,
@@ -345,6 +347,15 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       return;
     }
 
+    await _addFrom(source);
+  }
+
+  /// Le bouton galerie du champ : la même source, sans le détour par le
+  /// panneau. C'est ce que fait l'app d'origine, où ce raccourci ouvre
+  /// directement le sélecteur de photos.
+  Future<void> _onGallery() => _addFrom(AttachmentSource.gallery);
+
+  Future<void> _addFrom(AttachmentSource source) async {
     try {
       await ref
           .read(attachmentTrayProvider(widget.threadId).notifier)
