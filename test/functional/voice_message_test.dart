@@ -1,8 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/ui/pages/conversation/conversation.page.dart';
 import 'package:messages/ui/pages/conversation/widgets/audio_attachment.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/message_composer.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/voice_recorder.widget.dart';
 
 import '../builders/builders.dart';
@@ -50,17 +52,19 @@ void main() {
 
   Finder playButton(String id) => find.byKey(Key('playAttachment_$id'));
 
-  Finder iconIn(String id, IconData icon) => find.descendant(
-    of: playButton(id),
-    matching: find.byIcon(icon),
-  );
+  Finder iconIn(String id, IconData icon) =>
+      find.descendant(of: playButton(id), matching: find.byIcon(icon));
 
   testWidgets('un vocal s\'affiche en lecteur, pas en ligne de fichier', (
     tester,
   ) async {
     final (device, threadId) = deviceWithVoiceMessages();
 
-    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await pumpPage(
+      tester,
+      ConversationPage(threadId: threadId),
+      device: device,
+    );
 
     expect(find.byType(AudioAttachment), findsNWidgets(2));
     // La durée annoncée est là avant toute lecture : c'est elle qui décide
@@ -74,7 +78,11 @@ void main() {
   testWidgets('le bouton bascule en pause et le temps avance', (tester) async {
     final (device, threadId) = deviceWithVoiceMessages();
 
-    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await pumpPage(
+      tester,
+      ConversationPage(threadId: threadId),
+      device: device,
+    );
     await tester.tap(playButton('part-voice-1'));
     await tester.pump();
 
@@ -102,7 +110,11 @@ void main() {
     // *visée* qu'on lit ici — Material se charge de passer de l'une à l'autre.
     final (device, threadId) = deviceWithVoiceMessages();
 
-    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await pumpPage(
+      tester,
+      ConversationPage(threadId: threadId),
+      device: device,
+    );
 
     ShapeBorder? shapeOf(String id) => tester
         .widget<Material>(
@@ -133,7 +145,11 @@ void main() {
   ) async {
     final (device, threadId) = deviceWithVoiceMessages();
 
-    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await pumpPage(
+      tester,
+      ConversationPage(threadId: threadId),
+      device: device,
+    );
 
     final painter =
         tester
@@ -157,7 +173,11 @@ void main() {
   testWidgets('lancer un vocal arrête celui qui jouait', (tester) async {
     final (device, threadId) = deviceWithVoiceMessages();
 
-    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await pumpPage(
+      tester,
+      ConversationPage(threadId: threadId),
+      device: device,
+    );
     await tester.tap(playButton('part-voice-1'));
     await tester.pump(const Duration(seconds: 1));
     await tester.tap(playButton('part-voice-2'));
@@ -175,7 +195,11 @@ void main() {
   testWidgets('au bout, la bulle est prête à rejouer', (tester) async {
     final (device, threadId) = deviceWithVoiceMessages();
 
-    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await pumpPage(
+      tester,
+      ConversationPage(threadId: threadId),
+      device: device,
+    );
     await tester.tap(playButton('part-voice-1'));
     await tester.pump(const Duration(seconds: 5));
 
@@ -193,7 +217,11 @@ void main() {
     // pas encore.
     final (device, threadId) = deviceWithVoiceMessages();
 
-    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await pumpPage(
+      tester,
+      ConversationPage(threadId: threadId),
+      device: device,
+    );
 
     // Un appui au milieu de la piste du vocal de 4 secondes : la tête se pose
     // autour de 2 secondes, et rien ne démarre.
@@ -452,6 +480,248 @@ void main() {
       // Le panneau reste ouvert : le refus n'est pas définitif, et réessayer
       // ne doit pas coûter un aller-retour de plus.
       expect(find.byKey(const Key('voiceRecorderPanel')), findsOneWidget);
+    });
+  });
+
+  group('Maintenir le disque pour enregistrer', () {
+    /// Un fil vide, prêt à recevoir un vocal.
+    (TestDevice, String) deviceWithThread() {
+      final device = TestDevice(
+        contacts: [
+          Build.contact(displayName: 'Camille', addresses: ['0612345678']),
+        ],
+      );
+      final threadId = device.store.threadIdFor([
+        Build.address('+33612345678'),
+      ]);
+      device.store.insert(
+        Build.message(threadId: threadId, body: 'Tu es là ?'),
+      );
+      return (device, threadId);
+    }
+
+    /// Maintient le disque, puis parle [duration]. Le doigt reste posé : c'est
+    /// à l'appelant de dire comment le geste se termine — relâché, glissé vers
+    /// la corbeille ou vers le cadenas.
+    ///
+    /// Jamais `pumpAndSettle` : le micro publie un niveau toutes les 100 ms, et
+    /// la barre se repeindrait sans fin.
+    Future<TestGesture> hold(
+      WidgetTester tester, {
+      Duration duration = const Duration(seconds: 2),
+    }) async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('recordVoice'))),
+      );
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      // Le micro s'ouvre en plusieurs allers-retours — la limite de
+      // l'opérateur, puis le démarrage — avant que la barre ait quelque chose
+      // à peindre.
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(duration);
+      return gesture;
+    }
+
+    testWidgets('le champ devient la barre, et le disque rougit', (
+      tester,
+    ) async {
+      final (device, threadId) = deviceWithThread();
+      await pumpPage(
+        tester,
+        ConversationPage(threadId: threadId),
+        device: device,
+      );
+
+      final gesture = await hold(tester);
+
+      // La pilule a cédé la place, sans que le panneau s'en mêle : un micro,
+      // une surface.
+      expect(find.byKey(const Key('voiceHoldBar')), findsOneWidget);
+      expect(find.byKey(const Key('voiceRecorderPanel')), findsNothing);
+      expect(find.text('Message texte'), findsNothing);
+      // Le compteur avance sous le doigt, et le cadenas annonce qu'on peut le
+      // lever sans tout perdre.
+      expect(find.text('00:02'), findsOneWidget);
+      expect(find.byKey(const Key('voiceLockChip')), findsOneWidget);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('relâcher joint le vocal, il ne l\'envoie pas', (tester) async {
+      // C'est là toute la différence avec un bouton d'envoi : l'app d'origine
+      // pose le vocal sur le plateau et laisse ajouter une légende.
+      final (device, threadId) = deviceWithThread();
+      await pumpPage(
+        tester,
+        ConversationPage(threadId: threadId),
+        device: device,
+      );
+
+      final gesture = await hold(tester);
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('voiceHoldBar')), findsNothing);
+      expect(find.byKey(const Key('attachmentTray')), findsOneWidget);
+      expect(find.text('Ajouter du texte'), findsOneWidget);
+      // Rien n'est parti : le fil ne porte que le message reçu.
+      expect(
+        device.store.messagesFor(threadId).where((m) => m.isOutgoing),
+        isEmpty,
+      );
+
+      await tester.tap(find.byKey(const Key('sendMessage')));
+      await tester.pumpAndSettle();
+
+      final sent = device.store
+          .messagesFor(threadId)
+          .where((m) => m.isOutgoing)
+          .single;
+      expect(sent.attachments.single.kind, AttachmentKind.audio);
+    });
+
+    testWidgets('glisser jusqu\'à la corbeille ne laisse rien', (tester) async {
+      final (device, threadId) = deviceWithThread();
+      await pumpPage(
+        tester,
+        ConversationPage(threadId: threadId),
+        device: device,
+      );
+
+      final gesture = await hold(tester);
+      await gesture.moveBy(
+        const Offset(-MessageComposer.cancelDistance - 1, 0),
+      );
+      await tester.pump();
+
+      // Annulé sous le doigt, sans attendre qu'il se lève : « faire glisser
+      // pour annuler » annule quand on a glissé.
+      expect(find.byKey(const Key('voiceHoldBar')), findsNothing);
+      expect(find.byKey(const Key('attachmentTray')), findsNothing);
+      expect(find.text('Message texte'), findsOneWidget);
+
+      // Et le doigt qui se lève ensuite ne ressuscite rien.
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('attachmentTray')), findsNothing);
+    });
+
+    testWidgets('glisser jusqu\'au cadenas passe la main au panneau', (
+      tester,
+    ) async {
+      // Le doigt s'en va, l'enregistrement continue : c'est le panneau qui
+      // porte alors « stop », « Recommencer » et « Joindre ».
+      final (device, threadId) = deviceWithThread();
+      await pumpPage(
+        tester,
+        ConversationPage(threadId: threadId),
+        device: device,
+      );
+
+      final gesture = await hold(tester);
+      await gesture.moveBy(const Offset(0, -MessageComposer.lockDistance - 1));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(find.byKey(const Key('voiceHoldBar')), findsNothing);
+      expect(find.byKey(const Key('voiceRecorderPanel')), findsOneWidget);
+      // Le micro n'a rien vu passer : le compteur repart de là où le doigt
+      // l'avait laissé, il ne recommence pas.
+      expect(find.byKey(const Key('voiceStop')), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('00:03'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('voiceAttach')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('attachmentTray')), findsOneWidget);
+    });
+
+    testWidgets('un appui bref ouvre toujours le panneau', (tester) async {
+      // Les deux gestes vivent sur le même disque : celui qu'on n'a pas voulu
+      // ne doit pas manger l'autre.
+      final (device, threadId) = deviceWithThread();
+      await pumpPage(
+        tester,
+        ConversationPage(threadId: threadId),
+        device: device,
+      );
+
+      await tester.tap(find.byKey(const Key('recordVoice')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('voiceRecorderPanel')), findsOneWidget);
+      expect(find.byKey(const Key('voiceHoldBar')), findsNothing);
+      // Et le micro n'a pas été ouvert au passage.
+      expect(find.byKey(const Key('voiceInvitation')), findsOneWidget);
+    });
+
+    testWidgets('relâché aussitôt, il ne reste rien à joindre', (tester) async {
+      // Un appui malheureux ne doit pas produire une pièce jointe muette.
+      final (device, threadId) = deviceWithThread();
+      await pumpPage(
+        tester,
+        ConversationPage(threadId: threadId),
+        device: device,
+      );
+
+      final gesture = await hold(
+        tester,
+        duration: const Duration(milliseconds: 200),
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('voiceHoldBar')), findsNothing);
+      expect(find.byKey(const Key('attachmentTray')), findsNothing);
+      expect(find.byKey(const Key('voiceRecorderPanel')), findsNothing);
+      expect(find.text('Message texte'), findsOneWidget);
+    });
+
+    testWidgets('le panneau ouvert garde la main sur le micro', (tester) async {
+      // Les deux surfaces montrent le même enregistrement : les afficher
+      // ensemble, c'est afficher deux fois le même micro — et le second
+      // compteur resterait à zéro.
+      final (device, threadId) = deviceWithThread();
+      await pumpPage(
+        tester,
+        ConversationPage(threadId: threadId),
+        device: device,
+      );
+
+      await tester.tap(find.byKey(const Key('recordVoice')));
+      await tester.pumpAndSettle();
+
+      final gesture = await hold(tester);
+
+      expect(find.byKey(const Key('voiceHoldBar')), findsNothing);
+      expect(find.byKey(const Key('voiceRecorderPanel')), findsOneWidget);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('micro refusé, aucune barre ne se peint', (tester) async {
+      // Peindre la barre avant de savoir promettrait un enregistrement qui n'a
+      // pas commencé — et le compteur resterait à zéro sans que rien le dise.
+      final (device, threadId) = deviceWithThread();
+      device.voice.denyNext = true;
+
+      await pumpPage(
+        tester,
+        ConversationPage(threadId: threadId),
+        device: device,
+      );
+
+      final gesture = await hold(tester);
+
+      expect(find.byKey(const Key('voiceHoldBar')), findsNothing);
+      expect(find.text('L\'accès au micro a été refusé.'), findsOneWidget);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
     });
   });
 }

@@ -53,7 +53,9 @@ class VoiceRecorderPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final panel = ref.watch(voiceRecorderProvider(threadId));
-    if (!panel.isOpen) return const SizedBox.shrink();
+    // Pendant l'appui maintenu, c'est le champ de rédaction qui porte
+    // l'enregistrement : deux surfaces pour le même micro se contrediraient.
+    if (!panel.isPanel) return const SizedBox.shrink();
 
     final colors = context.appColors;
     final recording =

@@ -16,7 +16,7 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 | **Fil** | Bulles groupées à la Google Messages, séparateurs de date, états `Envoi… / Envoyé / Distribué / Non distribué`, appui long (copier, transférer, supprimer, détails, réessayer), appel du correspondant. |
 | **Envoi** | SMS simple et multi-parties (compteur de segments), envoi optimiste, accusés de dépôt et de remise, renvoi d'un échec. |
 | **Pièces jointes** | Galerie, appareil photo, fichiers, fiche de contact ; compression des images au plafond de l'opérateur, une pièce jointe par MMS, image rouverte en grand, PDF et vidéos confiés au système. |
-| **Vocaux** | Enregistrement depuis le champ de rédaction (panneau à trois états : invitation, enregistrement avec compteur et piste, relecture), durée bornée au budget MMS de l'opérateur, suppression du bruit annoncée quand l'appareil la sert, envoi en MMS `audio/amr`. |
+| **Vocaux** | Deux gestes sur le même disque : appui bref → panneau à trois états (invitation, enregistrement avec compteur et piste, relecture) ; appui **maintenu** → la barre « Faire glisser pour annuler », relâcher joint, glisser vers la corbeille annule, glisser vers le cadenas rend la main au panneau. Durée bornée au budget MMS de l'opérateur, suppression du bruit annoncée quand l'appareil la sert, envoi en MMS `audio/amr`. |
 | **Réception** | `SMS_DELIVER` → écriture dans le stock + notification + rafraîchissement live de l'UI. |
 | **Rédaction** | Sélecteur de contacts (nom ou numéro), numéro libre, brouillons persistés, transfert d'un message. |
 | **Notifications** | `MessagingStyle` (fil des derniers échanges, nom du contact), **réponse directe** et **marquer comme lu** depuis le volet, groupement + résumé, sourdine par fil respectée, annulation quand le fil est lu dans l'app. |
@@ -29,9 +29,7 @@ couvrir le Kotlin par des tests instrumentés — `flutter_test` ne l'atteint pa
 Hors périmètre : le **RCS** ; la **réception** de MMS — les composants exigés
 par le rôle d'app par défaut existent (`MmsDeliverReceiver`,
 `HeadlessSmsSendService`), mais un MMS entrant n'est pas téléchargé auprès du
-MMSC ; et le **maintien-appuyé** sur le bouton du vocal (« Faire glisser pour
-annuler »), raccourci vers le même enregistrement que le panneau couvre déjà
-entièrement.
+MMSC.
 
 ## Le stock SMS est la source de vérité
 

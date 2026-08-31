@@ -137,6 +137,10 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                     onSend: _send,
                     onAttach: _onAttach,
                     onVoice: _onVoice,
+                    onVoiceHold: _onVoiceHold,
+                    onVoiceCancel: _voice.close,
+                    onVoiceLock: _voice.lock,
+                    onVoiceRelease: _voice.release,
                     hasAttachments: attachments.isNotEmpty,
                   ),
                   // Sous le champ, et non par-dessus : dans l'app d'origine le
@@ -155,7 +159,10 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     );
   }
 
-  PreferredSizeWidget _appBar(BuildContext context, ConversationDto? conversation) {
+  PreferredSizeWidget _appBar(
+    BuildContext context,
+    ConversationDto? conversation,
+  ) {
     final colors = context.appColors;
     final title = conversation?.title ?? '';
     final address = conversation?.addresses.firstOrNull;
@@ -207,10 +214,12 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       // Un fil présent dans la liste mais sans destinataire lisible : le stock
       // système en contient, et l'utilisateur se retrouve devant un fil dans
       // lequel il ne peut pas écrire sans savoir pourquoi.
-      ref.read(loggerProvider).warn(
-        'message.send_blocked',
-        attrs: {'reason': 'no_recipient', 'thread.id': widget.threadId},
-      );
+      ref
+          .read(loggerProvider)
+          .warn(
+            'message.send_blocked',
+            attrs: {'reason': 'no_recipient', 'thread.id': widget.threadId},
+          );
       _announce('Destinataire inconnu pour ce fil.');
       return;
     }
@@ -265,11 +274,27 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     }
   }
 
+  VoiceRecorder get _voice =>
+      ref.read(voiceRecorderProvider(widget.threadId).notifier);
+
   /// Ouvre le panneau d'enregistrement, sans encore ouvrir le micro : la
   /// permission se demandera au geste suivant, là où l'utilisateur comprend
   /// pourquoi on la lui demande.
-  void _onVoice() =>
-      ref.read(voiceRecorderProvider(widget.threadId).notifier).open();
+  void _onVoice() => _voice.open();
+
+  /// L'appui **maintenu** sur le disque : ici, au contraire, le micro s'ouvre
+  /// dans le même geste — c'est tout l'intérêt du geste.
+  ///
+  /// Rend `false` quand il ne s'est pas ouvert, pour que le champ n'aille pas
+  /// peindre une barre d'enregistrement devant un micro fermé.
+  Future<bool> _onVoiceHold() async {
+    try {
+      return await _voice.hold();
+    } on SmsException catch (e) {
+      _announce(e.message);
+      return false;
+    }
+  }
 
   /// Le micro refusé, ou l'enregistrement qui ne démarre pas. Les deux laissent
   /// l'utilisateur devant un panneau qui ne fait rien : le silence passerait

@@ -203,9 +203,57 @@ ce qui vient d'être dit, et une phrase se redit mal.
   enregistrement, relecture) et ses trois boutons. **Exception assumée** :
   l'app d'origine ouvre sur une illustration, remplacée ici par le geste à
   faire — une illustration qui n'existe pas dans l'app se dessinerait mal et
-  vieillirait seule. Le maintien-appuyé (« Faire glisser pour annuler », verrou
-  à faire glisser vers le haut) n'est **pas** repris : c'est un raccourci vers
-  le même enregistrement, et le panneau le couvre entièrement.
+  vieillirait seule.
+
+### Un micro, deux gestes, deux surfaces
+
+Le disque au bout du champ porte **deux gestes**, et c'est là tout l'intérêt :
+dire trois mots ne demande alors qu'un appui, là où le panneau en demande trois
+(ouvrir, enregistrer, joindre). `VoiceRecorderSurface` dit qui montre
+l'enregistrement — `panel` ou `hold` — sans que le port en sache rien : pour
+lui, il n'y a qu'un micro et qu'un état.
+
+| Geste | Ce qui arrive |
+|---|---|
+| Appui **bref** | Le panneau s'ouvre sous le champ, micro fermé. |
+| Appui **maintenu** | Le micro s'ouvre tout de suite ; la pilule devient la barre `● 00:03 🗑 ‹ Faire glisser pour annuler`, le disque gonfle et rougit, une pastille cadenas paraît au-dessus. |
+| **Relâcher** | Le vocal est **joint**, pas envoyé — l'app d'origine laisse ajouter une légende. |
+| Glisser vers la **corbeille** | Annulé sous le doigt, sans attendre qu'il se lève : « faire glisser pour annuler » annule quand on a glissé. |
+| Glisser vers le **cadenas** | Le doigt s'en va, l'enregistrement continue, et le **panneau prend le relais** — il porte déjà « stop », « Recommencer » et « Joindre ». |
+
+- **La barre remplace la pilule, elle ne s'y ajoute pas** : même hauteur, mêmes
+  coins, même fond. Rien ne doit sauter au moment où le micro s'ouvre. Le
+  disque, lui, **déborde de sa boîte** au lieu de l'agrandir (152 px contre 132
+  au relevé, soit 64 dp contre 56) : une pilule qui changerait de hauteur
+  pousserait tout le fil de quatre pixels au moment précis où l'utilisateur ne
+  regarde que son doigt. Son glyphe ne grandit pas — sur l'appareil, l'icône
+  fait la même largeur dans les deux états.
+- **La barre ne se peint qu'une fois le micro ouvert.** Entre l'appui et le
+  premier octet, il y a une permission à demander : peindre avant de savoir
+  promettrait un enregistrement qui n'a pas commencé, et le compteur resterait
+  à zéro sans que rien le dise. D'où l'état intermédiaire `opening` du champ —
+  un doigt qui se lève pendant ce temps-là ne doit pas laisser une barre
+  derrière lui.
+- **Une surface à la fois.** Le panneau déjà ouvert garde la main : `hold()`
+  rend `false` plutôt que d'ouvrir un second micro, et le champ ne peint rien.
+  Deux surfaces pour un même enregistrement se contrediraient, et le second
+  compteur resterait à zéro.
+- **La géométrie du glissé ne remonte pas.** Le champ borne le déplacement,
+  calcule les deux distances (96 dp vers la corbeille, 72 vers le cadenas, la
+  dominante l'emportant en diagonale) et ne publie que la **décision**. Le
+  provider ne connaît que trois verbes : `lock`, `close`, `release`.
+- Le geste **dit ce qu'il va faire avant de le faire** : la corbeille rougit et
+  la barre s'efface à l'approche de l'annulation, le cadenas se ferme à
+  l'approche du verrou. Jamais jusqu'à disparaître, cela dit — une barre
+  effacée laisserait croire que c'est déjà annulé alors que le doigt peut encore
+  revenir.
+- Le budget de l'opérateur atteint pendant un maintien **joint** le vocal, comme
+  si le doigt s'était levé : laisser une barre à compteur figé sous un doigt qui
+  ne commande plus rien serait pire que de conclure à sa place.
+- **Ce que les captures ne montrent pas**, et qui est donc une décision et non
+  un relevé : à quoi ressemble l'enregistrement une fois verrouillé. Il est ici
+  rendu au panneau, qui porte déjà exactement les trois boutons qu'un
+  enregistrement sans doigt réclame.
 - Le vocal enregistré s'écoute **avec le lecteur des bulles**, pas avec un
   aperçu à part : `AudioPlayerService` accepte indifféremment l'identifiant
   d'une partie du stock et l'URI d'un brouillon (`AudioSource.uriOf` côté

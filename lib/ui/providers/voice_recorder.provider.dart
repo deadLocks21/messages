@@ -16,32 +16,59 @@ part 'voice_recorder.provider.g.dart';
 Stream<VoiceRecording> voiceRecording(Ref ref) =>
     ref.watch(recordVoiceMessageUseCaseProvider).recording;
 
-/// Ce que montre le panneau : est-il ouvert, et y a-t-il un vocal prêt à
-/// joindre ?
+/// **Qui montre l'enregistrement** — ce n'est pas la même question que « où en
+/// est le micro », à laquelle répond [VoiceRecording].
+///
+/// L'app d'origine a deux gestes pour un même micro, et deux surfaces pour les
+/// porter : un appui bref ouvre le panneau, un appui **maintenu** transforme le
+/// champ de rédaction lui-même. Le port, lui, ne connaît qu'un enregistrement.
+enum VoiceRecorderSurface {
+  /// Rien : le champ de rédaction est intact.
+  none,
+
+  /// Le panneau sous le champ, ouvert d'un appui bref.
+  panel,
+
+  /// Le doigt tient le disque : le champ devient la barre
+  /// « Faire glisser pour annuler », et lever le doigt joint le vocal.
+  hold,
+}
+
+/// Ce que montre l'enregistreur : par où, et y a-t-il un vocal prêt à joindre ?
 ///
 /// Le reste — le compteur, la piste, la suppression du bruit — vient du port,
 /// pas d'ici : ce contrôleur ne tient pas le micro, il tient le geste.
 class VoiceRecorderState {
-  final bool isOpen;
+  final VoiceRecorderSurface surface;
 
   /// Le vocal enregistré, tant qu'il n'est ni joint ni jeté. C'est lui que le
   /// panneau donne à réécouter.
   final AttachmentDraftDto? recorded;
 
-  const VoiceRecorderState({this.isOpen = false, this.recorded});
+  const VoiceRecorderState({
+    this.surface = VoiceRecorderSurface.none,
+    this.recorded,
+  });
 
   static const closed = VoiceRecorderState();
+
+  /// Le micro est-il montré quelque part ? C'est ce qui décide s'il faut le
+  /// refermer en quittant le fil, quelle que soit la surface qui l'affiche.
+  bool get isOpen => surface != VoiceRecorderSurface.none;
+
+  bool get isPanel => surface == VoiceRecorderSurface.panel;
+  bool get isHeld => surface == VoiceRecorderSurface.hold;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is VoiceRecorderState &&
           runtimeType == other.runtimeType &&
-          isOpen == other.isOpen &&
+          surface == other.surface &&
           recorded?.id == other.recorded?.id;
 
   @override
-  int get hashCode => Object.hash(isOpen, recorded?.id);
+  int get hashCode => Object.hash(surface, recorded?.id);
 }
 
 /// Le panneau d'enregistrement d'un fil : son ouverture, et le vocal qu'il
@@ -57,10 +84,12 @@ class VoiceRecorderState {
 class VoiceRecorder extends _$VoiceRecorder {
   AttachmentDraft? _draft;
 
-  /// Le panneau est-il ouvert ? Doublé de l'état parce qu'`onDispose` ne peut
-  /// pas le lire : un rappel de cycle de vie n'a plus le droit de toucher au
-  /// `Ref` ni aux providers voisins.
-  bool _isOpen = false;
+  /// Qui montre l'enregistrement ? Doublé de l'état parce qu'`onDispose` ne
+  /// peut pas le lire : un rappel de cycle de vie n'a plus le droit de toucher
+  /// au `Ref` ni aux providers voisins.
+  VoiceRecorderSurface _surface = VoiceRecorderSurface.none;
+
+  bool get _isOpen => _surface != VoiceRecorderSurface.none;
 
   /// Un arrêt est-il déjà en cours ?
   ///
@@ -84,7 +113,16 @@ class VoiceRecorder extends _$VoiceRecorder {
       if (recording == null) return;
       // `stop` porte son propre verrou : l'arrêt qu'on vient de demander ne
       // se rejoue pas ici.
-      if (recording.isRecorded && _isOpen && _draft == null) stop();
+      if (!recording.isRecorded || !_isOpen || _draft != null) return;
+      // Le panneau relève le brouillon et attend « Joindre ». L'appui
+      // maintenu, lui, n'a plus de doigt à attendre : le vocal part sur le
+      // plateau comme s'il venait d'être relâché — laisser une barre à
+      // compteur figé sous un doigt qui ne commande plus rien serait pire.
+      if (_surface == VoiceRecorderSurface.hold) {
+        release();
+      } else {
+        stop();
+      }
     });
     ref.onDispose(() {
       // Quitter le fil ne laisse pas un micro ouvert derrière soi.
@@ -96,7 +134,7 @@ class VoiceRecorder extends _$VoiceRecorder {
   /// Un seul endroit pour publier : l'état et son double ne peuvent pas
   /// diverger.
   void _publish(VoiceRecorderState next) {
-    _isOpen = next.isOpen;
+    _surface = next.surface;
     state = next;
   }
 
@@ -107,7 +145,57 @@ class VoiceRecorder extends _$VoiceRecorder {
   /// l'utilisateur comprend pourquoi on la lui demande.
   void open() {
     if (state.isOpen) return;
-    _publish(const VoiceRecorderState(isOpen: true));
+    _publish(const VoiceRecorderState(surface: VoiceRecorderSurface.panel));
+  }
+
+  /// **Appui maintenu** : le micro s'ouvre dans le même geste, sans passer par
+  /// le panneau, et c'est le champ de rédaction qui devient la barre.
+  ///
+  /// La surface est publiée **avant** d'ouvrir le micro, et non après : entre
+  /// les deux il y a une permission à demander, et un doigt levé pendant ce
+  /// temps doit trouver un enregistrement à annuler — sinon [release] ne
+  /// reconnaît pas le geste qu'il termine et le micro reste ouvert.
+  ///
+  /// Rend `false` quand l'appui n'a rien à prendre : le panneau tient déjà le
+  /// micro, et deux surfaces pour un même enregistrement se contrediraient.
+  /// Propage le refus du micro : c'est la page qui sait le dire.
+  Future<bool> hold() async {
+    if (state.isOpen) return false;
+    _publish(const VoiceRecorderState(surface: VoiceRecorderSurface.hold));
+    try {
+      await record();
+    } catch (_) {
+      _publish(VoiceRecorderState.closed);
+      rethrow;
+    }
+    return true;
+  }
+
+  /// Le doigt a glissé sur le **cadenas** : l'enregistrement continue sans lui.
+  ///
+  /// Le panneau prend le relais — il porte déjà « stop », « Recommencer » et
+  /// « Joindre », et c'est exactement ce qu'un enregistrement sans doigt
+  /// réclame. Le micro, lui, n'a rien vu passer : verrouiller n'est pas une
+  /// opération d'enregistrement mais un changement de main.
+  void lock() {
+    if (!state.isHeld) return;
+    _publish(const VoiceRecorderState(surface: VoiceRecorderSurface.panel));
+  }
+
+  /// Le doigt s'est **levé** : le micro se referme et le vocal part sur le
+  /// plateau dans le même geste — l'app d'origine ne fait pas relire ce qu'on
+  /// vient de dire, elle le pose.
+  ///
+  /// Trop court pour être un message, il ne reste rien : le champ redevient
+  /// simplement lui-même. Un appui malheureux ne laisse pas de trace.
+  Future<void> release() async {
+    if (!state.isHeld) return;
+    await stop();
+    if (_draft == null) {
+      _publish(VoiceRecorderState.closed);
+      return;
+    }
+    await attach();
   }
 
   /// Ouvre le micro. Propage le refus : c'est la page qui sait le dire.
@@ -125,7 +213,9 @@ class VoiceRecorder extends _$VoiceRecorder {
       if (!_isOpen) return;
       _publish(
         VoiceRecorderState(
-          isOpen: true,
+          // La surface ne change pas en s'arrêtant : c'est le panneau qui
+          // relève le brouillon, ou la barre qui finit son geste.
+          surface: _surface,
           recorded: draft == null ? null : AttachmentDraftDto.fromDomain(draft),
         ),
       );
@@ -138,11 +228,13 @@ class VoiceRecorder extends _$VoiceRecorder {
   /// états où le bouton existe — pendant l'enregistrement comme après.
   Future<void> restart() async {
     _draft = null;
-    _publish(const VoiceRecorderState(isOpen: true));
+    _publish(const VoiceRecorderState(surface: VoiceRecorderSurface.panel));
     await ref.read(recordVoiceMessageUseCaseProvider).discard();
   }
 
-  /// « Annuler » : même abandon, mais le panneau se referme.
+  /// « Annuler », et le glissé vers la **corbeille** : même abandon, mais la
+  /// surface se referme. Les deux gestes disent la même chose — ce qui vient
+  /// d'être dit ne partira pas.
   Future<void> close() async {
     _draft = null;
     _publish(VoiceRecorderState.closed);
