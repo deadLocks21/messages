@@ -81,9 +81,11 @@ object MmsReception {
         }
         val subscriptionId = intent.getIntExtra(EXTRA_PUSH_SUBSCRIPTION, -1)
 
-        val notification = MmsPduReader.readNotification(pdu)
+        val notification = MmsPduReader.readNotification(pdu) {
+            Log.e(TAG, "M-Notification.ind (${pdu.size} o) : $it")
+        }
         if (notification == null) {
-            Log.w(TAG, "M-Notification.ind indécodable (${pdu.size} octets)")
+            Log.w(TAG, "MMS annoncé mais illisible : abandon")
             return
         }
         Log.i(
@@ -107,12 +109,19 @@ object MmsReception {
                 return
             }
 
-        context.grantUriPermission(
-            MMS_SERVICE_PACKAGE,
-            fileUri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-        )
+        runCatching {
+            context.grantUriPermission(
+                MMS_SERVICE_PACKAGE,
+                fileUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+        }.onFailure {
+            // Sans cette permission le service télécharge dans le vide et ne
+            // rend qu'un code d'erreur générique : c'est *ici* qu'il faut le
+            // dire, pas trois lignes de journal plus loin.
+            Log.e(TAG, "permission d'écriture refusée à $MMS_SERVICE_PACKAGE", it)
+        }
 
         val downloaded = Intent(ACTION_MMS_DOWNLOADED).apply {
             setClass(context, MmsDownloadedReceiver::class.java)
@@ -135,10 +144,25 @@ object MmsReception {
                 null,
                 pending,
             )
+        }.onSuccess {
+            // Sans cette ligne, un `PendingIntent` qui ne revient jamais — APN
+            // indisponible, service MMS qui abandonne en silence — est
+            // indiscernable d'une demande jamais partie. Seul l'hôte du MMSC
+            // est journalisé : le reste de l'URL désigne un message précis.
+            Log.i(
+                TAG,
+                "téléchargement demandé à ${hostOf(notification.contentLocation)} " +
+                    "(abonnement $subscriptionId)",
+            )
         }.onFailure {
             Log.e(TAG, "téléchargement refusé au démarrage", it)
         }
     }
+
+    /** L'hôte d'une URL, ou son défaut. Jamais le chemin : il nomme le message. */
+    private fun hostOf(url: String): String =
+        runCatching { Uri.parse(url).host }.getOrNull() ?: "MMSC inconnu"
+
 
     /** Relit le PDU téléchargé, l'écrit au stock, notifie. */
     fun finish(context: Context, intent: Intent, resultCode: Int) {
@@ -162,14 +186,20 @@ object MmsReception {
             return
         }
 
-        val retrieved = MmsPduReader.readRetrieveConf(pdu)
+        val retrieved = MmsPduReader.readRetrieveConf(pdu) {
+            Log.e(TAG, "M-Retrieve.conf (${pdu.size} o) : $it")
+        }
         if (retrieved == null) {
-            Log.e(TAG, "M-Retrieve.conf indécodable (${pdu.size} octets)")
+            Log.e(TAG, "MMS téléchargé mais illisible : abandon")
             return
         }
+        Log.i(TAG, "M-Retrieve.conf décodé : ${retrieved.parts.size} partie(s)")
 
         // L'expéditeur du PDU fait foi ; celui de la notification n'est qu'un
         // repli, certains MMSC ne le posant pas.
+        if (retrieved.from == null) {
+            Log.w(TAG, "M-Retrieve.conf sans From : repli sur celui de la notification")
+        }
         val sender = (retrieved.from ?: intent.getStringExtra(EXTRA_SENDER))
             ?.let(MmsPduReader::stripAddressType)
             ?.takeIf { it.isNotEmpty() }
@@ -194,7 +224,24 @@ object MmsReception {
         val threadId = message["threadId"] as? String ?: ""
         val body = message["body"] as? String ?: ""
         val date = message["date"] as? Long ?: System.currentTimeMillis()
-        Log.i(TAG, "MMS reçu écrit : ${message["id"]}, fil $threadId")
+        // Le stock est relu, pas cru sur parole : les écritures de parties sont
+        // individuellement tolérantes (cf. `MmsStore`), et une ligne de succès
+        // qui annoncerait ce qu'on a *voulu* écrire masquerait exactement le
+        // cas qu'on cherche — une bulle qui arrive vide.
+        val written = (message["attachments"] as? List<*>)?.size ?: 0
+        val expected = retrieved.parts.count { !it.isSmil && !it.isText }
+        if (written != expected) {
+            Log.e(
+                TAG,
+                "MMS ${message["id"]} : $written pièce(s) jointe(s) relue(s) " +
+                    "pour $expected décodée(s) — écriture partielle",
+            )
+        }
+        Log.i(
+            TAG,
+            "MMS reçu écrit : ${message["id"]}, fil $threadId, " +
+                "$written pièce(s) jointe(s), texte ${body.length} car.",
+        )
 
         // L'UI est peut-être ouverte — elle se met alors à jour d'elle-même —
         // mais c'est rarement le cas ici : l'app peut très bien ne pas tourner.

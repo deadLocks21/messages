@@ -201,6 +201,80 @@ class MmsPduReaderTest {
         assertNull(MmsPduReader.readRetrieveConf(minimalHeaders() + body))
     }
 
+    // ------------------------------------------------------------ diagnostic
+
+    // Un abandon muet serait indébogable sur le terrain : c'est le rapporteur,
+    // et lui seul, qui rend un encodage imprévu réparable. Il se teste donc
+    // comme le reste — sinon il pourrit sans que rien ne le signale.
+
+    @Test
+    fun `un PDU tronque dit ou il s'arrete`() {
+        val pdu = MmsPdu.compose("T5", listOf("+33600000000"), "coupé", emptyList())
+        val problems = mutableListOf<String>()
+
+        val half = pdu.copyOfRange(0, pdu.size / 2)
+        assertNull(MmsPduReader.readRetrieveConf(half) { problems.add(it) })
+
+        val reported = problems.single()
+        assertTrue(reported, reported.startsWith("PDU tronqué à l'octet "))
+        assertTrue(reported, reported.contains("/${half.size} :"))
+    }
+
+    @Test
+    fun `un nombre de parties aberrant est nomme`() {
+        val body = byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0x7F)
+        val problems = mutableListOf<String>()
+
+        MmsPduReader.readRetrieveConf(minimalHeaders() + body) { problems.add(it) }
+
+        assertTrue(problems.single(), problems.single().contains("parties annoncées"))
+    }
+
+    @Test
+    fun `un octet qui n'est pas un numero de champ est situe`() {
+        val problems = mutableListOf<String>()
+
+        MmsPduReader.readRetrieveConf(byteArrayOf(0x8C.toByte(), 0x84.toByte(), 0x10)) {
+            problems.add(it)
+        }
+
+        val reported = problems.single()
+        assertTrue(reported, reported.contains("0x10"))
+        assertTrue(reported, reported.contains("offset 2"))
+    }
+
+    @Test
+    fun `une notification sans adresse de contenu dit ce qui manque`() {
+        val problems = mutableListOf<String>()
+
+        MmsPduReader.readNotification(
+            ByteArrayOutputStream().apply {
+                write(0x8C); write(0x82)
+                write(0x98); write(text("TX-44"))
+            }.toByteArray(),
+        ) { problems.add(it) }
+
+        assertTrue(problems.single(), problems.single().contains("X-Mms-Content-Location"))
+    }
+
+    @Test
+    fun `un PDU valide ne rapporte aucun probleme`() {
+        val problems = mutableListOf<String>()
+
+        val pdu = MmsPdu.compose(
+            transactionId = "T6",
+            recipients = listOf("+33600000000"),
+            text = "Déjà là",
+            attachments = listOf(
+                MmsPdu.Part("image/jpeg", "<part0>", "p.jpg", ByteArray(32)),
+            ),
+        )
+        assertNotNull(MmsPduReader.readRetrieveConf(pdu) { problems.add(it) })
+
+        // Un rapporteur bavard sur un cas nominal noierait les vrais échecs.
+        assertEquals(emptyList<String>(), problems)
+    }
+
     // ---------------------------------------------------------- notification
 
     @Test

@@ -233,6 +233,28 @@ Ce que ce format réserve, et qu'on ne devine pas :
   s'exécute app éteinte, ce qui est précisément le cas ici. Sans lui, un MMS qui
   n'arrive pas serait indébogable ; `adb logcat -s Mms` est le seul fil à tirer.
 
+  Trois choses valent d'être dites sur ce que ce journal doit porter, parce
+  qu'elles ne s'improvisent pas une fois le téléphone dans la main :
+
+  - **Le décodeur ne journalise pas, il rapporte.** `MmsPduReader` ne connaît
+    pas `android.util.Log` — c'est ce qui le laisse testable sur la JVM — mais
+    chaque abandon décrit *où* et *pourquoi* il a lieu (`Reporter`, offset
+    compris), et c'est l'appelant qui décide d'en faire une ligne. Un `null`
+    seul serait inexploitable, et c'est justement là qu'un encodage imprévu se
+    manifestera. Ces messages sont testés comme le reste : un rapporteur muet
+    sur un échec, ou bavard sur un cas nominal, est un défaut.
+  - **Une ligne de succès ne doit pas pouvoir mentir.** Les écritures de
+    parties sont individuellement tolérantes (le provider peut en refuser une
+    sans invalider le message), donc annoncer ce qu'on a *voulu* écrire
+    masquerait exactement le cas qu'on cherche : une bulle qui arrive vide. Le
+    stock est relu, et l'écart avec ce que le PDU portait est signalé.
+  - **Le silence a un sens, à condition d'être borné.** Une ligne marque la
+    demande de téléchargement, une autre son issue : sans la première, un
+    `PendingIntent` qui ne revient jamais — APN indisponible, service MMS qui
+    renonce sans bruit — serait indiscernable d'une demande jamais partie.
+    Seul l'**hôte** du MMSC y figure : le reste de l'URL désigne un message
+    précis, et un journal n'a pas à le porter.
+
 - L'expéditeur est rangé en `addr.type = 137` et soi-même en `151` — l'inverse
   d'un sortant, et ce que `MmsStore.addressOf` attend déjà pour rendre le bon
   interlocuteur. Le suffixe `/TYPE=PLMN` d'une adresse est retiré : il dit le

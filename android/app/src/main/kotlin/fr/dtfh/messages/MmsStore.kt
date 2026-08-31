@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Telephony
 import android.telephony.SmsManager
+import android.util.Log
 import androidx.core.content.FileProvider
 import java.io.File
 import java.util.UUID
@@ -542,6 +543,11 @@ class MmsStore(private val context: Context) {
         }
         runCatching {
             resolver.insert(Uri.parse("content://mms/$messageId/addr"), values)
+        }.onFailure {
+            // Un MMS dont l'adresse n'est pas écrite existe quand même, mais
+            // sans interlocuteur : il atterrit dans le mauvais fil, ou dans
+            // aucun. Le symptôme est visible, la cause doit l'être aussi.
+            Log.e(MmsReception.TAG, "adresse (type $type) non écrite sur $messageId", it)
         }
     }
 
@@ -554,7 +560,9 @@ class MmsStore(private val context: Context) {
             put(Telephony.Mms.Part.CONTENT_LOCATION, "text_0.txt")
             put(Telephony.Mms.Part.TEXT, text)
         }
-        runCatching { resolver.insert(partUriFor(messageId), values) }
+        runCatching { resolver.insert(partUriFor(messageId), values) }.onFailure {
+            Log.e(MmsReception.TAG, "partie texte non écrite sur $messageId", it)
+        }
     }
 
     /**
@@ -590,9 +598,21 @@ class MmsStore(private val context: Context) {
         }
         val uri = runCatching {
             resolver.insert(partUriFor(messageId), values)
+        }.onFailure {
+            Log.e(MmsReception.TAG, "partie $contentType refusée sur $messageId", it)
         }.getOrNull() ?: return
+        // Les octets s'écrivent par le flux que le provider ouvre pour la
+        // ligne : échouer ici laisse une pièce jointe **vide** dans un message
+        // par ailleurs valide — le cas le plus trompeur de tous, puisque le
+        // fil affichera une bulle qui a l'air normale.
         runCatching {
             resolver.openOutputStream(uri)?.use { it.write(data) }
+        }.onFailure {
+            Log.e(
+                MmsReception.TAG,
+                "octets de la partie $contentType (${data.size} o) non écrits sur $messageId",
+                it,
+            )
         }
     }
 

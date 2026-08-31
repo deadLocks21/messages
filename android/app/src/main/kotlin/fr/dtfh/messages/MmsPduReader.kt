@@ -21,6 +21,12 @@ package fr.dtfh.messages
  * se solde par un `null` rendu à l'appelant. Un décodeur qui laisserait filer
  * une exception ferait tomber un `BroadcastReceiver`, donc l'app, sur un PDU
  * malformé — le réseau n'a pas à pouvoir faire ça.
+ *
+ * Un `null` seul serait indébogable, et c'est justement ici qu'un format mal
+ * deviné se manifestera : chaque abandon décrit donc **où** et **pourquoi** il
+ * a lieu, par le rapporteur `onProblem`. Le décodeur ne journalise pas
+ * lui-même — il n'a aucune raison de connaître `android.util.Log`, et c'est ce
+ * qui le laisse testable sur la JVM.
  */
 object MmsPduReader {
 
@@ -105,37 +111,75 @@ object MmsPduReader {
 
     // ------------------------------------------------------------ entrées
 
+    /**
+     * Ce que le décodeur dit de son échec : une phrase, et l'offset où il a
+     * cessé de comprendre. C'est le seul moyen de reprendre la main sur un
+     * encodage qu'on n'avait pas prévu — sans elle, un `null` ne désigne rien.
+     */
+    fun interface Reporter {
+        fun problem(reason: String)
+    }
+
+    private val SILENT = Reporter { }
+
     /** Décode une notification de dépôt. `null` si elle est inexploitable. */
-    fun readNotification(pdu: ByteArray): Notification? = runCatching {
+    fun readNotification(pdu: ByteArray, onProblem: Reporter = SILENT): Notification? {
         val reader = Reader(pdu)
-        val headers = reader.readMessageHeaders() ?: return null
-        val location = headers.contentLocation ?: return null
-        Notification(
+        val headers = try {
+            reader.readMessageHeaders(onProblem) ?: return null
+        } catch (truncated: Truncated) {
+            onProblem.problem(truncated.describe(pdu.size))
+            return null
+        }
+        val location = headers.contentLocation
+        if (location == null) {
+            onProblem.problem("X-Mms-Content-Location absent : rien à télécharger")
+            return null
+        }
+        return Notification(
             contentLocation = location,
             transactionId = headers.transactionId,
             from = headers.from,
             messageSize = headers.messageSize ?: 0L,
         )
-    }.getOrNull()
+    }
 
     /** Décode un message rapatrié. `null` s'il ne tient pas debout. */
-    fun readRetrieveConf(pdu: ByteArray): Retrieved? = runCatching {
-        val reader = Reader(pdu)
-        val headers = reader.readMessageHeaders() ?: return null
-        // `X-Mms-Message-Type` est le premier en-tête de tout PDU MMS : son
-        // absence signifie qu'on ne lit pas un MMS du tout, et non un message
-        // sans contenu.
-        if (headers.messageType == null) return null
-        // Un corps absent n'est pas une erreur de décodage : certains MMS ne
-        // portent qu'un sujet. Une liste vide est une réponse valable.
-        val parts = if (headers.hasBody) reader.readBody() else emptyList()
-        Retrieved(
-            from = headers.from,
-            dateMillis = headers.date?.times(1000L),
-            subject = headers.subject,
-            parts = parts ?: return null,
-        )
-    }.getOrNull()
+    fun readRetrieveConf(pdu: ByteArray, onProblem: Reporter = SILENT): Retrieved? {
+        try {
+            val reader = Reader(pdu)
+            val headers = reader.readMessageHeaders(onProblem) ?: return null
+            // `X-Mms-Message-Type` est le premier en-tête de tout PDU MMS : son
+            // absence signifie qu'on ne lit pas un MMS du tout, et non un
+            // message sans contenu.
+            if (headers.messageType == null) {
+                onProblem.problem("X-Mms-Message-Type absent : ce n'est pas un PDU MMS")
+                return null
+            }
+            // Un corps absent n'est pas une erreur de décodage : certains MMS
+            // ne portent qu'un sujet. Une liste vide est une réponse valable.
+            val parts =
+                if (headers.hasBody) reader.readBody(onProblem) ?: return null else emptyList()
+            return Retrieved(
+                from = headers.from,
+                dateMillis = headers.date?.times(1000L),
+                subject = headers.subject,
+                parts = parts,
+            )
+        } catch (truncated: Truncated) {
+            onProblem.problem(truncated.describe(pdu.size))
+            return null
+        }
+    }
+
+    /**
+     * Lecture au-delà de ce que le tampon porte. Elle retient **où** : sur un
+     * PDU de plusieurs kilooctets, l'offset est ce qui permet de rejouer le
+     * décodage à la main et de voir quel en-tête n'a pas la forme attendue.
+     */
+    private class Truncated(val at: Int, val why: String) : RuntimeException(why) {
+        fun describe(total: Int) = "PDU tronqué à l'octet $at/$total : $why"
+    }
 
     // ------------------------------------------------------------- en-têtes
 
@@ -160,29 +204,31 @@ object MmsPduReader {
     private class Reader(private val bytes: ByteArray) {
         var position = 0
 
-        private class Truncated : RuntimeException("PDU tronqué")
-
         val remaining: Int get() = bytes.size - position
 
         fun byte(): Int {
-            if (position >= bytes.size) throw Truncated()
+            if (position >= bytes.size) throw Truncated(position, "octet au-delà de la fin")
             return bytes[position++].toInt() and 0xFF
         }
 
         fun peek(): Int {
-            if (position >= bytes.size) throw Truncated()
+            if (position >= bytes.size) throw Truncated(position, "octet au-delà de la fin")
             return bytes[position].toInt() and 0xFF
         }
 
         fun bytes(count: Int): ByteArray {
-            if (count < 0 || count > remaining) throw Truncated()
+            if (count < 0 || count > remaining) {
+                throw Truncated(position, "$count octets demandés, $remaining disponibles")
+            }
             val slice = bytes.copyOfRange(position, position + count)
             position += count
             return slice
         }
 
         fun skip(count: Int) {
-            if (count < 0 || count > remaining) throw Truncated()
+            if (count < 0 || count > remaining) {
+                throw Truncated(position, "$count octets à sauter, $remaining disponibles")
+            }
             position += count
         }
 
@@ -194,7 +240,7 @@ object MmsPduReader {
                 val b = byte()
                 value = (value shl 7) or (b and 0x7F).toLong()
                 // Cinq octets suffisent à 32 bits ; au-delà, la valeur ment.
-                if (++read > 5) throw Truncated()
+                if (++read > 5) throw Truncated(position, "uintvar de plus de 5 octets")
                 if (b and 0x80 == 0) return value
             }
         }
@@ -208,7 +254,9 @@ object MmsPduReader {
         /** Entier sur 1 à 30 octets, poids fort en tête. */
         fun longInteger(): Long {
             val length = byte()
-            if (length > 30) throw Truncated()
+            if (length > 30) {
+                throw Truncated(position, "long-integer de $length octets (max 30)")
+            }
             var value = 0L
             repeat(length) { value = (value shl 8) or byte().toLong() }
             return value
@@ -243,7 +291,9 @@ object MmsPduReader {
         fun encodedStringValue(): String {
             if (peek() >= 0x20) return textString()
             val length = valueLength().toInt()
-            if (length < 0 || length > remaining) throw Truncated()
+            if (length < 0 || length > remaining) {
+                throw Truncated(position, "chaîne de $length octets annoncée")
+            }
             val end = position + length
             val charset = integer().toInt()
             val raw = bytes(end - position)
@@ -275,7 +325,9 @@ object MmsPduReader {
                 first == 0x1F -> {
                     byte()
                     val length = uintvar()
-                    if (length > remaining) throw Truncated()
+                    if (length > remaining) {
+                        throw Truncated(position, "en-tête inconnu de $length octets")
+                    }
                     skip(length.toInt())
                 }
                 first >= 0x80 -> byte()
@@ -287,13 +339,19 @@ object MmsPduReader {
          * Les en-têtes du message, jusqu'au `Content-Type` — qui, par la spec,
          * est le dernier : le corps commence juste derrière.
          */
-        fun readMessageHeaders(): MessageHeaders? {
+        fun readMessageHeaders(onProblem: Reporter): MessageHeaders? {
             val headers = MessageHeaders()
             while (remaining > 0) {
                 val field = byte()
                 // Un en-tête commence toujours par un numéro de champ bien
                 // connu. Autre chose signifie qu'on a perdu l'alignement.
-                if (field < 0x80) return null
+                if (field < 0x80) {
+                    onProblem.problem(
+                        "octet 0x%02X à l'offset %d n'est pas un numéro de champ"
+                            .format(field, position - 1)
+                    )
+                    return null
+                }
                 when (field) {
                     HEADER_MESSAGE_TYPE -> headers.messageType = byte()
                     HEADER_TRANSACTION_ID -> headers.transactionId = textString()
@@ -320,7 +378,9 @@ object MmsPduReader {
          */
         private fun readFrom(): String? {
             val length = valueLength().toInt()
-            if (length < 1 || length > remaining) throw Truncated()
+            if (length < 1 || length > remaining) {
+                throw Truncated(position, "From de $length octets annoncé")
+            }
             val end = position + length
             val token = byte()
             val address = if (token == ADDRESS_PRESENT_TOKEN && position < end) {
@@ -339,7 +399,9 @@ object MmsPduReader {
          */
         private fun readContentType() {
             val length = valueLength().toInt()
-            if (length < 0 || length > remaining) throw Truncated()
+            if (length < 0 || length > remaining) {
+                throw Truncated(position, "Content-Type de $length octets annoncé")
+            }
             position += length
         }
 
@@ -350,19 +412,34 @@ object MmsPduReader {
          * le nombre de parties en uintvar, puis pour chacune la longueur de ses
          * en-têtes, celle de ses données, les en-têtes, les données.
          */
-        fun readBody(): List<Part>? {
+        fun readBody(onProblem: Reporter): List<Part>? {
             if (remaining == 0) return emptyList()
             val count = uintvar()
-            if (count < 0 || count > MAX_PARTS) return null
+            if (count < 0 || count > MAX_PARTS) {
+                onProblem.problem("$count parties annoncées (plafond $MAX_PARTS)")
+                return null
+            }
             val parts = mutableListOf<Part>()
-            repeat(count.toInt()) {
+            repeat(count.toInt()) { index ->
                 val headersLength = uintvar()
                 val dataLength = uintvar()
-                if (headersLength > MAX_HEADERS_BYTES) throw Truncated()
-                if (dataLength > remaining - headersLength) throw Truncated()
+                if (headersLength > MAX_HEADERS_BYTES) {
+                    throw Truncated(
+                        position,
+                        "partie $index : $headersLength octets d'en-têtes " +
+                            "(plafond $MAX_HEADERS_BYTES)",
+                    )
+                }
+                if (dataLength > remaining - headersLength) {
+                    throw Truncated(
+                        position,
+                        "partie $index : $dataLength octets de données annoncés, " +
+                            "${remaining - headersLength} disponibles",
+                    )
+                }
                 val headerBytes = bytes(headersLength.toInt())
                 val data = bytes(dataLength.toInt())
-                parts.add(readPart(headerBytes, data))
+                parts.add(readPart(index, headerBytes, data, onProblem))
             }
             return parts
         }
@@ -371,7 +448,12 @@ object MmsPduReader {
          * Les en-têtes d'une partie : son type de contenu d'abord (la spec
          * l'impose en tête), puis les champs qui la nomment.
          */
-        private fun readPart(headerBytes: ByteArray, data: ByteArray): Part {
+        private fun readPart(
+            index: Int,
+            headerBytes: ByteArray,
+            data: ByteArray,
+            onProblem: Reporter,
+        ): Part {
             val headers = Reader(headerBytes)
             var contentType = "application/octet-stream"
             var charset: Int? = null
@@ -394,6 +476,14 @@ object MmsPduReader {
                         else -> if (field < 0x80) return@runCatching else headers.skipUnknownValue()
                     }
                 }
+            }.onFailure {
+                // La donnée de la partie reste exploitable — c'est son
+                // étiquette qu'on a perdue. Une pièce jointe qui arrive sans
+                // nom ni type s'explique ici, et nulle part ailleurs.
+                onProblem.problem(
+                    "partie $index : en-têtes illisibles à l'offset " +
+                        "${headers.position} (${it.message})"
+                )
             }
 
             // Un nom explicite d'abord, puis ce qui en tient lieu. Le
@@ -441,7 +531,9 @@ object MmsPduReader {
         /** `Content-Disposition` : seul son paramètre `filename` nous intéresse. */
         private fun readDispositionFilename(): String? {
             val length = valueLength().toInt()
-            if (length < 1 || length > remaining) throw Truncated()
+            if (length < 1 || length > remaining) {
+                throw Truncated(position, "Content-Disposition de $length octets annoncé")
+            }
             val end = position + length
             var filename: String? = null
             byte() // le jeton de disposition (attachment, inline…)
