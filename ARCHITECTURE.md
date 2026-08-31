@@ -161,12 +161,13 @@ ré-encode en JPEG : appliqué à un GIF, il n'en garderait qu'une image fixe, c
 qui d'un GIF ne laisse rien. D'où `AttachmentDraft.isCompressible`, qui exclut
 `image/gif` alors que c'est bien une image.
 
-Ce qui sauve l'affaire, c'est que Tenor ne sert pas *un* fichier mais une
-**famille** — `gif`, `mediumgif`, `tinygif`, `nanogif` — et publie le poids de
-chacune **avant** tout téléchargement. La question « quelle taille envoyer ? »
-se règle donc à la sélection, comme celle de la durée d'un vocal, et pour la
-même raison : découvrir au retour du MMSC que le message était trop lourd
-arriverait trop tard.
+Ce qui sauve l'affaire, c'est que le catalogue ne sert pas *un* fichier mais
+une **famille** — Klipy en publie quatre tailles (`hd`, `md`, `sm`, `xs`), en
+cinq formats chacune — avec le poids de chaque case, **avant** tout
+téléchargement. La question « quelle taille envoyer ? » se règle donc à la
+sélection, comme celle de la durée d'un vocal, et pour la même raison :
+découvrir au retour du MMSC que le message était trop lourd arriverait trop
+tard.
 
 - `Gif.bestWithin(budget)` prend **la plus lourde qui tienne** dans le budget de
   l'opérateur — le même `MmsLimits.contentBytes` que pour une photo, lu de la
@@ -175,17 +176,25 @@ arriverait trop tard.
   téléchargement. À ce moment-là, l'utilisateur peut encore choisir un autre GIF.
 - Le poids annoncé n'engage pas le serveur : le fichier reçu est **re-mesuré**,
   et refusé s'il déborde quand même.
-- `contentfilter: high` — le filtre le plus strict de Tenor. Un client SMS n'est
-  pas un endroit où l'on tombe sur ce genre de choses par surprise.
-- `media_filter` n'est pas une optimisation de confort : sans lui, Tenor renvoie
-  les quatorze déclinaisons de chaque résultat (MP4, WebM, aperçus fixes), soit
-  un JSON plusieurs fois plus gros pour des adresses qu'on n'ouvrira jamais.
+- Ce qui part est **toujours un `image/gif`**. Klipy sert le même dessin en MP4
+  pour dix fois moins lourd, mais un MMS qui le porterait ne serait plus un GIF
+  chez le destinataire : ce serait une vidéo.
+- **Les GIF de Klipy sont lourds** — bien plus que ceux d'un catalogue qui
+  optimise pour la vignette. Relevé sur 44 résultats : `hd` pèse 3,6 Mo à la
+  médiane, `sm` 448 ko, `xs` 126 ko. Conséquence directe, et c'est le seul
+  reproche à lui faire : sur un opérateur qui publie les 300 ko d'AOSP, **un
+  GIF sur six n'a aucune déclinaison qui tienne** et se refuse. Dès 600 ko —
+  ce que publient la plupart des opérateurs, et 1 Mo sur l'émulateur — ils
+  passent tous.
 
 ### Deux ports, parce que ce sont deux métiers
 
 `GifCatalog` ne rend que des **adresses** (mis en avant, recherche, puces) : une
 grille qui garderait ses GIF en mémoire pèserait plus lourd que le fil qu'elle
-recouvre. Le fichier n'existe qu'une fois un GIF choisi, et c'est
+recouvre. Il masque aussi la forme de la pagination — Klipy numérote ses pages
+(`page`, `has_next`) là où d'autres rendent une position opaque, et
+`GifPage.cursor` porte l'un comme l'autre sans que le domaine ait à savoir
+lequel. Le fichier n'existe qu'une fois un GIF choisi, et c'est
 `MediaDownloader` qui le fait naître — le jumeau exact d'`AttachmentPicker`, à
 ceci près qu'il ouvre une adresse au lieu d'un écran du système, et qu'il rend
 la même chose : un `AttachmentDraft`.
@@ -200,14 +209,16 @@ le cache) et préfixe le nom d'un identifiant unique — le nom vient du descrip
 du GIF et se répète donc d'un envoi à l'autre.
 
 **La clé d'API arrive par `--dart-define`**, comme celle de Signoz et pour la
-même raison. Sans `TENOR_API_KEY`, l'app monte `InMemoryGifCatalog` : il ne
+même raison. Klipy la veut **dans le chemin** (`/api/v1/<clé>/gifs/...`) et non
+dans un en-tête : aucun journal ne porte donc l'URL, seulement le nom du point
+d'appel. Sans `KLIPY_API_KEY`, l'app monte `InMemoryGifCatalog` : il ne
 montre aucun GIF — il n'en a pas — mais il en a la forme, rapports d'aspect
 variés et poids échelonnés autour du budget, ce qu'il faut pour que l'écran
 au-dessus reste développable. C'est le parti d'`InMemoryAudioWaveformService`
 avec la silhouette d'un son : rien d'inventé qui se ferait passer pour vrai.
 
 ```bash
-flutter run --dart-define=TENOR_API_KEY=<clé>
+flutter run --dart-define=KLIPY_API_KEY=<clé>
 ```
 
 ### Le panneau, au relevé
@@ -228,6 +239,14 @@ l'un à l'autre sans que rien bouge. Relevé sur l'émulateur (1080 × 2400,
 | Grille (GIF) | **deux colonnes** de 193,5 dp, gouttière de 8 dp, coins de 8 dp |
 | Panneau | **282 dp** à l'ouverture, dépliable jusqu'à 686 dp sur un écran de 914 (soit ¾) |
 
+- L'**aperçu de la grille** n'est pas un GIF mais le **WebP** de taille
+  moyenne : le même dessin y tient en trois fois moins d'octets (153 ko contre
+  448 à la médiane), Flutter l'anime aussi bien, et rien ne part de l'aperçu.
+- Ce qui se peint **pendant** le téléchargement n'est pas un rectangle uni mais
+  l'image floue que Klipy publie avec chaque résultat — quelques centaines
+  d'octets déjà encodés en base64. La vignette a tout de suite les bonnes
+  couleurs, et l'arrivée du GIF ne fait pas surgir une image là où il n'y avait
+  rien.
 - **La grille est en quinconce**, pas en damier : chaque vignette garde le
   rapport d'aspect de son GIF (relevés : 508 × 284, 508 × 508, 508 × 231…).
   Une grille à cases égales recadrerait les GIF panoramiques, qui sont la
@@ -709,6 +728,6 @@ eux :
 
 ```bash
 flutter run -d <android_device> \
-  --dart-define=TENOR_API_KEY=<clé> \
+  --dart-define=KLIPY_API_KEY=<clé> \
   --dart-define=SIGNOZ_INGEST_URL=<url>
 ```

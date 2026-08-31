@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:messages/core/application/dtos/gif.dto.dart';
@@ -383,14 +386,21 @@ class _GifTile extends StatelessWidget {
   }
 }
 
-/// L'aperçu animé, ou ce qui en tient lieu.
+/// L'aperçu animé, et ce qui l'attend.
 ///
-/// `Image.network` anime les GIF sans aide et partage le cache d'images de
-/// Flutter : une grille qui redescend ne retélécharge rien. Le catalogue
-/// simulé, lui, sert des adresses en `demo:` — il n'y a rien à aller chercher,
-/// et la pastille dit ce que le GIF montrerait. C'est le même parti que la
-/// silhouette d'un son hors Android : rien d'inventé qui se ferait passer pour
-/// vrai.
+/// `Image.network` anime les GIF **et les WebP** sans aide, et partage le
+/// cache d'images de Flutter : une grille qui redescend ne retélécharge rien.
+///
+/// Ce qui se peint pendant le téléchargement n'est pas un rectangle uni mais
+/// l'**image floue** que le catalogue publie avec chaque résultat, quelques
+/// centaines d'octets déjà encodés en base64. La vignette a donc tout de suite
+/// les bonnes couleurs, et l'arrivée du GIF ne fait pas surgir une image là où
+/// il n'y avait rien.
+///
+/// Le catalogue simulé, lui, ne sert ni l'un ni l'autre — ses adresses sont en
+/// `demo:` — et la pastille dit ce que le GIF montrerait. C'est le même parti
+/// que la silhouette d'un son hors Android : rien d'inventé qui se ferait
+/// passer pour vrai.
 class _GifPreview extends StatelessWidget {
   const _GifPreview({
     required this.gif,
@@ -415,30 +425,56 @@ class _GifPreview extends StatelessWidget {
       gif.previewUrl,
       fit: BoxFit.cover,
       gaplessPlayback: true,
-      // Le fond attend l'image sans rien annoncer : un GIF met le temps qu'il
-      // met, et une vignette qui clignoterait à chaque cellule serait pire que
-      // le vide.
       loadingBuilder: (context, child, progress) =>
           progress == null ? child : _placeholder(withLabel: false),
       errorBuilder: (_, _, _) => _placeholder(withLabel: true),
     );
   }
 
-  Widget _placeholder({required bool withLabel}) => ColoredBox(
-    color: colors.surface,
-    child: withLabel
-        ? Center(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                gif.description,
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, color: colors.textMuted),
+  Widget _placeholder({required bool withLabel}) {
+    final blur = _blurBytes;
+    if (blur != null) {
+      return Image.memory(blur, fit: BoxFit.cover, gaplessPlayback: true);
+    }
+    return ColoredBox(
+      color: colors.surface,
+      child: withLabel
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(
+                  gif.description,
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: colors.textMuted),
+                ),
               ),
-            ),
-          )
-        : null,
-  );
+            )
+          : null,
+    );
+  }
+
+  /// Les octets de l'image floue, décodés une fois par identifiant.
+  ///
+  /// Sans ce cache, chaque image de la grille redécoderait le base64 de toutes
+  /// les vignettes en attente — et une vignette reste en attente le temps que
+  /// son GIF descende.
+  Uint8List? get _blurBytes {
+    final raw = gif.blurPreview;
+    if (raw == null) return null;
+    return _blurCache.putIfAbsent(gif.id, () {
+      final comma = raw.indexOf(',');
+      if (comma < 0) return null;
+      try {
+        return base64Decode(raw.substring(comma + 1));
+      } catch (_) {
+        // Une image floue illisible n'est pas une panne : la vignette se
+        // rabat sur son fond uni.
+        return null;
+      }
+    });
+  }
+
+  static final Map<String, Uint8List?> _blurCache = {};
 }

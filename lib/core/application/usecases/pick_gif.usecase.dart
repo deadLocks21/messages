@@ -59,7 +59,7 @@ class PickGifUseCase {
     try {
       draft = await _downloader.download(
         rendition.url,
-        mimeType: GifRendition.mimeType,
+        mimeType: Gif.sentMimeType,
         fileName: _fileNameFor(gif.description),
       );
     } catch (e, stack) {

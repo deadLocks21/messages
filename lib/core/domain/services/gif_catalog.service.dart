@@ -1,6 +1,6 @@
 import 'package:messages/core/domain/model/gif.dart';
 
-/// Port du **catalogue de GIF** — Tenor, dans l'app d'origine comme ici.
+/// Port du **catalogue de GIF** — Klipy ici, Tenor dans l'app d'origine.
 ///
 /// Trois lectures, et rien d'autre : ce port ne rend que des **adresses**.
 /// Une grille qui garderait ses GIF en mémoire pèserait plus lourd que le fil

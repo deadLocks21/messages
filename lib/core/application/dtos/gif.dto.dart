@@ -24,11 +24,16 @@ class GifDto {
   /// chaque GIF arrivé ferait sauter tous ceux d'en dessous.
   final double aspectRatio;
 
+  /// L'image floue à peindre **pendant** que l'aperçu arrive
+  /// (`data:image/jpeg;base64,…`), quand le catalogue en publie une.
+  final String? blurPreview;
+
   const GifDto({
     required this.id,
     required this.description,
     required this.previewUrl,
     required this.aspectRatio,
+    this.blurPreview,
   });
 
   factory GifDto.fromDomain(Gif gif) => GifDto(
@@ -36,6 +41,7 @@ class GifDto {
     description: gif.description,
     previewUrl: gif.preview.url,
     aspectRatio: gif.preview.aspectRatio,
+    blurPreview: gif.blurPreview,
   );
 
   @override

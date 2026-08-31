@@ -85,8 +85,8 @@ class GifFeed extends _$GifFeed {
   bool get _hasMore => _cursor != null && _cursor!.isNotEmpty;
 
   GifPageDto _absorb(GifPage page) {
-    // Tenor sert parfois deux fois le même résultat à cheval sur deux pages :
-    // une clé en double ferait lever la grille.
+    // Un catalogue sert parfois deux fois le même résultat à cheval sur deux
+    // pages : une clé en double ferait lever la grille.
     for (final gif in page.gifs) {
       if (!_gifs.contains(gif)) _gifs.add(gif);
     }

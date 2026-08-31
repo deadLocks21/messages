@@ -473,51 +473,51 @@ String _$mediaDownloaderHash() => r'eb0b3489c4904feedf992e69b502adc4eb8e2b5a';
 
 /// Catalogue de GIF.
 ///
-/// Tenor **si une clé a été fournie à la compilation**, doublure sinon — la
+/// Klipy **si une clé a été fournie à la compilation**, doublure sinon — la
 /// même règle que Signoz, et pour la même raison : une clé d'API n'a rien à
 /// faire dans un dépôt, et une app qui ne peut pas la lire doit rester
 /// développable.
 ///
 /// ```bash
-/// flutter run --dart-define=TENOR_API_KEY=<clé>
+/// flutter run --dart-define=KLIPY_API_KEY=<clé>
 /// ```
 ///
-/// `keepAlive` : l'adaptateur Tenor tient un client HTTP, qu'il serait absurde
-/// de reconstruire à chaque frappe dans le champ de recherche.
+/// `keepAlive` : l'adaptateur tient un client HTTP, qu'il serait absurde de
+/// reconstruire à chaque frappe dans le champ de recherche.
 
 @ProviderFor(gifCatalog)
 final gifCatalogProvider = GifCatalogProvider._();
 
 /// Catalogue de GIF.
 ///
-/// Tenor **si une clé a été fournie à la compilation**, doublure sinon — la
+/// Klipy **si une clé a été fournie à la compilation**, doublure sinon — la
 /// même règle que Signoz, et pour la même raison : une clé d'API n'a rien à
 /// faire dans un dépôt, et une app qui ne peut pas la lire doit rester
 /// développable.
 ///
 /// ```bash
-/// flutter run --dart-define=TENOR_API_KEY=<clé>
+/// flutter run --dart-define=KLIPY_API_KEY=<clé>
 /// ```
 ///
-/// `keepAlive` : l'adaptateur Tenor tient un client HTTP, qu'il serait absurde
-/// de reconstruire à chaque frappe dans le champ de recherche.
+/// `keepAlive` : l'adaptateur tient un client HTTP, qu'il serait absurde de
+/// reconstruire à chaque frappe dans le champ de recherche.
 
 final class GifCatalogProvider
     extends $FunctionalProvider<GifCatalog, GifCatalog, GifCatalog>
     with $Provider<GifCatalog> {
   /// Catalogue de GIF.
   ///
-  /// Tenor **si une clé a été fournie à la compilation**, doublure sinon — la
+  /// Klipy **si une clé a été fournie à la compilation**, doublure sinon — la
   /// même règle que Signoz, et pour la même raison : une clé d'API n'a rien à
   /// faire dans un dépôt, et une app qui ne peut pas la lire doit rester
   /// développable.
   ///
   /// ```bash
-  /// flutter run --dart-define=TENOR_API_KEY=<clé>
+  /// flutter run --dart-define=KLIPY_API_KEY=<clé>
   /// ```
   ///
-  /// `keepAlive` : l'adaptateur Tenor tient un client HTTP, qu'il serait absurde
-  /// de reconstruire à chaque frappe dans le champ de recherche.
+  /// `keepAlive` : l'adaptateur tient un client HTTP, qu'il serait absurde de
+  /// reconstruire à chaque frappe dans le champ de recherche.
   GifCatalogProvider._()
     : super(
         from: null,
@@ -551,7 +551,7 @@ final class GifCatalogProvider
   }
 }
 
-String _$gifCatalogHash() => r'b7b6c0f79bb2978668df43b75f60f6ab61e37c01';
+String _$gifCatalogHash() => r'350743c2a7d35b6a89381ebe9e6055b12f6e884f';
 
 @ProviderFor(attachmentCompressor)
 final attachmentCompressorProvider = AttachmentCompressorProvider._();

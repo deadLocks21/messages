@@ -24,10 +24,6 @@ class GifRendition {
        assert(height > 0, 'height must be positive'),
        assert(byteSize >= 0, 'byteSize cannot be negative');
 
-  /// Toutes les déclinaisons d'un GIF sont des GIF : le catalogue sert aussi
-  /// des MP4 et des WebM, mais ceux-là ne sont pas ce qu'on joint.
-  static const mimeType = 'image/gif';
-
   double get aspectRatio => width / height;
 
   @override
@@ -57,16 +53,40 @@ class Gif {
 
   /// La déclinaison **affichée dans la grille** : légère par construction,
   /// parce qu'une grille en fait défiler des dizaines.
+  ///
+  /// Ce n'est pas forcément un GIF — le catalogue sert le même dessin en WebP
+  /// pour trois fois moins lourd, et rien ne part d'ici. Ce qui s'envoie sort
+  /// de [renditions], et seulement de là.
   final GifRendition preview;
 
   /// Les déclinaisons **joignables**, de la plus lourde à la plus légère.
+  ///
+  /// Toutes sont des GIF ([sentMimeType]) : le catalogue en sert aussi en MP4
+  /// et en WebM, mais un MMS qui les porterait ne serait plus un GIF chez le
+  /// destinataire — ce serait une vidéo.
   final List<GifRendition> renditions;
+
+  /// Une image floue, minuscule, à afficher **pendant** que le GIF arrive.
+  ///
+  /// Le catalogue la fournit déjà encodée (`data:image/jpeg;base64,…`), pour
+  /// quelques centaines d'octets : c'est ce qui remplit la vignette tout de
+  /// suite, aux bonnes couleurs, au lieu d'un rectangle uni. Null quand le
+  /// catalogue n'en publie pas.
+  final String? blurPreview;
+
+  /// Le type MIME sous lequel un GIF part en MMS.
+  ///
+  /// Porté par l'entité et non par la déclinaison : c'est une propriété de ce
+  /// qui s'envoie, pas de chaque ligne du catalogue — dont l'aperçu, lui, peut
+  /// être tout autre chose.
+  static const sentMimeType = 'image/gif';
 
   Gif({
     required this.id,
     required this.description,
     required this.preview,
     required List<GifRendition> renditions,
+    this.blurPreview,
   }) : renditions = List.unmodifiable(
          [...renditions]..sort((a, b) => b.byteSize.compareTo(a.byteSize)),
        ),
@@ -81,7 +101,9 @@ class Gif {
   /// figerait, ce qui d'un GIF ne laisse rien.
   ///
   /// Rend `null` quand même la plus petite déborde : c'est un refus franc, du
-  /// même ordre que celui d'une vidéo trop lourde.
+  /// même ordre que celui d'une vidéo trop lourde. Cela arrive vraiment —
+  /// certains catalogues encodent leurs GIF si largement que même leur plus
+  /// petite déclinaison dépasse le budget de repli d'un MMS.
   GifRendition? bestWithin(int budgetBytes) {
     for (final rendition in renditions) {
       if (rendition.byteSize <= budgetBytes) return rendition;
