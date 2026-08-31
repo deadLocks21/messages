@@ -33,6 +33,18 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Les intents `sms:` ne sont pas des liens profonds. Sans ce
+                 réglage, l'embarqueur Flutter passe la donnée de l'intent au
+                 `Router` comme route initiale : `go_router` reçoit
+                 `sms:0612345678`, un chemin qui ne commence pas par `/`, et
+                 casse au premier build (assertion) ou tombe sur l'écran
+                 d'erreur en release. Ces intents sont lus par `SmsBridge`
+                 (`consumeLaunchRequest`/`onNewIntent`), qui sait, lui, en tirer
+                 le fil à ouvrir. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
