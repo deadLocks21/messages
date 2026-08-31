@@ -23,7 +23,8 @@
 # Secrets requis (Settings → Secrets and variables → Actions) :
 #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
 #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD,
-#   SIGNOZ_INGEST_URL, SIGNOZ_INGESTION_KEY
+#   SIGNOZ_INGEST_URL, SIGNOZ_INGESTION_KEY,
+#   KLIPY_API_KEY
 name: Release
 
 on:
@@ -44,6 +45,11 @@ concurrency:
 # `SIGNOZ_INGEST_URL` vient du secret du même nom (instance self-hosted →
 # l'URL n'est pas codée en dur ici). Il est mappé dans le bloc `env:` des
 # étapes de build, à côté de `SIGNOZ_INGESTION_KEY`.
+#
+# Même mécanique pour `KLIPY_API_KEY` (cf.
+# `lib/infrastructure/providers/repository_providers.dart` qui lit
+# `String.fromEnvironment('KLIPY_API_KEY')`) : sans la clé, l'app monte le
+# catalogue GIF simulé `InMemoryGifCatalog` → aucun GIF réel côté users.
 env:
   SIGNOZ_ENV: "production"
 
@@ -130,6 +136,7 @@ jobs:
         env:
           SIGNOZ_INGEST_URL: ${{ secrets.SIGNOZ_INGEST_URL }}
           SIGNOZ_INGESTION_KEY: ${{ secrets.SIGNOZ_INGESTION_KEY }}
+          KLIPY_API_KEY: ${{ secrets.KLIPY_API_KEY }}
         run: |
           flutter build apk --release \
             --build-name="$VERSION" \
@@ -137,7 +144,8 @@ jobs:
             --dart-define=APP_VERSION="$VERSION+$BUILD_NUMBER" \
             --dart-define=SIGNOZ_INGEST_URL="$SIGNOZ_INGEST_URL" \
             --dart-define=SIGNOZ_INGESTION_KEY="$SIGNOZ_INGESTION_KEY" \
-            --dart-define=SIGNOZ_ENV="$SIGNOZ_ENV"
+            --dart-define=SIGNOZ_ENV="$SIGNOZ_ENV" \
+            --dart-define=KLIPY_API_KEY="$KLIPY_API_KEY"
 
       # `flutter build apk` sort un `app-release.apk` générique : on le renomme
       # au schéma d'assets de la Release (cf. job release) avant l'upload, pour
