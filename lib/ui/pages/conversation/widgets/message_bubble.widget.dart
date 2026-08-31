@@ -117,7 +117,6 @@ class MessageBubble extends StatelessWidget {
                             foreground: failed
                                 ? colors.textPrimary
                                 : foreground,
-                            background: failed ? colors.surfaceAlt : background,
                             maxWidth: visualOnly
                                 ? maxWidth
                                 : maxWidth - _attachmentPadding * 2,

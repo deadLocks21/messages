@@ -140,9 +140,7 @@ void main() {
     expect(shapeOf('part-voice-1'), isA<CircleBorder>());
   });
 
-  testWidgets('la piste dessine le relief du son, pas une ligne', (
-    tester,
-  ) async {
+  testWidgets('la piste suit la lecture, pas l\'inverse', (tester) async {
     final (device, threadId) = deviceWithVoiceMessages();
 
     await pumpPage(
@@ -151,23 +149,30 @@ void main() {
       device: device,
     );
 
-    final painter =
+    AudioTrackPainter painterOf(String id) =>
         tester
                 .widget<CustomPaint>(
                   find.descendant(
-                    of: find.byKey(const Key('audioTrack_part-voice-1')),
+                    of: find.byKey(Key('audioTrack_$id')),
                     matching: find.byType(CustomPaint),
                   ),
                 )
                 .painter
             as AudioTrackPainter;
 
-    // La bulle a demandé la mesure et l'a transmise : c'est ce chaînage-là qui
-    // casserait sans qu'on le voie, la piste retombant sur ses pointillés.
-    expect(painter.waveform.isEmpty, isFalse);
-    expect(painter.waveform.levels, everyElement(inInclusiveRange(0, 1)));
-    // Un relief, pas un plateau.
-    expect(painter.waveform.levels.toSet(), hasLength(greaterThan(1)));
+    // Au repos la tête est au départ, et elle n'y reste pas : c'est ce
+    // chaînage-là — lecteur, bulle, dessin — qui casserait sans qu'on le voie.
+    expect(painterOf('part-voice-1').progress, 0);
+
+    await tester.tap(playButton('part-voice-1'));
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(painterOf('part-voice-1').progress, greaterThan(0));
+    // Et seule la bulle qui joue avance.
+    expect(painterOf('part-voice-2').progress, 0);
+
+    await tester.tap(playButton('part-voice-1'));
+    await tester.pump();
   });
 
   testWidgets('lancer un vocal arrête celui qui jouait', (tester) async {

@@ -164,7 +164,6 @@ class _TrayVoice extends StatelessWidget {
       child: AudioAttachment(
         attachment: AttachmentDto.fromDraft(draft),
         foreground: colors.onBubbleOutgoing,
-        background: colors.bubbleOutgoing,
         maxWidth: width,
       ),
     );

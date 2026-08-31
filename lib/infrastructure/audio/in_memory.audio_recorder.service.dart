@@ -21,8 +21,7 @@ import 'package:uuid/uuid.dart';
 ///
 /// Les niveaux ne sont pas tirés au hasard à chaque frame : ils sont semés sur
 /// le rang du relevé, pour qu'un même enregistrement se redessine à
-/// l'identique d'un rebuild à l'autre — même raison
-/// qu'[InMemoryAudioWaveformService].
+/// l'identique d'un rebuild à l'autre.
 class InMemoryAudioRecorderService implements AudioRecorderService {
   final InMemorySmsStore _store;
   final Uuid _uuid = const Uuid();

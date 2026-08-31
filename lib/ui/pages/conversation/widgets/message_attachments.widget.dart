@@ -23,7 +23,6 @@ class MessageAttachments extends StatelessWidget {
     super.key,
     required this.message,
     required this.foreground,
-    required this.background,
     required this.maxWidth,
     required this.visualRadius,
   });
@@ -35,10 +34,6 @@ class MessageAttachments extends StatelessWidget {
   /// Couleur du texte de la bulle qui les porte : une pièce jointe reçue et une
   /// pièce jointe envoyée ne se lisent pas sur le même fond.
   final Color foreground;
-
-  /// Fond de cette même bulle. Le lecteur audio y découpe l'icône de son
-  /// bouton, qui est plein.
-  final Color background;
 
   final double maxWidth;
 
@@ -75,7 +70,6 @@ class MessageAttachments extends StatelessWidget {
                 key: Key('attachment_${attachment.id}'),
                 attachment: attachment,
                 foreground: foreground,
-                background: background,
                 maxWidth: maxWidth,
               ),
               AttachmentKind.vcard || AttachmentKind.file => _FileAttachment(

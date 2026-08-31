@@ -7,7 +7,7 @@ import 'package:messages/core/domain/services/gif_catalog.service.dart';
 /// rapports d'aspect variés pour que la grille en quinconce se dessine
 /// vraiment, des poids de déclinaisons plausibles pour que le choix de taille
 /// se joue pour de bon, une pagination qui s'arrête. C'est exactement ce que
-/// fait `InMemoryAudioWaveformService` avec la silhouette d'un son : rien
+/// fait `InMemoryAudioRecorderService` avec la silhouette d'un son : rien
 /// d'inventé qui se ferait passer pour vrai, mais tout ce qu'il faut pour que
 /// l'écran au-dessus soit développable et testable.
 ///

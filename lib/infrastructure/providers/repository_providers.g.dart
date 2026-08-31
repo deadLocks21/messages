@@ -271,62 +271,6 @@ final class AudioRecorderServiceProvider
 String _$audioRecorderServiceHash() =>
     r'6a86e3b42f2632dc0a6d8433df9162ebbffac2eb';
 
-/// Mesure de la silhouette des vocaux. Le cache est côté natif, là où se
-/// trouve le coût : décoder deux fois le même vocal ne dirait rien de plus.
-
-@ProviderFor(audioWaveformService)
-final audioWaveformServiceProvider = AudioWaveformServiceProvider._();
-
-/// Mesure de la silhouette des vocaux. Le cache est côté natif, là où se
-/// trouve le coût : décoder deux fois le même vocal ne dirait rien de plus.
-
-final class AudioWaveformServiceProvider
-    extends
-        $FunctionalProvider<
-          AudioWaveformService,
-          AudioWaveformService,
-          AudioWaveformService
-        >
-    with $Provider<AudioWaveformService> {
-  /// Mesure de la silhouette des vocaux. Le cache est côté natif, là où se
-  /// trouve le coût : décoder deux fois le même vocal ne dirait rien de plus.
-  AudioWaveformServiceProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'audioWaveformServiceProvider',
-        isAutoDispose: false,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$audioWaveformServiceHash();
-
-  @$internal
-  @override
-  $ProviderElement<AudioWaveformService> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
-
-  @override
-  AudioWaveformService create(Ref ref) {
-    return audioWaveformService(ref);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(AudioWaveformService value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<AudioWaveformService>(value),
-    );
-  }
-}
-
-String _$audioWaveformServiceHash() =>
-    r'9ccdbdf5a9788f4f46ee0e35ec1a1ad3d56cc2db';
-
 /// Ce que l'app ne sait pas montrer, elle le confie : PDF, vidéo, vCard.
 
 @ProviderFor(attachmentOpener)

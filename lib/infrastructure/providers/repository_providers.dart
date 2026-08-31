@@ -4,7 +4,6 @@ import 'package:messages/core/domain/services/attachment_opener.service.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
 import 'package:messages/core/domain/services/audio_player.service.dart';
 import 'package:messages/core/domain/services/audio_recorder.service.dart';
-import 'package:messages/core/domain/services/audio_waveform.service.dart';
 import 'package:messages/core/domain/services/mms_configuration.service.dart';
 import 'package:messages/core/domain/services/contact.repository.dart';
 import 'package:messages/core/domain/services/conversation.repository.dart';
@@ -25,9 +24,7 @@ import 'package:messages/infrastructure/attachments/in_memory.attachment_compres
 import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
 import 'package:messages/infrastructure/audio/android.audio_player.service.dart';
 import 'package:messages/infrastructure/audio/android.audio_recorder.service.dart';
-import 'package:messages/infrastructure/audio/android.audio_waveform.service.dart';
 import 'package:messages/infrastructure/audio/in_memory.audio_player.service.dart';
-import 'package:messages/infrastructure/audio/in_memory.audio_waveform.service.dart';
 import 'package:messages/infrastructure/contacts/flutter_contacts.contact.repository.dart';
 import 'package:messages/infrastructure/notifications/android.notification.gateway.dart';
 import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
@@ -99,16 +96,6 @@ AudioRecorderService audioRecorderService(Ref ref) {
     return AndroidAudioRecorderService(logger: ref.watch(loggerProvider));
   }
   return ref.watch(inMemoryAudioRecorderProvider);
-}
-
-/// Mesure de la silhouette des vocaux. Le cache est côté natif, là où se
-/// trouve le coût : décoder deux fois le même vocal ne dirait rien de plus.
-@Riverpod(keepAlive: true)
-AudioWaveformService audioWaveformService(Ref ref) {
-  if (ref.watch(useNativeSmsStackProvider)) {
-    return AndroidAudioWaveformService(logger: ref.watch(loggerProvider));
-  }
-  return const InMemoryAudioWaveformService();
 }
 
 /// Ce que l'app ne sait pas montrer, elle le confie : PDF, vidéo, vCard.

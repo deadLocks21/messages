@@ -65,12 +65,15 @@ d'imposer le sien.
   | `voice` (bouton du vocal) | tertiaire | 90 | 30 | `#FFD6F7` / `#DBE9A0` |
   | `panel` (enregistrement) | secondaire | 90 | 30 | `#DAE5FB` / `#F1E3D0` |
   | `record` (bouton micro) | secondaire | 40 | 80 | `#3C4279` |
+  | `audioControl` (lecteur d'un vocal) | neutre variante | 63 | 45 | `#8D95D6` |
 
-  Trois de ces tons — ceux du **FAB** et de la **bulle envoyée** — ne sont pas
-  des rôles Material standard, et c'est ce qui distingue l'app d'origine d'une
-  app Material par défaut : le FAB a un ton médian, le même en clair et en
-  sombre ; et la bulle envoyée reste **claire à texte foncé** en thème sombre
-  (t77) au lieu de basculer sur le conteneur sombre (t30). Les autres sont bien
+  Quatre de ces tons — ceux du **FAB**, de la **bulle envoyée** et du **lecteur
+  de vocal** — ne sont pas des rôles Material standard, et c'est ce qui
+  distingue l'app d'origine d'une app Material par défaut : le FAB a un ton
+  médian, le même en clair et en sombre ; la bulle envoyée reste **claire à
+  texte foncé** en thème sombre (t77) au lieu de basculer sur le conteneur
+  sombre (t30) ; et le lecteur d'un vocal se tient à une trentaine de tons du
+  fond de sa bulle, ni à son contraste ni à sa couleur. Les autres sont bien
   les rôles de la spécification, appliqués là où l'app d'origine les applique.
 - Dans l'app d'origine, les barres, les bulles reçues et le champ de rédaction
   sont **exactement la même couleur** — d'où `surfaceAlt == background`. Un bloc
@@ -131,7 +134,11 @@ Un message sans pièce jointe suit la voie SMS d'avant, inchangée.
   noir. C'est une route locale du `Navigator`, pas du `GoRouter` : un aperçu ne
   se partage pas par une URL et ne survit pas au fil qui l'a ouvert.
 - Un **vocal** ne se lit pas, il s'écoute : sa bulle porte un lecteur
-  (bouton, piste pointillée, durée) et non la ligne « nom + poids » d'un PDF.
+  (bouton, curseur, durée) et non la ligne « nom + poids » d'un PDF. Le
+  curseur est celui de Material 3 — gélule de 16 dp, tête de lecture en barre
+  de 4 × 44, pastille de fin — et **pas** une silhouette du son : l'app
+  d'origine ne dessine le relief que dans le panneau d'enregistrement, où il
+  dit que le micro entend. Dans la bulle il ne dirait rien de plus.
   La durée annoncée avant lecture ne vient d'aucune colonne — rien dans
   `content://mms/part` ne la porte : elle est **mesurée** au décodeur
   (`MediaMetadataRetriever`) à la lecture des parties, puis retenue par `_id`,
@@ -214,7 +221,7 @@ dans un en-tête : aucun journal ne porte donc l'URL, seulement le nom du point
 d'appel. Sans `KLIPY_API_KEY`, l'app monte `InMemoryGifCatalog` : il ne
 montre aucun GIF — il n'en a pas — mais il en a la forme, rapports d'aspect
 variés et poids échelonnés autour du budget, ce qu'il faut pour que l'écran
-au-dessus reste développable. C'est le parti d'`InMemoryAudioWaveformService`
+au-dessus reste développable. C'est le parti d'`InMemoryAudioRecorderService`
 avec la silhouette d'un son : rien d'inventé qui se ferait passer pour vrai.
 
 ```bash
@@ -509,8 +516,8 @@ lui, il n'y a qu'un micro et qu'un état.
 - Le vocal enregistré s'écoute **avec le lecteur des bulles**, pas avec un
   aperçu à part : `AudioPlayerService` accepte indifféremment l'identifiant
   d'une partie du stock et l'URI d'un brouillon (`AudioSource.uriOf` côté
-  natif), et `AudioWaveform` aussi. Seules les parties du stock se retiennent
-  sur le disque : la silhouette d'un brouillon vivrait plus longtemps que lui.
+  natif). Un brouillon s'écoute donc exactement comme une bulle, sans rien
+  garder sur le disque : il ne doit pas survivre à l'écran qui l'a produit.
 
 ## Écouter un vocal : un seul lecteur, et il vit côté natif
 

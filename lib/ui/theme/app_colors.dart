@@ -96,6 +96,26 @@ abstract final class GmTones {
   static const GmTone voice = (light: 90, dark: 30);
   static const GmTone onVoice = (light: 10, dark: 90);
 
+  /// Le lecteur d'un vocal dans sa bulle : le bouton, la tête de lecture, la
+  /// part déjà jouée de la piste. Ni l'accent de l'app, ni le texte de la
+  /// bulle — un ton médian de la palette **neutre variante**, relevé #8D95D6
+  /// sur l'émulateur (bulle claire, thème clair).
+  ///
+  /// Pourquoi un ton médian plutôt que le texte de la bulle : le lecteur est
+  /// une commande, pas une phrase. Peint au contraste du texte il écraserait
+  /// la bulle ; peint plus pâle il s'y dissoudrait. L'app d'origine le tient
+  /// entre les deux — c'est ce qui lui donne son air de piste posée sur la
+  /// bulle plutôt que de mot écrit dedans.
+  ///
+  /// L'écart au fond de la bulle vaut une trentaine de tons : c'est lui, plus
+  /// que la valeur absolue, qui fait la lecture. En sombre les deux bulles ne
+  /// vont pas du même côté — la reçue tombe à t11, l'envoyée reste claire à
+  /// t77 — et un seul ton doit servir les deux : t45 se tient à trente et
+  /// quelques de l'une comme de l'autre. (L'app d'origine n'a pas ce souci :
+  /// ses deux bulles y sont claires, et son lecteur descend au presque-noir.)
+  static const GmTone audioControl = (light: 63, dark: 45);
+  static const GmTone onAudioControl = (light: 100, dark: 100);
+
   /// Le panneau d'enregistrement, sous le champ de rédaction. Puise dans la
   /// palette **secondaire** — ni le fond (`background`), ni la bulle
   /// (`accentSoft`) : un panneau qui prendrait le ton du fond ne se
@@ -190,6 +210,8 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.onBubbleOutgoing,
     required this.voice,
     required this.onVoice,
+    required this.audioControl,
+    required this.onAudioControl,
     required this.panel,
     required this.onPanel,
     required this.record,
@@ -228,6 +250,8 @@ class AppColors extends ThemeExtension<AppColors> {
       onBubbleOutgoing: p.neutral.tone(t(GmTones.onBubbleOutgoing)),
       voice: p.tertiary.tone(t(GmTones.voice)),
       onVoice: p.tertiary.tone(t(GmTones.onVoice)),
+      audioControl: p.neutralVariant.tone(t(GmTones.audioControl)),
+      onAudioControl: p.neutralVariant.tone(t(GmTones.onAudioControl)),
       panel: p.secondary.tone(t(GmTones.panel)),
       onPanel: p.secondary.tone(t(GmTones.onPanel)),
       record: p.secondary.tone(t(GmTones.record)),
@@ -271,6 +295,10 @@ class AppColors extends ThemeExtension<AppColors> {
   /// Le bouton du message vocal — la seule tache de tertiaire de l'app.
   final Color voice;
   final Color onVoice;
+
+  /// Le lecteur d'un vocal reçu ou envoyé, dans sa bulle.
+  final Color audioControl;
+  final Color onAudioControl;
 
   /// Le panneau d'enregistrement, posé sous le champ de rédaction.
   final Color panel;
@@ -317,6 +345,8 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? onBubbleOutgoing,
     Color? voice,
     Color? onVoice,
+    Color? audioControl,
+    Color? onAudioControl,
     Color? panel,
     Color? onPanel,
     Color? record,
@@ -343,6 +373,8 @@ class AppColors extends ThemeExtension<AppColors> {
       onBubbleOutgoing: onBubbleOutgoing ?? this.onBubbleOutgoing,
       voice: voice ?? this.voice,
       onVoice: onVoice ?? this.onVoice,
+      audioControl: audioControl ?? this.audioControl,
+      onAudioControl: onAudioControl ?? this.onAudioControl,
       panel: panel ?? this.panel,
       onPanel: onPanel ?? this.onPanel,
       record: record ?? this.record,
@@ -374,6 +406,8 @@ class AppColors extends ThemeExtension<AppColors> {
       onBubbleOutgoing: Color.lerp(onBubbleOutgoing, other.onBubbleOutgoing, t)!,
       voice: Color.lerp(voice, other.voice, t)!,
       onVoice: Color.lerp(onVoice, other.onVoice, t)!,
+      audioControl: Color.lerp(audioControl, other.audioControl, t)!,
+      onAudioControl: Color.lerp(onAudioControl, other.onAudioControl, t)!,
       panel: Color.lerp(panel, other.panel, t)!,
       onPanel: Color.lerp(onPanel, other.onPanel, t)!,
       record: Color.lerp(record, other.record, t)!,

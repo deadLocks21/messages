@@ -277,7 +277,6 @@ class _Recorded extends StatelessWidget {
           key: const Key('voicePreview'),
           attachment: AttachmentDto.fromDraft(draft),
           foreground: colors.onPanel,
-          background: colors.panel,
           maxWidth: constraints.maxWidth,
         ),
       ),
