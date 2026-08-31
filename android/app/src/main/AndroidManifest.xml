@@ -77,8 +77,9 @@
             </intent-filter>
         </receiver>
 
-        <!-- Composant 3/4 : réception des MMS. Non gérés fonctionnellement,
-             mais le composant doit exister pour que le rôle soit accordé. -->
+        <!-- Composant 3/4 : réception des MMS. Seule l'app par défaut reçoit
+             WAP_PUSH_DELIVER, et ce qu'elle en laisse tomber est perdu —
+             aucune autre application ne prend le relais. -->
         <receiver
             android:name=".MmsDeliverReceiver"
             android:exported="true"
@@ -88,6 +89,14 @@
                 <data android:mimeType="application/vnd.wap.mms-message"/>
             </intent-filter>
         </receiver>
+
+        <!-- Issue du téléchargement du MMS auprès du MMSC. Déclaré au
+             manifeste : entre l'annonce et la descente il s'écoule un
+             aller-retour réseau, pendant lequel l'app peut ne plus tourner —
+             un receveur enregistré à chaud ne serait plus là pour l'accusé. -->
+        <receiver
+            android:name=".MmsDownloadedReceiver"
+            android:exported="false"/>
 
         <!-- Actions des notifications (réponse directe, marquer comme lu).
              Déclaré au manifeste : il doit répondre même app non lancée. -->

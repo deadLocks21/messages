@@ -51,6 +51,13 @@ android {
         }
     }
 
+    // Le décodeur de PDU MMS est du calcul pur sur des octets : il se teste
+    // sur la JVM, sans appareil ni émulateur. `android.util.Log` n'y existe
+    // pas — d'où les stubs renvoyés plutôt qu'une exception.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     buildTypes {
         release {
             signingConfig = if (keystorePropertiesFile.exists()) {
@@ -71,6 +78,10 @@ dependencies {
     // les portraits couchés : `BitmapFactory` ignore l'orientation, la caméra
     // l'écrit pourtant dans les métadonnées plutôt que dans les pixels.
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    // Tests JVM du décodeur MMS (`src/test/`). `flutter test` n'atteint pas le
+    // Kotlin ; ceux-ci se lancent par `./gradlew :app:testDebugUnitTest`.
+    testImplementation("junit:junit:4.13.2")
 }
 
 flutter {

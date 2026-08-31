@@ -20,18 +20,19 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 | **Taille d'un GIF** | La déclinaison envoyée est **choisie** dans le budget MMS de l'opérateur avant tout téléchargement — un GIF ne se comprime pas, le ré-encoder le figerait. |
 | **Vocaux** | Deux gestes sur le même disque : appui bref → panneau à trois états (invitation, enregistrement avec compteur et piste, relecture) ; appui **maintenu** → la barre « Faire glisser pour annuler », relâcher joint, glisser vers la corbeille annule, glisser vers le cadenas rend la main au panneau. Durée bornée au budget MMS de l'opérateur, suppression du bruit annoncée quand l'appareil la sert, envoi en MMS `audio/amr`. |
 | **Réception** | `SMS_DELIVER` → écriture dans le stock + notification + rafraîchissement live de l'UI. |
+| **Réception MMS** | `WAP_PUSH_DELIVER` → décodage de la notification de dépôt, téléchargement auprès du MMSC, décodage du PDU, écriture des trois tables `content://mms` + notification. Photo, GIF, vocal, PDF et vCard reçus s'affichent comme ceux qu'on envoie. |
 | **Rédaction** | Sélecteur de contacts (nom ou numéro), numéro libre, brouillons persistés, transfert d'un message. |
 | **Notifications** | `MessagingStyle` (fil des derniers échanges, nom du contact), **réponse directe** et **marquer comme lu** depuis le volet, groupement + résumé, sourdine par fil respectée, annulation quand le fil est lu dans l'app. |
 | **Système** | Demande des permissions (SMS, contacts, notifications) puis du rôle **application SMS par défaut**, ouverture depuis une notification ou un lien `sms:`, thème clair/sombre. |
 | **Journalisation** | Logs applicatifs et erreurs expédiés à **Signoz** en OTLP/HTTP, avec l'écran courant et l'état du rôle d'app par défaut sur chaque ligne. |
 
 Reste à faire : notifier les **échecs d'envoi** (« Message non envoyé »), et
-couvrir le Kotlin par des tests instrumentés — `flutter_test` ne l'atteint pas.
+couvrir par des tests instrumentés le Kotlin qui touche au `ContentProvider` —
+`flutter_test` ne l'atteint pas. Ce qui s'en passe est déjà testé sur la JVM
+(`android/app/src/test/`, `./gradlew :app:testDebugUnitTest`) : le codec des
+PDU MMS, en aller-retour de l'encodeur au décodeur.
 
-Hors périmètre : le **RCS** ; la **réception** de MMS — les composants exigés
-par le rôle d'app par défaut existent (`MmsDeliverReceiver`,
-`HeadlessSmsSendService`), mais un MMS entrant n'est pas téléchargé auprès du
-MMSC.
+Hors périmètre : le **RCS**.
 
 ## Le stock SMS est la source de vérité
 

@@ -562,21 +562,109 @@ class MmsStore(private val context: Context) {
      * ensuite par le flux que le provider ouvre pour elle. Écrire les octets
      * dans la colonne `_data` serait refusé — ce chemin appartient au provider.
      */
-    private fun insertDataPart(messageId: Long, part: MmsPdu.Part) {
+    private fun insertDataPart(messageId: Long, part: MmsPdu.Part) = insertDataPart(
+        messageId = messageId,
+        contentType = part.contentType,
+        contentId = part.contentId,
+        name = part.contentLocation,
+        charset = null,
+        data = part.data,
+    )
+
+    private fun insertDataPart(
+        messageId: Long,
+        contentType: String,
+        contentId: String,
+        name: String,
+        charset: Int?,
+        data: ByteArray,
+    ) {
         val values = ContentValues().apply {
             put(Telephony.Mms.Part.MSG_ID, messageId)
-            put(Telephony.Mms.Part.CONTENT_TYPE, part.contentType)
-            put(Telephony.Mms.Part.CONTENT_ID, part.contentId)
-            put(Telephony.Mms.Part.CONTENT_LOCATION, part.contentLocation)
-            put(Telephony.Mms.Part.NAME, part.contentLocation)
-            put(Telephony.Mms.Part.FILENAME, part.contentLocation)
+            put(Telephony.Mms.Part.CONTENT_TYPE, contentType)
+            put(Telephony.Mms.Part.CONTENT_ID, contentId)
+            put(Telephony.Mms.Part.CONTENT_LOCATION, name)
+            put(Telephony.Mms.Part.NAME, name)
+            put(Telephony.Mms.Part.FILENAME, name)
+            if (charset != null) put(Telephony.Mms.Part.CHARSET, charset)
         }
         val uri = runCatching {
             resolver.insert(partUriFor(messageId), values)
         }.getOrNull() ?: return
         runCatching {
-            resolver.openOutputStream(uri)?.use { it.write(part.data) }
+            resolver.openOutputStream(uri)?.use { it.write(data) }
         }
+    }
+
+    // ------------------------------------------------------------ réception
+
+    /**
+     * Écrit un MMS **reçu** dans le stock, et rend le message tel que l'app le
+     * lira — l'exact pendant de `SmsStore.insertIncoming`.
+     *
+     * Le fil est résolu par `Telephony.Threads.getOrCreateThreadId` sur la
+     * seule adresse de l'expéditeur : c'est ce qui range le MMS dans la même
+     * conversation que les SMS du même correspondant plutôt que dans un fil
+     * jumeau.
+     */
+    fun insertIncoming(
+        sender: String,
+        retrieved: MmsPduReader.Retrieved,
+        subscriptionId: Int?,
+    ): Map<String, Any?>? {
+        val threadId =
+            Telephony.Threads.getOrCreateThreadId(context, setOf(sender)).toString()
+
+        val values = ContentValues().apply {
+            put(Telephony.Mms.THREAD_ID, threadId.toLong())
+            // Secondes, comme partout dans ce provider.
+            put(
+                Telephony.Mms.DATE,
+                (retrieved.dateMillis ?: System.currentTimeMillis()) / 1000,
+            )
+            put(Telephony.Mms.MESSAGE_BOX, Telephony.Mms.MESSAGE_BOX_INBOX)
+            put(Telephony.Mms.MESSAGE_TYPE, 132) // m-retrieve-conf
+            put(Telephony.Mms.MMS_VERSION, 0x12)
+            put(Telephony.Mms.READ, 0)
+            put(Telephony.Mms.SEEN, 0)
+            put(Telephony.Mms.CONTENT_TYPE, "application/vnd.wap.multipart.related")
+            retrieved.subject?.takeIf { it.isNotEmpty() }?.let {
+                put(Telephony.Mms.SUBJECT, it)
+                put(Telephony.Mms.SUBJECT_CHARSET, 106)
+            }
+            if (subscriptionId != null && subscriptionId >= 0) {
+                put(Telephony.Mms.SUBSCRIPTION_ID, subscriptionId)
+            }
+        }
+        val uri = runCatching {
+            resolver.insert(Telephony.Mms.CONTENT_URI, values)
+        }.getOrNull() ?: return null
+        val messageId = uri.lastPathSegment?.toLongOrNull() ?: return null
+
+        insertAddress(messageId, sender, ADDRESS_TYPE_FROM)
+        insertAddress(messageId, SELF_ADDRESS, ADDRESS_TYPE_TO)
+
+        var index = 0
+        for (part in retrieved.parts) {
+            // La partie SMIL est de la mise en page, pas une pièce jointe :
+            // elle est écrite quand même — le stock est partagé avec les autres
+            // apps — mais la lecture l'écarte déjà.
+            if (part.isText && !part.isSmil) {
+                insertTextPart(messageId, part.text())
+            } else {
+                insertDataPart(
+                    messageId = messageId,
+                    contentType = part.contentType,
+                    contentId = "<part${index}>",
+                    name = part.name ?: "part$index",
+                    charset = part.charset,
+                    data = part.data,
+                )
+            }
+            index++
+        }
+
+        return getMessage(ID_PREFIX + messageId)
     }
 
     private fun partUriFor(messageId: Long): Uri =
@@ -587,7 +675,7 @@ class MmsStore(private val context: Context) {
      * le service MMS du système ouvrira sous **son** identité. D'où le
      * `FileProvider` — un chemin de fichier direct lui serait inaccessible.
      */
-    private fun writePduFile(transactionId: String, pdu: ByteArray): Uri {
+    fun writePduFile(transactionId: String, pdu: ByteArray): Uri {
         val directory = File(context.cacheDir, "mms").apply { mkdirs() }
         sweepStale(directory)
         // Les photos prises, les images compressées et les GIF rapatriés
@@ -602,6 +690,36 @@ class MmsStore(private val context: Context) {
             "${context.packageName}.fileprovider",
             file,
         )
+    }
+
+    /**
+     * Le fichier où le **service MMS du système** déposera le PDU téléchargé.
+     *
+     * Même dossier et même `FileProvider` que [writePduFile], et pour la même
+     * raison : le téléchargement s'exécute sous l'identité du service, pas sous
+     * la nôtre. La différence est le sens de l'écriture — ici c'est lui qui
+     * écrit, à nous de lui en accorder le droit (cf. `MmsReception`).
+     */
+    fun createDownloadFile(transactionId: String): Uri {
+        val directory = File(context.cacheDir, "mms").apply { mkdirs() }
+        sweepStale(directory)
+        val file = File(directory, "$transactionId.download.pdu")
+        file.delete()
+        file.createNewFile()
+        return FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file,
+        )
+    }
+
+    /** Relit ce que le service MMS a déposé, puis efface le fichier. */
+    fun consumeDownloadFile(uri: Uri): ByteArray? {
+        val bytes = runCatching {
+            resolver.openInputStream(uri)?.use { it.readBytes() }
+        }.getOrNull()
+        runCatching { File(context.cacheDir, "mms/${uri.lastPathSegment}").delete() }
+        return bytes?.takeIf { it.isNotEmpty() }
     }
 
     /**

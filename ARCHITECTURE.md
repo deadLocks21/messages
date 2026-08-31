@@ -156,9 +156,88 @@ Un message sans pièce jointe suit la voie SMS d'avant, inchangée.
   `ACTION_CREATE_DOCUMENT` plutôt que par un dossier « Téléchargements » écrit
   en direct — aucune permission requise, à n'importe quelle version d'Android,
   et c'est l'utilisateur qui décide où le fichier atterrit.
-- La **réception** de MMS n'est pas gérée : `WAP_PUSH_DELIVER` ne porte qu'une
-  notification de dépôt à décoder puis à télécharger auprès du MMSC. Ce qui est
-  déjà dans `content://mms` s'affiche, en revanche.
+
+## Recevoir un MMS : deux receveurs, parce qu'il y a un réseau au milieu
+
+Ce que `WAP_PUSH_DELIVER` dépose n'est pas le message mais une **notification
+de dépôt** (`M-Notification.ind`) : l'adresse où le MMSC le tient à
+disposition. Et cet intent n'arrive qu'à l'application SMS par défaut —
+personne ne prend le relais de ce qu'elle laisse tomber. D'où le chemin
+complet, entièrement natif (le Dart ne bouge pas : il affiche déjà tout ce qui
+est écrit dans `content://mms`) :
+
+1. `MmsDeliverReceiver` → `MmsReception.start` : décodage de la notification
+   (`MmsPduReader`), fichier vide créé dans `cacheDir/mms` derrière le
+   `FileProvider`, puis `downloadMultimediaMessage`. Il ne télécharge pas, il
+   **demande** — un `onReceive` ne dispose que de quelques secondes.
+2. `MmsDownloadedReceiver` → `MmsReception.finish` : relecture du fichier,
+   décodage du `M-Retrieve.conf`, écriture des trois tables, `SmsEventBus` puis
+   `SmsNotifications` — exactement la séquence de `SmsDeliverReceiver`.
+
+Le second receveur est **déclaré au manifeste**, et c'est le point qui n'est
+pas négociable : entre l'annonce et la descente il s'écoule un aller-retour
+réseau, pendant lequel l'app peut ne plus tourner. Un receveur enregistré à
+chaud ne serait plus là pour l'accusé, et le message serait perdu alors même
+qu'il a été téléchargé. Lui, en revanche, prend le temps qu'il faut
+(`goAsync()`) : écrire trois tables dépasse le budget d'un `onReceive`, et ce
+travail-là ne peut pas être remis à plus tard puisque c'est lui qui fait
+exister le message.
+
+### Le décodeur est le miroir de l'encodeur
+
+`MmsPduReader` reprend les primitives WSP de `MmsPdu` prises à l'envers —
+uintvar, value-length, text-string, encoded-string-value — et le même découpage
+du corps. Le choix d'écrire le format à la main vaut dans les deux sens : il n'y
+a pas plus d'API publique pour lire ces PDU que pour les écrire. La contrepartie
+est qu'une dérive de l'une des deux moitiés ne se verrait pas — d'où le test
+d'**aller-retour** (`android/app/src/test/`, `./gradlew :app:testDebugUnitTest`),
+qui encode un corps et vérifie qu'il se relit à l'identique. C'est du calcul pur
+sur des octets : la JVM suffit, sans appareil.
+
+Ce que ce format réserve, et qu'on ne devine pas :
+
+- **Les numéros d'en-tête ne vivent pas dans le même espace.** `Content-Location`
+  vaut `0x83` dans les en-têtes d'un message et `0x8E` dans ceux d'une partie —
+  où `0x8E` désigne, côté message, la taille du MMS. Deux tables, deux jeux de
+  constantes.
+- **Le type d'une partie arrive en clair ou en entier court** (valeur bien
+  connue WSP : `0x1E` *est* `image/jpeg`), et le charset d'un texte de même. Une
+  photo lue avec la mauvaise table devient un `application/octet-stream` qui ne
+  s'affiche pas ; un texte ISO-8859-1 relu en UTF-8 arrive en mojibake. Le
+  charset décodé est réécrit dans `Telephony.Mms.Part.CHARSET`.
+- **Le PDU vient du réseau.** Longueur aberrante, partie qui déborde, en-tête
+  manquant : tout se solde par un `null` rendu à l'appelant. Une exception qui
+  remonterait au système ferait tomber un `BroadcastReceiver`, donc l'app, sur
+  un paquet qu'un tiers a choisi.
+- **Le service MMS du système écrit dans notre fichier sous son identité.** Il
+  lui faut donc une URI du `FileProvider` *et* une permission d'URI accordée
+  explicitement à `com.android.phone` — sans quoi le téléchargement échoue sans
+  rien dire.
+
+### Trois décisions, et pourquoi
+
+- **Rien n'est écrit avant que le PDU soit descendu.** L'autre option — écrire
+  la notification (`MESSAGE_TYPE = 130`) puis la compléter — ne perd jamais
+  rien, mais laisse dans le fil une bulle que le reste de l'app ne sait pas
+  présenter : `MmsStore` lit des *parties*, et une notification n'en a aucune.
+  Il faudrait un état « en cours de réception » dans le domaine, l'UI qui va
+  avec et un geste pour relancer, pour un cas qui ne survient qu'en cas d'échec
+  réseau. L'échec se lit donc dans le journal, pas dans le fil.
+- **Le téléchargement est automatique, sans condition** de taille ni de réseau.
+  Conditionner supposerait un moyen de déclencher la descente à la main, donc
+  une UI qui n'existe pas — et un MMS retenu serait un MMS perdu. C'est aussi
+  ce que fait Google Messages par défaut. Le service MMS active de lui-même
+  l'APN de l'opérateur ; le Wi-Fi n'y change rien.
+- **Un seul tag de journal natif, `Mms`** (`MmsReception.TAG`). Tout le reste
+  de l'app journalise en Dart vers Signoz — inaccessible depuis un receveur qui
+  s'exécute app éteinte, ce qui est précisément le cas ici. Sans lui, un MMS qui
+  n'arrive pas serait indébogable ; `adb logcat -s Mms` est le seul fil à tirer.
+
+- L'expéditeur est rangé en `addr.type = 137` et soi-même en `151` — l'inverse
+  d'un sortant, et ce que `MmsStore.addressOf` attend déjà pour rendre le bon
+  interlocuteur. Le suffixe `/TYPE=PLMN` d'une adresse est retiré : il dit le
+  plan de numérotation, pas le correspondant, et le garder ferait deux fils
+  pour une même personne.
 
 ## Envoyer un GIF : la taille se choisit, elle ne se rattrape pas
 
