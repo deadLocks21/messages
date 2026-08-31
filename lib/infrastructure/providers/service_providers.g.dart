@@ -339,6 +339,55 @@ final class PickAttachmentsUseCaseProvider
 String _$pickAttachmentsUseCaseHash() =>
     r'cc02faed15327d26aac818147c315c624f294549';
 
+/// Le pendant du précédent pour un GIF : même budget d'opérateur, mais la
+/// taille se choisit au lieu de se rattraper.
+
+@ProviderFor(pickGifUseCase)
+final pickGifUseCaseProvider = PickGifUseCaseProvider._();
+
+/// Le pendant du précédent pour un GIF : même budget d'opérateur, mais la
+/// taille se choisit au lieu de se rattraper.
+
+final class PickGifUseCaseProvider
+    extends $FunctionalProvider<PickGifUseCase, PickGifUseCase, PickGifUseCase>
+    with $Provider<PickGifUseCase> {
+  /// Le pendant du précédent pour un GIF : même budget d'opérateur, mais la
+  /// taille se choisit au lieu de se rattraper.
+  PickGifUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'pickGifUseCaseProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$pickGifUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<PickGifUseCase> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  PickGifUseCase create(Ref ref) {
+    return pickGifUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PickGifUseCase value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PickGifUseCase>(value),
+    );
+  }
+}
+
+String _$pickGifUseCaseHash() => r'eb9603d05f632dd7b75ca43790a2a0dc3af75f73';
+
 @ProviderFor(recordVoiceMessageUseCase)
 final recordVoiceMessageUseCaseProvider = RecordVoiceMessageUseCaseProvider._();
 

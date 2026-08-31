@@ -15,7 +15,9 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 | **Conversations** | Liste triée (épinglés d'abord), pastille de non-lus, recherche et ses filtres (« Non lues », « Archivées »), archives, mode sélection multiple (épingler, archiver, sourdine, marquer lu, supprimer). |
 | **Fil** | Bulles groupées à la Google Messages, séparateurs de date, états `Envoi… / Envoyé / Distribué / Non distribué`, appui long (copier, transférer, supprimer, détails, réessayer), appel du correspondant. |
 | **Envoi** | SMS simple et multi-parties (compteur de segments), envoi optimiste, accusés de dépôt et de remise, renvoi d'un échec. |
-| **Pièces jointes** | Galerie, appareil photo, fichiers, fiche de contact ; compression des images au plafond de l'opérateur, une pièce jointe par MMS, image rouverte en grand, PDF et vidéos confiés au système. |
+| **Pièces jointes** | Galerie, appareil photo, GIF, fichiers, fiche de contact ; compression des images au plafond de l'opérateur, une pièce jointe par MMS, image rouverte en grand, PDF et vidéos confiés au système. |
+| **Emoji & GIF** | Un panneau sous le champ, deux onglets, un seul en-tête. **Emoji** : les 1 906 emoji d'Unicode, noms et mots-clés français de CLDR (« mdr » trouve 😂), recherche sans accents, familles, récents persistés, retour arrière au caractère perçu. **GIF** : catalogue **Tenor** — recherche, puces de tendances, grille en quinconce à deux colonnes. Ouvert et refermé par le même bouton du champ, dépliable au doigt. |
+| **Taille d'un GIF** | La déclinaison envoyée est **choisie** dans le budget MMS de l'opérateur avant tout téléchargement — un GIF ne se comprime pas, le ré-encoder le figerait. |
 | **Vocaux** | Deux gestes sur le même disque : appui bref → panneau à trois états (invitation, enregistrement avec compteur et piste, relecture) ; appui **maintenu** → la barre « Faire glisser pour annuler », relâcher joint, glisser vers la corbeille annule, glisser vers le cadenas rend la main au panneau. Durée bornée au budget MMS de l'opérateur, suppression du bruit annoncée quand l'appareil la sert, envoi en MMS `audio/amr`. |
 | **Réception** | `SMS_DELIVER` → écriture dans le stock + notification + rafraîchissement live de l'UI. |
 | **Rédaction** | Sélecteur de contacts (nom ou numéro), numéro libre, brouillons persistés, transfert d'un message. |
@@ -50,7 +52,28 @@ flutter run -d macos               # démo sur doublures InMemory
 flutter test                       # unitaires + fonctionnels
 flutter analyze
 dart run build_runner build        # providers Riverpod (*.g.dart)
+dart run tool/generate_emoji_table.dart   # table des emoji (Unicode + CLDR)
 ```
+
+La table des emoji est **générée puis committée** : l'app ne télécharge rien.
+On relance le script quand une version d'Unicode sort — il est épinglé sur une
+version, pour qu'une table qui change sous les pieds ne rende pas le diff
+illisible.
+
+### Brancher le catalogue de GIF
+
+Comme pour Signoz, rien n'est appelé tant que `TENOR_API_KEY` est vide : l'app
+monte alors `InMemoryGifCatalog`, qui a la forme d'un catalogue sans en avoir
+les GIF — de quoi développer et tester l'écran, pas de quoi envoyer. La clé est
+une clé d'API Google Cloud avec l'**API Tenor** activée.
+
+```bash
+flutter run -d <android_device> --dart-define=TENOR_API_KEY=<clé>
+```
+
+| `--dart-define` | Effet |
+|---|---|
+| `TENOR_API_KEY` | Clé de l'API Tenor v2. **Vide → catalogue simulé.** |
 
 ### Envoyer les logs à Signoz
 

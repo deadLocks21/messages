@@ -197,9 +197,20 @@ class AttachmentDraft {
 
   /// Cette pièce jointe peut-elle être allégée ?
   ///
-  /// Seules les images. Une vidéo demanderait un ré-encodage complet, un PDF
-  /// n'a rien de superflu à jeter : pour eux, trop lourd veut dire trop lourd.
-  bool get isCompressible => kind == AttachmentKind.image;
+  /// Seules les images fixes. Une vidéo demanderait un ré-encodage complet, un
+  /// PDF n'a rien de superflu à jeter : pour eux, trop lourd veut dire trop
+  /// lourd.
+  ///
+  /// **Un GIF non plus**, alors que c'en est pourtant une : le compresseur
+  /// ré-encode en JPEG, et un JPEG ne bouge pas. Alléger un GIF reviendrait à
+  /// n'en garder qu'une image — ce qui, d'un GIF, ne laisse rien. Sa taille se
+  /// choisit donc en amont, parmi les déclinaisons du catalogue
+  /// ([Gif.bestWithin]), et pas ici.
+  bool get isCompressible =>
+      kind == AttachmentKind.image && mimeType.toLowerCase() != gifMimeType;
+
+  /// Le type d'un GIF animé, seul type d'image que l'app ne comprime pas.
+  static const gifMimeType = 'image/gif';
 
   /// La même pièce jointe, allégée : nouveau fichier, même identité.
   ///

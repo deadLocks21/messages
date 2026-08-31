@@ -342,6 +342,118 @@ final class InMemoryAttachmentPickerProvider
 String _$inMemoryAttachmentPickerHash() =>
     r'57759d6437a4b3e4f1538d4f1583d9a69883bb30';
 
+/// Catalogue de GIF simulé. Exposé à part pour que les tests puissent le
+/// rendre muet — le catalogue hors ligne que la grille doit savoir annoncer.
+
+@ProviderFor(inMemoryGifCatalog)
+final inMemoryGifCatalogProvider = InMemoryGifCatalogProvider._();
+
+/// Catalogue de GIF simulé. Exposé à part pour que les tests puissent le
+/// rendre muet — le catalogue hors ligne que la grille doit savoir annoncer.
+
+final class InMemoryGifCatalogProvider
+    extends
+        $FunctionalProvider<
+          InMemoryGifCatalog,
+          InMemoryGifCatalog,
+          InMemoryGifCatalog
+        >
+    with $Provider<InMemoryGifCatalog> {
+  /// Catalogue de GIF simulé. Exposé à part pour que les tests puissent le
+  /// rendre muet — le catalogue hors ligne que la grille doit savoir annoncer.
+  InMemoryGifCatalogProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'inMemoryGifCatalogProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$inMemoryGifCatalogHash();
+
+  @$internal
+  @override
+  $ProviderElement<InMemoryGifCatalog> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  InMemoryGifCatalog create(Ref ref) {
+    return inMemoryGifCatalog(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(InMemoryGifCatalog value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<InMemoryGifCatalog>(value),
+    );
+  }
+}
+
+String _$inMemoryGifCatalogHash() =>
+    r'85b439e17c161dda4929deb43b894d0e71082269';
+
+/// Rapatriement simulé. Exposé à part pour la même raison que le sélecteur :
+/// c'est par lui qu'un test simule une adresse périmée.
+
+@ProviderFor(inMemoryMediaDownloader)
+final inMemoryMediaDownloaderProvider = InMemoryMediaDownloaderProvider._();
+
+/// Rapatriement simulé. Exposé à part pour la même raison que le sélecteur :
+/// c'est par lui qu'un test simule une adresse périmée.
+
+final class InMemoryMediaDownloaderProvider
+    extends
+        $FunctionalProvider<
+          InMemoryMediaDownloader,
+          InMemoryMediaDownloader,
+          InMemoryMediaDownloader
+        >
+    with $Provider<InMemoryMediaDownloader> {
+  /// Rapatriement simulé. Exposé à part pour la même raison que le sélecteur :
+  /// c'est par lui qu'un test simule une adresse périmée.
+  InMemoryMediaDownloaderProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'inMemoryMediaDownloaderProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$inMemoryMediaDownloaderHash();
+
+  @$internal
+  @override
+  $ProviderElement<InMemoryMediaDownloader> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  InMemoryMediaDownloader create(Ref ref) {
+    return inMemoryMediaDownloader(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(InMemoryMediaDownloader value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<InMemoryMediaDownloader>(value),
+    );
+  }
+}
+
+String _$inMemoryMediaDownloaderHash() =>
+    r'b569f30678aa58610354d3559a48c2bb309a855d';
+
 /// Enregistreur simulé. Exposé à part pour la même raison que le sélecteur :
 /// c'est par lui qu'un test simule un micro refusé.
 

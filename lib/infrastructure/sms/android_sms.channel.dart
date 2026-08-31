@@ -181,6 +181,26 @@ class AndroidSmsChannel {
   Future<void> discardAttachment(String uri) =>
       _invoke<void>('discardAttachment', {'uri': uri});
 
+  /// Rapatrie un média distant (le GIF choisi dans le catalogue) et rend le
+  /// brouillon correspondant.
+  ///
+  /// Les octets restent côté natif : le fichier est écrit dans le cache,
+  /// derrière le `FileProvider`, exactement là où l'envoi du MMS ira le
+  /// relire.
+  Future<AttachmentDraft> downloadMedia(
+    String url, {
+    required String mimeType,
+    required String fileName,
+  }) async {
+    final raw = await _invoke<Map<Object?, Object?>>('downloadMedia', {
+      'url': url,
+      'mimeType': mimeType,
+      'fileName': fileName,
+    });
+    if (raw == null) throw const MediaDownloadFailedException();
+    return _draft(_map(raw));
+  }
+
   /// Taille maximale d'un MMS selon la configuration opérateur, en octets.
   /// Null quand le système ne publie rien d'exploitable.
   Future<int?> mmsMaxMessageSize() =>
@@ -406,6 +426,7 @@ class AndroidSmsChannel {
         'not_found',
         'attachment_too_large',
         'attachment_unavailable',
+        'download_failed',
       }.contains(e.code);
       _log(
         expected,
@@ -428,6 +449,7 @@ class AndroidSmsChannel {
           MmsLimits.fallback,
         ),
         'attachment_unavailable' => const AttachmentUnavailableException(),
+        'download_failed' => const MediaDownloadFailedException(),
         _ => MessageSendFailedException(e.message),
       };
     } on MissingPluginException catch (e, stack) {

@@ -153,6 +153,239 @@ Un message sans pièce jointe suit la voie SMS d'avant, inchangée.
   notification de dépôt à décoder puis à télécharger auprès du MMSC. Ce qui est
   déjà dans `content://mms` s'affiche, en revanche.
 
+## Envoyer un GIF : la taille se choisit, elle ne se rattrape pas
+
+Un GIF est une image, et une image tient dans un MMS — mais c'est la **seule**
+pièce jointe dont la taille ne peut pas se corriger après coup. `ImageCompressor`
+ré-encode en JPEG : appliqué à un GIF, il n'en garderait qu'une image fixe, ce
+qui d'un GIF ne laisse rien. D'où `AttachmentDraft.isCompressible`, qui exclut
+`image/gif` alors que c'est bien une image.
+
+Ce qui sauve l'affaire, c'est que Tenor ne sert pas *un* fichier mais une
+**famille** — `gif`, `mediumgif`, `tinygif`, `nanogif` — et publie le poids de
+chacune **avant** tout téléchargement. La question « quelle taille envoyer ? »
+se règle donc à la sélection, comme celle de la durée d'un vocal, et pour la
+même raison : découvrir au retour du MMSC que le message était trop lourd
+arriverait trop tard.
+
+- `Gif.bestWithin(budget)` prend **la plus lourde qui tienne** dans le budget de
+  l'opérateur — le même `MmsLimits.contentBytes` que pour une photo, lu de la
+  configuration et non deviné. Les autres ne descendent jamais du réseau.
+- Aucune ne tient ? `AttachmentTooLargeException`, franchement, avant le
+  téléchargement. À ce moment-là, l'utilisateur peut encore choisir un autre GIF.
+- Le poids annoncé n'engage pas le serveur : le fichier reçu est **re-mesuré**,
+  et refusé s'il déborde quand même.
+- `contentfilter: high` — le filtre le plus strict de Tenor. Un client SMS n'est
+  pas un endroit où l'on tombe sur ce genre de choses par surprise.
+- `media_filter` n'est pas une optimisation de confort : sans lui, Tenor renvoie
+  les quatorze déclinaisons de chaque résultat (MP4, WebM, aperçus fixes), soit
+  un JSON plusieurs fois plus gros pour des adresses qu'on n'ouvrira jamais.
+
+### Deux ports, parce que ce sont deux métiers
+
+`GifCatalog` ne rend que des **adresses** (mis en avant, recherche, puces) : une
+grille qui garderait ses GIF en mémoire pèserait plus lourd que le fil qu'elle
+recouvre. Le fichier n'existe qu'une fois un GIF choisi, et c'est
+`MediaDownloader` qui le fait naître — le jumeau exact d'`AttachmentPicker`, à
+ceci près qu'il ouvre une adresse au lieu d'un écran du système, et qu'il rend
+la même chose : un `AttachmentDraft`.
+
+Le rapatriement est **natif** (`RemoteMedia.kt`), pour la raison qui vaut
+partout ailleurs : les octets ne traversent pas le canal. Le fichier doit de
+toute façon finir dans `cacheDir/gifs/` derrière le `FileProvider`, puisque
+c'est de là que l'envoi du MMS le relira ; le faire remonter en Dart pour le
+redescendre aussitôt doublerait le trajet. Le natif n'accepte que **HTTPS**,
+plafonne ce qu'il lit (un `Content-Length` menteur ne doit pas pouvoir remplir
+le cache) et préfixe le nom d'un identifiant unique — le nom vient du descriptif
+du GIF et se répète donc d'un envoi à l'autre.
+
+**La clé d'API arrive par `--dart-define`**, comme celle de Signoz et pour la
+même raison. Sans `TENOR_API_KEY`, l'app monte `InMemoryGifCatalog` : il ne
+montre aucun GIF — il n'en a pas — mais il en a la forme, rapports d'aspect
+variés et poids échelonnés autour du budget, ce qu'il faut pour que l'écran
+au-dessus reste développable. C'est le parti d'`InMemoryAudioWaveformService`
+avec la silhouette d'un son : rien d'inventé qui se ferait passer pour vrai.
+
+```bash
+flutter run --dart-define=TENOR_API_KEY=<clé>
+```
+
+### Le panneau, au relevé
+
+Il se pose là où se pose celui de l'enregistrement — **sous** le champ et non
+par-dessus : l'ouvrir pousse le fil vers le haut sans jamais masquer ce qu'on
+vient d'écrire. Il porte **deux onglets**, `Emoji` et `GIF`, et l'en-tête est
+rigoureusement le même de part et d'autre : c'est ce qui fait qu'on passe de
+l'un à l'autre sans que rien bouge. Relevé sur l'émulateur (1080 × 2400,
+420 dpi ; les dp sont les pixels divisés par 2,625) :
+
+| Élément | Relevé |
+|---|---|
+| En-tête | **112 dp** : 8 + onglets 40 + 8 + recherche 48 + 8 |
+| Onglets | **40 dp**, `SegmentedButton` à deux segments égaux (197,7 dp chacun sur 411) ; actif en `accent`, texte en `onAccent`, l'autre en `surface` |
+| Champ de recherche | boîte de 48 dp, pilule de **40 dp** entièrement arrondie, loupe dans un carré de 48 dp calé au bord gauche |
+| Puces (GIF) | rangée de 48 dp, puces de **32 dp** à coins de 8 dp, bordées, 8 dp entre elles |
+| Grille (GIF) | **deux colonnes** de 193,5 dp, gouttière de 8 dp, coins de 8 dp |
+| Panneau | **282 dp** à l'ouverture, dépliable jusqu'à 686 dp sur un écran de 914 (soit ¾) |
+
+- **La grille est en quinconce**, pas en damier : chaque vignette garde le
+  rapport d'aspect de son GIF (relevés : 508 × 284, 508 × 508, 508 × 231…).
+  Une grille à cases égales recadrerait les GIF panoramiques, qui sont la
+  moitié du catalogue. Elle est écrite à la main, sans paquet tiers : le
+  catalogue publie les dimensions de l'aperçu, il n'y a donc rien à mesurer —
+  un GIF va dans la colonne la plus courte, et c'est tout l'algorithme.
+- **Le champ de recherche reste, les puces défilent.** Dans l'app d'origine
+  l'en-tête est une vue à part posée sur la grille, tandis que les puces en sont
+  le premier élément. Chercher doit rester à portée après dix écrans ; les
+  puces, elles, ne servent qu'au départ.
+- La recherche de GIF part **quand la frappe s'arrête** (300 ms) : sans ce
+  délai, « chat » lancerait quatre requêtes dont trois seraient jetées, et la
+  grille clignoterait à chaque lettre. Celle des emoji, non — le délai n'existe
+  qu'à cause du réseau, et la table est en mémoire : la faire attendre ne
+  protégerait rien et rendrait la frappe molle.
+- Le témoin de chargement du bas ne s'allume **que pendant** l'arrivée d'une
+  page. Lié à « il en reste », il tournerait en permanence pour annoncer une
+  attente qui n'a pas commencé.
+- Changer d'onglet **vide la recherche** : « chien » ne veut pas dire la même
+  chose dans une table d'emoji et dans un catalogue de GIF, et garder le terme
+  laisserait croire que le second onglet n'a rien trouvé.
+- Les onglets sont le **`SegmentedButton` de Material**, et non deux pilules
+  bricolées : c'est bien « choisir l'un des deux » que fait l'app d'origine, et
+  le composant apporte ce qu'un couple de boutons n'a pas — le rôle
+  d'accessibilité de chaque segment, l'annonce de la sélection (`selected=true`
+  au relevé), la navigation au clavier. Trois réglages le ramènent au relevé :
+  `expandedInsets` (sans lui, « Emoji » serait plus étroit que « GIF »),
+  `showSelectedIcon: false` (la coche de Material pousserait le libellé hors de
+  son segment) et `tapTargetSize: shrinkWrap` (sans quoi la rangée de 40 dp
+  grandirait de huit points pour atteindre les 48 dp de zone tactile).
+- Le texte du champ de recherche est **centré dans sa pilule**, ce qui ne va pas
+  de soi : le padding par défaut d'un champ dense le pose contre le haut de sa
+  boîte, et il se lisait cinq points trop haut (relevé : 22 px au-dessus contre
+  50 en dessous, sur une pilule de 105). Il faut `textAlignVertical: center`
+  **et** `contentPadding: EdgeInsets.zero` — le centrage n'a d'effet qu'une fois
+  le padding retiré.
+
+### Il se referme par le bouton qui l'a ouvert
+
+Le champ de rédaction porte désormais, au bout du texte, le **bouton emoji** de
+l'app d'origine — et c'est un **interrupteur** : dans l'app d'origine, son
+libellé d'accessibilité passe de « Afficher » à « Masquer ». C'est le geste le
+plus court pour récupérer le clavier, la main étant déjà là ; il se remplit
+quand le panneau est ouvert, comme le « + » se remplit quand le plateau porte
+quelque chose. Le panneau des sources reste l'autre chemin, et il ouvre
+directement l'onglet GIF.
+
+Le glissé referme aussi, en deux temps — replier, puis fermer — comme une
+feuille modale. Il se prend sur la **rangée de recherche** et non sur les
+onglets : relevé à l'émulateur sur notre propre build, un glissé qui part d'un
+onglet finit par le sélectionner au passage, et on se retrouve sur les GIF pour
+avoir voulu agrandir les emoji.
+
+### Un écart assumé, et un appui qui ne s'envoie pas
+
+- **L'onglet `Autocollants` n'est pas repris**, seul des trois de l'app
+  d'origine : il relève du RCS, que l'app ne fait pas. Le panneau des sources
+  applique déjà cette règle — un onglet mort ferait une capture plus
+  ressemblante et une app qui promet ce qu'elle ne tient pas.
+- **Un appui joint, il n'envoie pas.** L'app d'origine ne montre pas d'étape
+  intermédiaire — ni aperçu ni confirmation — et celle-ci non plus : le GIF part
+  sur le plateau, exactement comme un vocal qu'on vient d'enregistrer, et c'est
+  le champ de rédaction qui garde le dernier mot. C'est ce qui laisse ajouter
+  une légende, retirer le GIF ou en choisir un autre — et ce qui fait qu'un
+  appui de trop ne coûte pas un MMS. Ce que l'émulateur n'a pas pu trancher (il
+  refuse toute pièce jointe, faute de MMS configuré), c'est donc une **décision**
+  et non un relevé.
+
+## Les emoji : une table générée, et deux rangées de mémoire
+
+L'onglet `Emoji` n'a ni réseau ni clé : la table est une **constante du
+domaine**, comme la taille d'un segment SMS. Un port n'aurait rien à adapter —
+elle ne varie pas d'un appareil à l'autre, et ne se lit nulle part.
+
+Elle n'est pas écrite à la main non plus. La première version en comptait cinq
+cents, choisis à vue, et il en manquait forcément : « les emoji habituels » de
+quelqu'un ne sont jamais tout à fait ceux d'un autre. Elle est donc
+**générée** — `tool/generate_emoji_table.dart`, relancé à chaque version
+d'Unicode — depuis deux sources qui existent précisément pour ça :
+
+| Source | Ce qu'elle donne |
+|---|---|
+| Unicode `emoji-test.txt` | la liste, l'**ordre** et les familles — celles de tous les claviers |
+| CLDR (annotations `fr`) | le **nom français** et les **mots-clés** de chaque emoji |
+
+**1 906 emoji**, contre 502 auparavant. Le fichier produit
+(`emoji_table.dart`) est committé : l'app ne télécharge rien.
+
+- Les **mots-clés** sont ce qui sépare une recherche qui trouve d'une recherche
+  qui demande de deviner l'intitulé exact. « mdr » ne ressemble à aucun nom
+  d'emoji, et pourtant c'est ce qu'on tape — CLDR le range dans les mots-clés
+  de 😂, 🤣 et 😹. Une table écrite à la main n'aurait jamais eu ça.
+- La recherche **replie les accents** dans les deux sens : « ecoeure » trouve
+  « écœuré », « coeur » trouve « cœur ». Sans cela, elle ne sert qu'à ceux qui
+  savent déjà comment la table a orthographié ce qu'ils cherchent. Elle replie
+  aussi l'apostrophe typographique de CLDR (« il y a quelqu'un ? »), que
+  personne ne tape.
+- Ce qui **commence** par le terme passe devant : « chat » rend le chat avant
+  le chapeau, dont un mot-clé le contient.
+- Les formes repliées sont **calculées une fois** : une recherche parcourt deux
+  mille emoji et une quinzaine de mots-clés chacun, et replier à chaque frappe
+  reviendrait à normaliser trente mille chaînes par lettre tapée. Mesuré :
+  22 ms au premier appui, 0,4 ms ensuite.
+- Le nom sert aussi de **libellé d'accessibilité** : un lecteur d'écran ne sait
+  pas dire un glyphe.
+
+**Deux choses restent écartées de la table**, et ce sont les seules :
+
+- les **teintes de peau** (👍🏽) — 1 875 variantes qui multiplieraient la table
+  par six pour la même grille. Les claviers montrent la base et laissent
+  l'appui long faire le reste : ce sera une fonctionnalité, pas une ligne de
+  table ;
+- les **modificateurs seuls** (le groupe « Component » d'Unicode), qui ne
+  s'affichent pas isolément.
+
+### Les récents sont le seul état, et ils se persistent
+
+C'est la seule chose qui distingue un clavier utile d'une grille de trois cents
+caractères : neuf fois sur dix, l'emoji cherché est celui qu'on a déjà mis.
+D'où un port (`EmojiHistoryRepository`) et non une liste en mémoire — l'app
+d'origine s'en souvient d'une session à l'autre, et l'oublier reviendrait à
+retomber chaque matin sur « Vous n'avez encore utilisé aucun emoji ».
+
+- **Deux rangées de neuf**, au relevé. Au-delà, la section pousserait la grille
+  hors de l'écran pour ranger des emoji qu'on n'a mis qu'une fois.
+- Réutiliser un emoji le **remonte** au lieu de l'ajouter une seconde fois.
+- C'est la **seule section qui se montre vide** : l'app d'origine y écrit
+  qu'aucun emoji n'a encore servi, ce qui explique pourquoi la première
+  ouverture ne ressemble pas aux suivantes. Une famille vide, elle, n'aurait
+  rien à dire — elle est simplement absente.
+
+### La grille et sa barre, au relevé
+
+| Élément | Relevé |
+|---|---|
+| Grille | **9 colonnes**, cellules de 44,2 × 48 dp, retrait de 6 dp, glyphe de **32 dp** |
+| En-tête de famille | 26 dp, capitales, 12 sp, en `textMuted` |
+| Barre du bas | **48 dp** ; icônes de 20 dp dans des cases de 48 dp |
+| Famille active | disque de **34 dp** en `accentSoft`, glyphe en `accent` |
+| Retour arrière | **calé à droite**, dans sa propre case de 48 dp |
+
+- **La grille est virtualisée par rangées.** Trois cents `Text` construits d'un
+  coup pour n'en montrer que soixante-dix coûteraient une demi-seconde à chaque
+  ouverture. Toutes les hauteurs étant connues d'avance (48 dp par rangée, 26
+  par en-tête), la position de chaque famille se **calcule** au lieu de se
+  mesurer : c'est ce qui permet à la fois de sauter à une famille d'un appui et
+  de savoir laquelle est à l'écran.
+- **Le retour arrière n'est pas dans la liste défilante** des familles, il est
+  calé dans sa propre case (relevé) : une touche qui efface ne doit pas pouvoir
+  se dérober sous le doigt parce qu'on a fait défiler les familles.
+- Il efface **un caractère perçu**, pas une unité de code : `👨‍👩‍👧` en compte
+  huit, et reculer d'une seule laisserait derrière un morceau de famille et une
+  jonction orpheline. C'est le découpage en graphèmes (`String.characters`) qui
+  dit ce qu'« un caractère » veut dire.
+- L'emoji s'insère **au curseur**, pas au bout : on en ajoute souvent un au
+  milieu d'une phrase déjà écrite, et le coller à la fin obligerait à le
+  redéplacer à la main.
+
 ## Enregistrer un vocal : la limite se pose sur la durée, pas sur le fichier
 
 Une photo trop lourde s'allège ; une phrase, non. La seule façon de faire tenir
@@ -469,4 +702,13 @@ flutter run -d <android_device>          # cible réelle (SMS)
 flutter run -d macos                     # démo hors-Android : doublures InMemory
 flutter test                             # unitaires + fonctionnels
 dart run build_runner build --delete-conflicting-outputs
+```
+
+Les deux services distants s'activent à la compilation, et l'app tourne sans
+eux :
+
+```bash
+flutter run -d <android_device> \
+  --dart-define=TENOR_API_KEY=<clé> \
+  --dart-define=SIGNOZ_INGEST_URL=<url>
 ```

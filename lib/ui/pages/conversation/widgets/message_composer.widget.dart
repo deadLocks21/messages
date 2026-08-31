@@ -35,6 +35,8 @@ class MessageComposer extends StatefulWidget {
     required this.onSend,
     required this.enabled,
     this.onAttach,
+    this.onEmoji,
+    this.emojiOpen = false,
     this.onVoice,
     this.onVoiceHold,
     this.onVoiceCancel,
@@ -47,6 +49,18 @@ class MessageComposer extends StatefulWidget {
   final ValueChanged<String> onSend;
   final bool enabled;
   final VoidCallback? onAttach;
+
+  /// Ouvre — ou referme — le panneau des emoji et des GIF.
+  ///
+  /// C'est le **même bouton dans les deux sens**, comme dans l'app d'origine
+  /// où son libellé d'accessibilité passe de « Afficher » à « Masquer » : la
+  /// main est déjà là, et c'est le geste le plus court pour récupérer le
+  /// clavier.
+  final VoidCallback? onEmoji;
+
+  /// Le panneau est-il ouvert ? Le bouton le dit en se remplissant, comme le
+  /// « + » se remplit quand le plateau porte quelque chose.
+  final bool emojiOpen;
 
   /// Ouvre le panneau d'enregistrement. Null quand l'app ne sait pas
   /// enregistrer.
@@ -257,7 +271,9 @@ class _MessageComposerState extends State<MessageComposer> {
                       color: colors.surfaceAlt,
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    padding: const EdgeInsets.only(left: 6, right: 18),
+                    // Six de chaque côté : les deux boutons ronds ont leur
+                    // propre marge interne, et le champ tombe entre eux.
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -340,6 +356,26 @@ class _MessageComposerState extends State<MessageComposer> {
                                   ),
                                 ),
                             ],
+                          ),
+                        ),
+                        // Au bout du champ, comme dans l'app d'origine : le
+                        // « + » ouvre ce qu'on joint, celui-ci ouvre ce qu'on
+                        // écrit.
+                        SizedBox(
+                          height: MessageComposer.pillHeight,
+                          child: IconButton(
+                            key: const Key('composerEmoji'),
+                            tooltip: widget.emojiOpen
+                                ? 'Masquer les emoji'
+                                : 'Emoji et GIF',
+                            icon: Icon(
+                              widget.emojiOpen
+                                  ? Icons.sentiment_satisfied
+                                  : Icons.sentiment_satisfied_outlined,
+                              size: 26,
+                            ),
+                            color: colors.textPrimary,
+                            onPressed: widget.onEmoji,
                           ),
                         ),
                       ],

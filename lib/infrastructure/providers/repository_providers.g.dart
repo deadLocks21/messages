@@ -424,6 +424,135 @@ final class AttachmentPickerProvider
 
 String _$attachmentPickerHash() => r'38874b0feae8689fc3185a17ee28ddc32e2f0799';
 
+/// Rapatriement d'un média distant — le GIF choisi dans le catalogue.
+
+@ProviderFor(mediaDownloader)
+final mediaDownloaderProvider = MediaDownloaderProvider._();
+
+/// Rapatriement d'un média distant — le GIF choisi dans le catalogue.
+
+final class MediaDownloaderProvider
+    extends
+        $FunctionalProvider<MediaDownloader, MediaDownloader, MediaDownloader>
+    with $Provider<MediaDownloader> {
+  /// Rapatriement d'un média distant — le GIF choisi dans le catalogue.
+  MediaDownloaderProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'mediaDownloaderProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$mediaDownloaderHash();
+
+  @$internal
+  @override
+  $ProviderElement<MediaDownloader> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  MediaDownloader create(Ref ref) {
+    return mediaDownloader(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(MediaDownloader value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<MediaDownloader>(value),
+    );
+  }
+}
+
+String _$mediaDownloaderHash() => r'eb0b3489c4904feedf992e69b502adc4eb8e2b5a';
+
+/// Catalogue de GIF.
+///
+/// Tenor **si une clé a été fournie à la compilation**, doublure sinon — la
+/// même règle que Signoz, et pour la même raison : une clé d'API n'a rien à
+/// faire dans un dépôt, et une app qui ne peut pas la lire doit rester
+/// développable.
+///
+/// ```bash
+/// flutter run --dart-define=TENOR_API_KEY=<clé>
+/// ```
+///
+/// `keepAlive` : l'adaptateur Tenor tient un client HTTP, qu'il serait absurde
+/// de reconstruire à chaque frappe dans le champ de recherche.
+
+@ProviderFor(gifCatalog)
+final gifCatalogProvider = GifCatalogProvider._();
+
+/// Catalogue de GIF.
+///
+/// Tenor **si une clé a été fournie à la compilation**, doublure sinon — la
+/// même règle que Signoz, et pour la même raison : une clé d'API n'a rien à
+/// faire dans un dépôt, et une app qui ne peut pas la lire doit rester
+/// développable.
+///
+/// ```bash
+/// flutter run --dart-define=TENOR_API_KEY=<clé>
+/// ```
+///
+/// `keepAlive` : l'adaptateur Tenor tient un client HTTP, qu'il serait absurde
+/// de reconstruire à chaque frappe dans le champ de recherche.
+
+final class GifCatalogProvider
+    extends $FunctionalProvider<GifCatalog, GifCatalog, GifCatalog>
+    with $Provider<GifCatalog> {
+  /// Catalogue de GIF.
+  ///
+  /// Tenor **si une clé a été fournie à la compilation**, doublure sinon — la
+  /// même règle que Signoz, et pour la même raison : une clé d'API n'a rien à
+  /// faire dans un dépôt, et une app qui ne peut pas la lire doit rester
+  /// développable.
+  ///
+  /// ```bash
+  /// flutter run --dart-define=TENOR_API_KEY=<clé>
+  /// ```
+  ///
+  /// `keepAlive` : l'adaptateur Tenor tient un client HTTP, qu'il serait absurde
+  /// de reconstruire à chaque frappe dans le champ de recherche.
+  GifCatalogProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'gifCatalogProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$gifCatalogHash();
+
+  @$internal
+  @override
+  $ProviderElement<GifCatalog> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  GifCatalog create(Ref ref) {
+    return gifCatalog(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(GifCatalog value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<GifCatalog>(value),
+    );
+  }
+}
+
+String _$gifCatalogHash() => r'b7b6c0f79bb2978668df43b75f60f6ab61e37c01';
+
 @ProviderFor(attachmentCompressor)
 final attachmentCompressorProvider = AttachmentCompressorProvider._();
 
@@ -815,3 +944,59 @@ final class ThemeRepositoryProvider
 }
 
 String _$themeRepositoryHash() => r'a948ece27b72bfc7a1e94052873d117823355140';
+
+/// Emoji récemment utilisés. `keepAlive` : c'est de la préférence, elle vit
+/// aussi longtemps que l'app.
+
+@ProviderFor(emojiHistoryRepository)
+final emojiHistoryRepositoryProvider = EmojiHistoryRepositoryProvider._();
+
+/// Emoji récemment utilisés. `keepAlive` : c'est de la préférence, elle vit
+/// aussi longtemps que l'app.
+
+final class EmojiHistoryRepositoryProvider
+    extends
+        $FunctionalProvider<
+          EmojiHistoryRepository,
+          EmojiHistoryRepository,
+          EmojiHistoryRepository
+        >
+    with $Provider<EmojiHistoryRepository> {
+  /// Emoji récemment utilisés. `keepAlive` : c'est de la préférence, elle vit
+  /// aussi longtemps que l'app.
+  EmojiHistoryRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'emojiHistoryRepositoryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$emojiHistoryRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<EmojiHistoryRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  EmojiHistoryRepository create(Ref ref) {
+    return emojiHistoryRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(EmojiHistoryRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<EmojiHistoryRepository>(value),
+    );
+  }
+}
+
+String _$emojiHistoryRepositoryHash() =>
+    r'af351cd6449da5d2dc3a5004c8bc5ae4ae10ad6c';

@@ -590,10 +590,11 @@ class MmsStore(private val context: Context) {
     private fun writePduFile(transactionId: String, pdu: ByteArray): Uri {
         val directory = File(context.cacheDir, "mms").apply { mkdirs() }
         sweepStale(directory)
-        // Les photos prises et les images compressées vivent au même endroit :
-        // un envoi est le bon moment pour faire le ménage, puisqu'il prouve
-        // qu'une rédaction s'achève.
+        // Les photos prises, les images compressées et les GIF rapatriés
+        // vivent au même endroit : un envoi est le bon moment pour faire le
+        // ménage, puisqu'il prouve qu'une rédaction s'achève.
         sweepStale(File(context.cacheDir, "captures"))
+        sweepStale(File(context.cacheDir, RemoteMedia.DIRECTORY))
         val file = File(directory, "$transactionId.pdu")
         file.writeBytes(pdu)
         return FileProvider.getUriForFile(

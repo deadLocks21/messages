@@ -7,7 +7,10 @@ import 'package:messages/core/domain/model/contact.dart';
 import 'package:messages/core/domain/model/sms_access.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_opener.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_picker.service.dart';
+import 'package:messages/infrastructure/attachments/in_memory.media_downloader.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
+import 'package:messages/infrastructure/gif/in_memory.gif_catalog.service.dart';
+import 'package:messages/infrastructure/preferences/in_memory.emoji_history.repository.dart';
 import 'package:messages/infrastructure/audio/in_memory.audio_recorder.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
@@ -56,8 +59,22 @@ class TestDevice {
   );
 
   /// La configuration de l'opérateur. Modifiable pour rejouer le cas d'un
-  /// opérateur avare — c'est elle qui décide de la longueur d'un vocal.
+  /// opérateur avare — c'est elle qui décide de la longueur d'un vocal, et de
+  /// la finesse d'un GIF.
   final InMemoryMmsConfiguration carrier = InMemoryMmsConfiguration();
+
+  /// Le catalogue de GIF : c'est par lui qu'un test lit ce qui a été cherché,
+  /// ou rend le catalogue muet.
+  final InMemoryGifCatalog gifs = InMemoryGifCatalog();
+
+  /// Les emoji récemment utilisés. Modifiable pour ouvrir le panneau sur une
+  /// section des récents déjà remplie.
+  final InMemoryEmojiHistoryRepository emojiHistory =
+      InMemoryEmojiHistoryRepository();
+
+  /// Le rapatriement d'un GIF choisi. Il dépose ses octets dans le stock de
+  /// *ce* device — d'où l'initialisation dans le corps.
+  late final InMemoryMediaDownloader downloads = InMemoryMediaDownloader(store);
 
   TestDevice({
     List<Contact> contacts = const [],
@@ -131,6 +148,9 @@ Future<void> _pump(WidgetTester tester, TestDevice device, Widget child) async {
         inMemoryAttachmentOpenerProvider.overrideWithValue(device.opener),
         inMemoryAudioRecorderProvider.overrideWithValue(device.voice),
         mmsConfigurationProvider.overrideWithValue(device.carrier),
+        inMemoryGifCatalogProvider.overrideWithValue(device.gifs),
+        emojiHistoryRepositoryProvider.overrideWithValue(device.emojiHistory),
+        inMemoryMediaDownloaderProvider.overrideWithValue(device.downloads),
       ],
       child: child,
     ),

@@ -141,7 +141,7 @@ final class VoiceRecorderProvider
   }
 }
 
-String _$voiceRecorderHash() => r'b6fe0c51bd0ee14dc092aa27b1637a289cdbf64e';
+String _$voiceRecorderHash() => r'73ec03d9a7a2a50feeb076c532d670efe14ad702';
 
 /// Le panneau d'enregistrement d'un fil : son ouverture, et le vocal qu'il
 /// détient entre l'arrêt et « Joindre ».

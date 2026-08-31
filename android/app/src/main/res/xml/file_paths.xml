@@ -3,7 +3,7 @@
   Ce que le FileProvider accepte d'exposer : uniquement les dossiers du cache
   où l'app dépose ce qui doit sortir d'elle — les PDU des MMS en cours d'envoi,
   les fichiers produits par une rédaction (photo prise, vCard exportée, vocal
-  enregistré), et les copies prêtées à une autre application le temps d'ouvrir
+  enregistré, GIF rapatrié du catalogue), et les copies prêtées à une autre application le temps d'ouvrir
   une pièce jointe.
   Rien d'autre du stockage de l'app n'est atteignable par ce biais.
 -->
@@ -12,4 +12,5 @@
     <cache-path name="captures" path="captures/"/>
     <cache-path name="shared" path="shared/"/>
     <cache-path name="voice" path="voice/"/>
+    <cache-path name="gifs" path="gifs/"/>
 </paths>

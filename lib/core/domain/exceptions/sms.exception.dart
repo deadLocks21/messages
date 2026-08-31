@@ -77,3 +77,12 @@ class VoiceRecordingFailedException extends SmsException {
   const VoiceRecordingFailedException()
     : super('L\'enregistrement n\'a pas pu démarrer.');
 }
+
+/// Le média distant n'a pas pu être rapatrié : réseau absent, adresse périmée,
+/// catalogue en panne. C'est le pendant, pour un GIF, de la pièce jointe qui
+/// n'est plus lisible — et cela se dit, sinon un plateau qui reste vide passe
+/// pour un appui sans effet.
+class MediaDownloadFailedException extends SmsException {
+  const MediaDownloadFailedException()
+    : super('Ce GIF n\'a pas pu être téléchargé.');
+}

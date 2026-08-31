@@ -5,6 +5,8 @@ import 'package:messages/core/domain/services/compose_request.source.dart';
 import 'package:messages/core/domain/services/sms_event.source.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_opener.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_picker.service.dart';
+import 'package:messages/infrastructure/attachments/in_memory.media_downloader.service.dart';
+import 'package:messages/infrastructure/gif/in_memory.gif_catalog.service.dart';
 import 'package:messages/infrastructure/audio/in_memory.audio_recorder.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
@@ -59,6 +61,17 @@ InMemoryAttachmentOpener inMemoryAttachmentOpener(Ref ref) =>
 @Riverpod(keepAlive: true)
 InMemoryAttachmentPicker inMemoryAttachmentPicker(Ref ref) =>
     InMemoryAttachmentPicker(ref.watch(inMemorySmsStoreProvider));
+
+/// Catalogue de GIF simulé. Exposé à part pour que les tests puissent le
+/// rendre muet — le catalogue hors ligne que la grille doit savoir annoncer.
+@Riverpod(keepAlive: true)
+InMemoryGifCatalog inMemoryGifCatalog(Ref ref) => InMemoryGifCatalog();
+
+/// Rapatriement simulé. Exposé à part pour la même raison que le sélecteur :
+/// c'est par lui qu'un test simule une adresse périmée.
+@Riverpod(keepAlive: true)
+InMemoryMediaDownloader inMemoryMediaDownloader(Ref ref) =>
+    InMemoryMediaDownloader(ref.watch(inMemorySmsStoreProvider));
 
 /// Enregistreur simulé. Exposé à part pour la même raison que le sélecteur :
 /// c'est par lui qu'un test simule un micro refusé.

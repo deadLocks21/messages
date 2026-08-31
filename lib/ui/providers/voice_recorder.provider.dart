@@ -264,6 +264,6 @@ class VoiceRecorder extends _$VoiceRecorder {
     _publish(VoiceRecorderState.closed);
     await ref
         .read(attachmentTrayProvider(threadId).notifier)
-        .addRecording(draft);
+        .addReady(draft);
   }
 }

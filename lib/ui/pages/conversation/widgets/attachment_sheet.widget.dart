@@ -2,41 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
 import 'package:messages/ui/theme/app_colors.dart';
 
+/// Ce qu'une case du panneau déclenche.
+///
+/// Les quatre premières sont des **sources** du domaine : un écran du système
+/// s'ouvre, et ce qui en revient est une pièce jointe. [gif] n'en est pas une —
+/// il n'y a pas d'écran à ouvrir mais un catalogue à parcourir, sous le champ
+/// de rédaction. D'où [source], nul pour lui seul : le panneau des sources
+/// n'est pas le seul chemin vers une pièce jointe, et cette énumération est le
+/// seul endroit où cela se voit.
+enum AttachmentChoice {
+  gallery(AttachmentSource.gallery, Icons.image_outlined, 'Galerie'),
+  camera(AttachmentSource.camera, Icons.photo_camera_outlined, 'Appareil photo'),
+  gif(null, Icons.gif_box_outlined, 'GIF'),
+  files(AttachmentSource.files, Icons.attach_file, 'Fichiers'),
+  contactCard(AttachmentSource.contactCard, Icons.person_outline, 'Contact');
+
+  final AttachmentSource? source;
+  final IconData icon;
+  final String label;
+
+  const AttachmentChoice(this.source, this.icon, this.label);
+}
+
 /// Le panneau qui monte du bas quand on touche « + » dans le champ de
 /// rédaction : une grille de sources, trois par ligne, chacune une pastille
-/// arrondie surmontant son libellé — la disposition de Google Messages.
+/// arrondie surmontant son libellé — la disposition de Google Messages, dont
+/// les trois premières cases sont ici les mêmes, dans le même ordre.
 ///
 /// Seules les sources que l'app sait réellement honorer y figurent. L'app
-/// d'origine en montre d'autres (GIF, autocollants, localisation) qui relèvent
-/// du RCS : les afficher grisées ferait un panneau plus fidèle mais promettrait
-/// ce qu'un MMS ne peut pas tenir.
+/// d'origine en montre d'autres (autocollants, localisation) qui relèvent du
+/// RCS : les afficher grisées ferait un panneau plus fidèle mais promettrait
+/// ce qu'un MMS ne peut pas tenir. Le **GIF**, lui, y figure désormais : un GIF
+/// est une image, et une image tient dans un MMS.
 class AttachmentSheet extends StatelessWidget {
   const AttachmentSheet({super.key});
 
-  /// Ouvre le panneau et rend la source choisie, ou null si l'utilisateur le
+  /// Ouvre le panneau et rend le choix fait, ou null si l'utilisateur le
   /// referme.
-  static Future<AttachmentSource?> show(BuildContext context) {
-    return showModalBottomSheet<AttachmentSource>(
+  static Future<AttachmentChoice?> show(BuildContext context) {
+    return showModalBottomSheet<AttachmentChoice>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => const AttachmentSheet(),
     );
   }
 
-  static const _sources = <_SourceTile>[
-    _SourceTile(AttachmentSource.gallery, Icons.image_outlined, 'Galerie'),
-    _SourceTile(
-      AttachmentSource.camera,
-      Icons.photo_camera_outlined,
-      'Appareil photo',
-    ),
-    _SourceTile(AttachmentSource.files, Icons.attach_file, 'Fichiers'),
-    _SourceTile(
-      AttachmentSource.contactCard,
-      Icons.person_outline,
-      'Contact',
-    ),
-  ];
+  static const _choices = AttachmentChoice.values;
 
   @override
   Widget build(BuildContext context) {
@@ -79,11 +90,10 @@ class AttachmentSheet extends StatelessWidget {
                       mainAxisExtent: 118,
                       mainAxisSpacing: 8,
                     ),
-                itemCount: _sources.length,
+                itemCount: _choices.length,
                 itemBuilder: (context, index) => _SourceButton(
-                  tile: _sources[index],
-                  onTap: () =>
-                      Navigator.of(context).pop(_sources[index].source),
+                  choice: _choices[index],
+                  onTap: () => Navigator.of(context).pop(_choices[index]),
                 ),
               ),
             ],
@@ -94,18 +104,10 @@ class AttachmentSheet extends StatelessWidget {
   }
 }
 
-class _SourceTile {
-  final AttachmentSource source;
-  final IconData icon;
-  final String label;
-
-  const _SourceTile(this.source, this.icon, this.label);
-}
-
 class _SourceButton extends StatelessWidget {
-  const _SourceButton({required this.tile, required this.onTap});
+  const _SourceButton({required this.choice, required this.onTap});
 
-  final _SourceTile tile;
+  final AttachmentChoice choice;
   final VoidCallback onTap;
 
   @override
@@ -122,18 +124,18 @@ class _SourceButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              key: Key('attachFrom_${tile.source.name}'),
+              key: Key('attachFrom_${choice.name}'),
               onTap: onTap,
               child: SizedBox(
                 height: 72,
                 width: double.infinity,
-                child: Icon(tile.icon, size: 26, color: colors.textPrimary),
+                child: Icon(choice.icon, size: 26, color: colors.textPrimary),
               ),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            tile.label,
+            choice.label,
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

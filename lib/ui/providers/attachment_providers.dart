@@ -39,13 +39,16 @@ class AttachmentTray extends _$AttachmentTray {
     _replaceWith(merged);
   }
 
-  /// Pose sur le plateau un vocal qu'on vient d'enregistrer.
+  /// Pose sur le plateau une pièce jointe **déjà à la bonne taille** : un
+  /// vocal qu'on vient d'enregistrer, un GIF qu'on vient de choisir.
   ///
-  /// Il n'entre pas par [add] : il n'y a pas de sélecteur à ouvrir, et rien à
-  /// alléger — un vocal ne se comprime pas, sa longueur a déjà été bornée au
-  /// budget de l'opérateur pendant l'enregistrement. Seul le nombre de pièces
-  /// jointes reste à vérifier, et c'est la même règle que pour une photo.
-  Future<void> addRecording(AttachmentDraft draft) async {
+  /// Elle n'entre pas par [add] : il n'y a pas de sélecteur à ouvrir, et rien
+  /// à alléger. Un vocal a vu sa longueur bornée au budget de l'opérateur
+  /// pendant l'enregistrement ; un GIF a vu sa déclinaison choisie dans ce
+  /// même budget avant d'être téléchargé. Dans les deux cas la question de la
+  /// taille est déjà tranchée, et seul le **nombre** de pièces jointes reste à
+  /// vérifier — la même règle que pour une photo.
+  Future<void> addReady(AttachmentDraft draft) async {
     if (_drafts.length >= MmsLimits.maxCount) {
       throw const TooManyAttachmentsException();
     }

@@ -10,6 +10,7 @@ import 'package:messages/core/domain/services/contact.repository.dart';
 import 'package:messages/core/domain/services/conversation.repository.dart';
 import 'package:messages/core/domain/services/conversation_preferences.repository.dart';
 import 'package:messages/core/domain/services/draft.repository.dart';
+import 'package:messages/core/domain/services/emoji_history.repository.dart';
 import 'package:messages/core/domain/services/message.repository.dart';
 import 'package:messages/core/domain/services/notification.gateway.dart';
 import 'package:messages/core/domain/services/sms_permissions.service.dart';
@@ -35,6 +36,12 @@ import 'package:messages/infrastructure/permissions/permission_handler.sms_permi
 import 'package:messages/infrastructure/preferences/shared_preferences.conversation_preferences.repository.dart';
 import 'package:messages/infrastructure/preferences/shared_preferences.draft.repository.dart';
 import 'package:messages/infrastructure/preferences/shared_preferences.theme.repository.dart';
+import 'package:http/http.dart' as http;
+import 'package:messages/core/domain/services/gif_catalog.service.dart';
+import 'package:messages/core/domain/services/media_downloader.service.dart';
+import 'package:messages/infrastructure/attachments/android.media_downloader.service.dart';
+import 'package:messages/infrastructure/gif/tenor.gif_catalog.service.dart';
+import 'package:messages/infrastructure/preferences/shared_preferences.emoji_history.repository.dart';
 import 'package:messages/infrastructure/providers/infra_providers.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/sms/android.conversation.repository.dart';
@@ -121,6 +128,44 @@ AttachmentPicker attachmentPicker(Ref ref) {
   return ref.watch(inMemoryAttachmentPickerProvider);
 }
 
+/// Rapatriement d'un média distant — le GIF choisi dans le catalogue.
+@Riverpod(keepAlive: true)
+MediaDownloader mediaDownloader(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidMediaDownloader(ref.watch(smsChannelProvider));
+  }
+  return ref.watch(inMemoryMediaDownloaderProvider);
+}
+
+/// Catalogue de GIF.
+///
+/// Tenor **si une clé a été fournie à la compilation**, doublure sinon — la
+/// même règle que Signoz, et pour la même raison : une clé d'API n'a rien à
+/// faire dans un dépôt, et une app qui ne peut pas la lire doit rester
+/// développable.
+///
+/// ```bash
+/// flutter run --dart-define=TENOR_API_KEY=<clé>
+/// ```
+///
+/// `keepAlive` : l'adaptateur Tenor tient un client HTTP, qu'il serait absurde
+/// de reconstruire à chaque frappe dans le champ de recherche.
+@Riverpod(keepAlive: true)
+GifCatalog gifCatalog(Ref ref) {
+  if (_kTenorApiKey.isEmpty) return ref.watch(inMemoryGifCatalogProvider);
+
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return TenorGifCatalog(
+    client: client,
+    apiKey: _kTenorApiKey,
+    logger: ref.watch(loggerProvider),
+  );
+}
+
+/// Clé de l'API Tenor, fixée à la compilation. Vide → catalogue simulé.
+const String _kTenorApiKey = String.fromEnvironment('TENOR_API_KEY');
+
 @Riverpod(keepAlive: true)
 AttachmentCompressor attachmentCompressor(Ref ref) {
   if (ref.watch(useNativeSmsStackProvider)) {
@@ -184,3 +229,9 @@ DraftRepository draftRepository(Ref ref) =>
 
 @Riverpod(keepAlive: true)
 ThemeRepository themeRepository(Ref ref) => SharedPreferencesThemeRepository();
+
+/// Emoji récemment utilisés. `keepAlive` : c'est de la préférence, elle vit
+/// aussi longtemps que l'app.
+@Riverpod(keepAlive: true)
+EmojiHistoryRepository emojiHistoryRepository(Ref ref) =>
+    const SharedPreferencesEmojiHistoryRepository();

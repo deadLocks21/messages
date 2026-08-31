@@ -6,12 +6,14 @@ import 'package:messages/core/application/dtos/conversation_timeline.dto.dart';
 import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/core/application/usecases/save_draft.usecase.dart';
 import 'package:messages/core/domain/exceptions/sms.exception.dart';
+import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/providers/service_providers.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
 import 'package:messages/ui/pages/conversation/widgets/attachment_sheet.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/attachment_tray.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/conversation_menu.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/expression_picker.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_bubble.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_composer.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_options.sheet.dart';
@@ -48,6 +50,13 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   late final SaveDraftUseCase _saveDraft;
 
   bool _draftRestored = false;
+
+  /// Sur quel onglet le panneau des emoji et des GIF est-il déployé sous le
+  /// champ — et est-il seulement déployé ?
+  ///
+  /// De l'état d'écran, pas de l'état d'app : il ne survit pas au fil qu'on
+  /// quitte, et rien d'autre que cette page n'a à savoir qu'il est ouvert.
+  ExpressionTab? _picker;
 
   @override
   void initState() {
@@ -136,6 +145,8 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                     enabled: canSend,
                     onSend: _send,
                     onAttach: _onAttach,
+                    onEmoji: _toggleEmoji,
+                    emojiOpen: _picker != null,
                     onVoice: _onVoice,
                     onVoiceHold: _onVoiceHold,
                     onVoiceCancel: _voice.close,
@@ -145,11 +156,21 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                   ),
                   // Sous le champ, et non par-dessus : dans l'app d'origine le
                   // panneau pousse le fil vers le haut sans jamais masquer ce
-                  // qu'on vient d'écrire.
+                  // qu'on vient d'écrire. Les deux panneaux se posent au même
+                  // endroit, et un seul s'y tient à la fois.
                   VoiceRecorderPanel(
                     threadId: widget.threadId,
                     onError: _onVoiceError,
                   ),
+                  if (_picker != null)
+                    ExpressionPicker(
+                      threadId: widget.threadId,
+                      controller: _composer,
+                      initialTab: _picker!,
+                      onPicked: _onGifPicked,
+                      onError: _onGifError,
+                      onClose: _closePicker,
+                    ),
                 ],
               ),
             ),
@@ -313,8 +334,17 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   /// domaine (plateau trop lourd, trop de pièces) se dit, lui, tout de suite —
   /// c'est le seul moment où l'utilisateur peut encore y remédier.
   Future<void> _onAttach() async {
-    final source = await AttachmentSheet.show(context);
-    if (source == null || !mounted) return;
+    final choice = await AttachmentSheet.show(context);
+    if (choice == null || !mounted) return;
+
+    // Le GIF n'ouvre pas d'écran du système : il déploie son catalogue sous le
+    // champ. C'est le seul choix du panneau qui ne passe pas par le sélecteur.
+    final source = choice.source;
+    if (source == null) {
+      _openPicker(ExpressionTab.gif);
+      return;
+    }
+
     try {
       await ref
           .read(attachmentTrayProvider(widget.threadId).notifier)
@@ -322,6 +352,51 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     } on SmsException catch (e) {
       _announce(e.message);
     }
+  }
+
+  /// Le bouton emoji du champ est un **interrupteur** : il ouvre le panneau,
+  /// et le referme. C'est ce que fait l'app d'origine, et c'est le geste le
+  /// plus court pour récupérer le clavier — la main est déjà là.
+  void _toggleEmoji() {
+    if (_picker != null) {
+      _closePicker();
+      return;
+    }
+    _openPicker(ExpressionTab.emoji);
+  }
+
+  void _openPicker(ExpressionTab tab) {
+    // Deux panneaux au même endroit se recouvriraient : celui du vocal se
+    // referme d'abord. Et le clavier avec, sans quoi le panneau s'ouvrirait
+    // derrière lui.
+    ref.read(voiceRecorderProvider(widget.threadId).notifier).close();
+    FocusScope.of(context).unfocus();
+    setState(() => _picker = tab);
+  }
+
+  void _closePicker() => setState(() => _picker = null);
+
+  /// Le GIF est téléchargé : il rejoint le plateau comme n'importe quelle
+  /// pièce jointe déjà à la bonne taille.
+  Future<void> _onGifPicked(AttachmentDraft draft) async {
+    try {
+      await ref
+          .read(attachmentTrayProvider(widget.threadId).notifier)
+          .addReady(draft);
+    } on SmsException catch (e) {
+      _announce(e.message);
+    }
+  }
+
+  /// Catalogue injoignable, GIF trop lourd pour le MMS : dans les deux cas
+  /// l'utilisateur vient de toucher une vignette et n'a rien vu arriver. Le
+  /// silence passerait pour une panne.
+  void _onGifError(Object error) {
+    if (error is SmsException) {
+      _announce(error.message);
+      return;
+    }
+    _announce('Ce GIF n\'a pas pu être ajouté.');
   }
 
   Future<void> _call(String address) async {

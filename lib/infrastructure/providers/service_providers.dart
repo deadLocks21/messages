@@ -7,6 +7,7 @@ import 'package:messages/core/application/usecases/delete_conversation.usecase.d
 import 'package:messages/core/application/usecases/delete_message.usecase.dart';
 import 'package:messages/core/application/usecases/mark_conversation_read.usecase.dart';
 import 'package:messages/core/application/usecases/pick_attachments.usecase.dart';
+import 'package:messages/core/application/usecases/pick_gif.usecase.dart';
 import 'package:messages/core/application/usecases/record_voice_message.usecase.dart';
 import 'package:messages/core/application/usecases/request_sms_access.usecase.dart';
 import 'package:messages/core/application/usecases/resend_message.usecase.dart';
@@ -70,6 +71,15 @@ SendMessageUseCase sendMessageUseCase(Ref ref) => SendMessageUseCase(
 PickAttachmentsUseCase pickAttachmentsUseCase(Ref ref) => PickAttachmentsUseCase(
   picker: ref.watch(attachmentPickerProvider),
   compressor: ref.watch(attachmentCompressorProvider),
+  configuration: ref.watch(mmsConfigurationProvider),
+  logger: ref.watch(loggerProvider),
+);
+
+/// Le pendant du précédent pour un GIF : même budget d'opérateur, mais la
+/// taille se choisit au lieu de se rattraper.
+@Riverpod(keepAlive: true)
+PickGifUseCase pickGifUseCase(Ref ref) => PickGifUseCase(
+  downloader: ref.watch(mediaDownloaderProvider),
   configuration: ref.watch(mmsConfigurationProvider),
   logger: ref.watch(loggerProvider),
 );

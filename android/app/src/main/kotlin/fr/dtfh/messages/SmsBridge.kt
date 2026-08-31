@@ -107,6 +107,13 @@ class SmsBridge(
     private val opener = AttachmentOpener(activity, storeExecutor, mainHandler)
 
     /**
+     * Rapatriement des médias distants (le GIF choisi dans le catalogue). Il
+     * n'a pas besoin de l'`Activity` : rien à lancer, seulement un cache où
+     * écrire — d'où le `Context` seul, et l'appel sur le fil du stock.
+     */
+    private val remoteMedia = RemoteMedia(activity)
+
+    /**
      * Les appels qui doivent rester sur le fil principal : ils lancent une
      * `Activity` ou lisent son état, ce qu'on ne fait pas d'ailleurs. Ils sont
      * tous immédiats — aucun ne touche le provider.
@@ -252,6 +259,17 @@ class SmsBridge(
                 "pickAttachments" ->
                     picker.pick(call.argument<String>("source")!!, result)
 
+                // Pas dans `mainThreadMethods` : c'est du réseau et de
+                // l'écriture, exactement ce que le fil du stock est là pour
+                // porter.
+                "downloadMedia" -> result.success(
+                    remoteMedia.download(
+                        url = call.argument<String>("url")!!,
+                        mimeType = call.argument<String>("mimeType")!!,
+                        fileName = call.argument<String>("fileName")!!,
+                    )
+                )
+
                 "readAttachment" ->
                     result.success(store.readAttachment(call.argument<String>("id")!!))
 
@@ -341,6 +359,11 @@ class SmsBridge(
             result.error("attachment_unavailable", e.message, null)
         } catch (e: SecurityException) {
             result.error("permission_denied", e.message, null)
+        } catch (e: MediaDownloadException) {
+            // Une adresse périmée ou un réseau absent n'est pas une panne du
+            // stock : le code la distingue pour que l'écran dise « ce GIF n'a
+            // pas pu être téléchargé » et non « l'envoi a échoué ».
+            result.error("download_failed", e.message, null)
         } catch (e: Exception) {
             result.error("sms_error", e.message, null)
         }
