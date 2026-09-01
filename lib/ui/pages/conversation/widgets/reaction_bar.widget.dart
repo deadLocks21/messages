@@ -3,8 +3,11 @@ import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/core/domain/model/reaction_codec.dart';
 import 'package:messages/ui/theme/app_colors.dart';
 
-/// La rangée d'emoji en tête de la feuille d'un message : ce avec quoi on
-/// réagit.
+/// La rangée d'emoji posée au-dessus de la bulle : ce avec quoi on réagit.
+///
+/// Une pilule qui flotte, large comme l'écran moins ses marges, exactement
+/// comme dans l'app d'origine — elle se lit d'un coup d'œil parce qu'elle ne
+/// partage sa ligne avec rien.
 ///
 /// Sept emoji, ceux de Google Messages, et pas un de plus. Ce n'est pas une
 /// limite d'écran : cinq d'entre eux ont un **tapback iOS** équivalent, donc
@@ -12,6 +15,11 @@ import 'package:messages/ui/theme/app_colors.dart';
 /// emoji pris au clavier partirait sous la forme `Reacted 🥑 to “…”`, plus
 /// récente et moins sûre — on le fera le jour où le terrain aura dit qu'elle
 /// passe.
+///
+/// L'app d'origine a un huitième bouton, un « + » qui ouvre le clavier emoji.
+/// On ne l'a pas, et c'est délibéré : un emoji hors palette ne partirait que
+/// sous la forme la moins sûre. La pilule répartit donc ses sept sur la même
+/// largeur.
 ///
 /// L'emoji déjà posé est marqué : le toucher à nouveau retire la réaction, ce
 /// qui coûte un second SMS et se dit donc dans l'infobulle.
@@ -28,19 +36,26 @@ class ReactionBar extends StatelessWidget {
     final colors = context.appColors;
     final mine = message.myReaction;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          for (final emoji in ReactionCodec.palette)
-            _ReactionButton(
-              emoji: emoji,
-              selected: emoji == mine,
-              colors: colors,
-              onTap: () => onPick(emoji),
-            ),
-        ],
+    // `Material` et pas un `Container` décoré : la pilule flotte hors de toute
+    // feuille, et ses boutons ont besoin d'une surface pour leur encre.
+    return Material(
+      color: colors.surface,
+      shape: const StadiumBorder(),
+      elevation: 3,
+      child: SizedBox(
+        height: 56,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            for (final emoji in ReactionCodec.palette)
+              _ReactionButton(
+                emoji: emoji,
+                selected: emoji == mine,
+                colors: colors,
+                onTap: () => onPick(emoji),
+              ),
+          ],
+        ),
       ),
     );
   }

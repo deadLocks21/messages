@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/ui/pages/conversation/conversation.page.dart';
+import 'package:messages/ui/pages/conversation/widgets/message_bubble.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/reaction_bar.widget.dart';
 import 'package:messages/ui/pages/conversations/conversations.page.dart';
 
 import '../builders/builders.dart';
@@ -212,5 +214,50 @@ void main() {
     await tester.longPress(find.byKey(Key('reaction_${message.id}_👍')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('messageActionCopy')), findsOneWidget);
+  });
+  testWidgets('les actions s\'ancrent sur la bulle, elles ne montent plus du bas', (
+    tester,
+  ) async {
+    final (device, threadId) = deviceWithThread();
+    final message = device.store.messagesFor(threadId).single;
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.longPress(find.byKey(Key('bubble_${message.id}')));
+    await tester.pumpAndSettle();
+
+    // La bulle est repeinte dans la surcouche : c'est ce qui la garde éclairée
+    // au-dessus du voile, à sa place dans le fil.
+    expect(find.byType(MessageBubble), findsNWidgets(2));
+
+    final bar = tester.getRect(find.byType(ReactionBar));
+    final menu = tester.getRect(find.byKey(const Key('messageActionCopy')));
+
+    // Les emoji au-dessus, le menu en dessous — et la bulle entre les deux.
+    expect(bar.bottom, lessThan(menu.top));
+    // Un message reçu : le menu s'aligne sur le bord gauche de la bulle.
+    expect(menu.left, closeTo(14, 0.5));
+  });
+
+  testWidgets('le menu d\'un message envoyé s\'aligne à droite', (tester) async {
+    final device = TestDevice(
+      contacts: [
+        Build.contact(displayName: 'Camille', addresses: ['0612345678']),
+      ],
+    );
+    final threadId = device.store.threadIdFor([Build.address('+33612345678')]);
+    final mine = Build.message(
+      threadId: threadId,
+      body: 'Rendez-vous à 18h',
+      direction: MessageDirection.outgoing,
+    );
+    device.store.insert(mine);
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.longPress(find.byKey(Key('bubble_${mine.id}')));
+    await tester.pumpAndSettle();
+
+    final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    final menu = tester.getRect(find.byKey(const Key('messageActionCopy')));
+    expect(menu.right, closeTo(width - 14, 0.5));
   });
 }

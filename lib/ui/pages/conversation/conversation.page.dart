@@ -17,7 +17,7 @@ import 'package:messages/ui/pages/conversation/widgets/conversation_menu.widget.
 import 'package:messages/ui/pages/conversation/widgets/expression_picker.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_bubble.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_composer.widget.dart';
-import 'package:messages/ui/pages/conversation/widgets/message_options.sheet.dart';
+import 'package:messages/ui/pages/conversation/widgets/message_actions.overlay.dart';
 import 'package:messages/ui/pages/conversation/widgets/reactions.sheet.dart';
 import 'package:messages/ui/pages/conversation/widgets/timeline_separator.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/voice_recorder.widget.dart';
@@ -283,15 +283,20 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   Future<void> _onReactionsTap(MessageDto message) =>
       ReactionsSheet.show(context, message);
 
-  Future<void> _onMessageAction(MessageDto message) async {
-    final choice = await MessageOptionsSheet.show(context, message);
+  Future<void> _onMessageAction(TimelineMessage entry, Rect anchor) async {
+    final message = entry.message;
+    final choice = await MessageActionsOverlay.show(
+      context,
+      entry: entry,
+      anchor: anchor,
+    );
     if (choice == null || !mounted) return;
 
     switch (choice) {
       case MessageReactionChoice(:final emoji):
         await _react(message, emoji);
       case MessageActionChoice(action: MessageAction.copy):
-        await MessageOptionsSheet.copy(message);
+        await MessageActionsOverlay.copy(message);
         _announce('Message copié');
       case MessageActionChoice(action: MessageAction.forward):
         await context.push(AppRoutes.newConversation, extra: message.body);
@@ -302,6 +307,8 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
         ref.invalidate(conversationsProvider);
       case MessageActionChoice(action: MessageAction.resend):
         await _resend(message);
+      case MessageActionChoice(action: MessageAction.details):
+        await MessageActionsOverlay.showDetails(context, message);
     }
   }
 
@@ -491,7 +498,7 @@ class _Timeline extends StatelessWidget {
 
   final ConversationTimelineDto timeline;
   final ScrollController controller;
-  final ValueChanged<MessageDto> onLongPress;
+  final void Function(TimelineMessage entry, Rect anchor) onLongPress;
   final ValueChanged<MessageDto> onReactionsTap;
   final ValueChanged<MessageDto> onRetry;
 
@@ -511,7 +518,7 @@ class _Timeline extends StatelessWidget {
           TimelineSeparator(:final at) => TimelineSeparatorLabel(at: at),
           TimelineMessage() => MessageBubble(
             entry: entry,
-            onLongPress: () => onLongPress(entry.message),
+            onLongPress: (anchor) => onLongPress(entry, anchor),
             onReactionsTap: () => onReactionsTap(entry.message),
             onRetry: entry.message.status.hasFailed
                 ? () => onRetry(entry.message)

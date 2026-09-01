@@ -11,7 +11,7 @@ import 'package:messages/ui/theme/app_colors.dart';
 /// Les coins suivent le groupement : ceux qui touchent la bulle précédente ou
 /// suivante du même interlocuteur sont presque droits (4 px), les autres bien
 /// arrondis (20 px) — la signature visuelle de Google Messages.
-class MessageBubble extends StatelessWidget {
+class MessageBubble extends StatefulWidget {
   const MessageBubble({
     super.key,
     required this.entry,
@@ -22,13 +22,35 @@ class MessageBubble extends StatelessWidget {
 
   final TimelineMessage entry;
 
-  /// Ouvre la feuille du message — c'est aussi de là qu'on réagit, et c'est
+  /// Ouvre les actions du message — c'est aussi de là qu'on réagit, et c'est
   /// pourquoi un appui long sur une pastille y mène lui aussi.
-  final VoidCallback onLongPress;
+  ///
+  /// Rend le rectangle occupé à l'écran : les actions s'ancrent dessus, et
+  /// seule la bulle sait où elle est.
+  final ValueChanged<Rect> onLongPress;
 
   /// Ouvre la fiche « Réactions » : un appui sur une pastille.
   final VoidCallback onReactionsTap;
   final VoidCallback? onRetry;
+
+  @override
+  State<MessageBubble> createState() => _MessageBubbleState();
+}
+
+class _MessageBubbleState extends State<MessageBubble> {
+  /// Posée sur la racine du widget, pas sur la bulle seule : la surcouche
+  /// repeint [MessageBubble] entier, il lui faut donc le rectangle entier —
+  /// nom d'expéditeur, pastilles et coche compris.
+  final _anchor = GlobalKey();
+
+  /// Le rectangle occupé à l'écran, ou celui de l'écran à défaut — un fil qui
+  /// défile sous le doigt peut avoir détaché la bulle entre l'appui et la
+  /// lecture.
+  Rect _anchorRect() {
+    final box = _anchor.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return Rect.zero;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
 
   static const _round = Radius.circular(20);
   static const _tight = Radius.circular(4);
@@ -40,6 +62,7 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final entry = widget.entry;
     final message = entry.message;
     final outgoing = message.isOutgoing;
     final failed = message.status.hasFailed;
@@ -63,6 +86,7 @@ class MessageBubble extends StatelessWidget {
     final bare = visualOnly && message.body.isEmpty;
 
     return Padding(
+      key: _anchor,
       padding: EdgeInsets.fromLTRB(
         14,
         entry.isFirstOfGroup ? 6 : 2,
@@ -89,16 +113,16 @@ class MessageBubble extends StatelessWidget {
                 ? MainAxisAlignment.end
                 : MainAxisAlignment.start,
             children: [
-              if (failed && onRetry != null)
+              if (failed && widget.onRetry != null)
                 IconButton(
                   key: Key('retry_${message.id}'),
                   tooltip: 'Réessayer',
                   icon: Icon(Icons.refresh, color: colors.danger, size: 20),
-                  onPressed: onRetry,
+                  onPressed: widget.onRetry,
                 ),
               Flexible(
                 child: GestureDetector(
-                  onLongPress: onLongPress,
+                  onLongPress: () => widget.onLongPress(_anchorRect()),
                   child: Container(
                     key: Key('bubble_${message.id}'),
                     constraints: BoxConstraints(maxWidth: maxWidth),
@@ -175,8 +199,8 @@ class MessageBubble extends StatelessWidget {
           if (message.hasReactions)
             ReactionChips(
               message: message,
-              onTap: onReactionsTap,
-              onLongPress: onLongPress,
+              onTap: widget.onReactionsTap,
+              onLongPress: () => widget.onLongPress(_anchorRect()),
             ),
           if (entry.showStatus || failed)
             Padding(
@@ -207,8 +231,8 @@ class MessageBubble extends StatelessWidget {
 
   /// Coins arrondis côté « extérieur », resserrés côté salve.
   BorderRadius _radius(bool outgoing) {
-    final first = entry.isFirstOfGroup;
-    final last = entry.isLastOfGroup;
+    final first = widget.entry.isFirstOfGroup;
+    final last = widget.entry.isLastOfGroup;
     if (outgoing) {
       return BorderRadius.only(
         topLeft: _round,
