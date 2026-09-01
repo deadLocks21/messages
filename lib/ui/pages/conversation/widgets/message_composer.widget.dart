@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:messages/ui/pages/conversation/widgets/voice_hold_bar.widget.dart';
 import 'package:messages/ui/theme/app_colors.dart';
+import 'package:messages/ui/utils/sms_segments.dart';
 
 /// Champ de rédaction : une pilule pleine — pièce jointe et texte — flanquée
 /// du disque rond, comme dans Google Messages.
@@ -28,6 +29,10 @@ import 'package:messages/ui/theme/app_colors.dart';
 ///
 /// Le compteur de segments SMS ne s'affiche qu'au-delà d'un message — comme
 /// l'app d'origine, qui ne montre `n/2` que quand le découpage devient réel.
+/// Ce qu'il compte vient de [SmsSegments], c'est-à-dire de la règle même que
+/// le natif applique à l'envoi : un « ê » ou un emoji fait basculer le message
+/// en UCS-2, où un segment ne porte plus que 70 caractères, et le compteur
+/// doit le dire plutôt que de promettre un SMS unique.
 class MessageComposer extends StatefulWidget {
   const MessageComposer({
     super.key,
@@ -117,19 +122,6 @@ class MessageComposer extends StatefulWidget {
   /// que verrouiller ne fait que changer de main.
   static const cancelDistance = 96.0;
   static const lockDistance = 72.0;
-
-  /// Taille d'un SMS mono-partie (alphabet GSM 7 bits).
-  static const segmentLength = 160;
-
-  /// Taille utile d'une partie quand le message est découpé (l'en-tête de
-  /// concaténation ampute chaque segment).
-  static const concatenatedSegmentLength = 153;
-
-  /// Nombre de SMS que produira [body].
-  static int segmentsFor(String body) {
-    if (body.length <= segmentLength) return 1;
-    return (body.length / concatenatedSegmentLength).ceil();
-  }
 
   @override
   State<MessageComposer> createState() => _MessageComposerState();
@@ -256,7 +248,7 @@ class _MessageComposerState extends State<MessageComposer> {
     final text = widget.controller.text;
     final canSend =
         widget.enabled && (text.trim().isNotEmpty || widget.hasAttachments);
-    final segments = MessageComposer.segmentsFor(text);
+    final segments = SmsSegments.of(text);
 
     // Pas de `SafeArea` ici : le panneau d'enregistrement se pose *sous* le
     // champ, et deux zones sûres empilées ajouteraient deux fois l'encoche du
@@ -352,11 +344,11 @@ class _MessageComposerState extends State<MessageComposer> {
                                   ),
                                 ),
                               ),
-                              if (segments > 1)
+                              if (segments.count > 1)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: Text(
-                                    '${segments * MessageComposer.concatenatedSegmentLength - text.length}/$segments',
+                                    '${segments.remaining}/${segments.count}',
                                     key: const Key('segmentCounter'),
                                     style: TextStyle(
                                       fontSize: 12,

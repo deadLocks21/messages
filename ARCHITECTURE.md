@@ -161,6 +161,33 @@ En échange, le découpage se **teste** (`SmsSegmentsTest`, sur la JVM), ce que
 `divideMessage` ne permettait pas : rien ne se perd — la concaténation des
 segments rend le corps d'origine — et rien ne déborde.
 
+### Le compteur du champ de rédaction annonce le même découpage
+
+Le compteur sous le champ ne comptait que des caractères : 160 pour un segment
+seul, 153 concaténé, quel que soit le contenu. Il ignorait donc l'encodage,
+c'est-à-dire précisément ce qui décide de la taille d'un segment — un « ê », un
+« ç » minuscule ou un emoji fait basculer le message entier en UCS-2. Le message
+français de 77 caractères de la section précédente s'affichait comme un SMS
+unique ; le compteur, qui ne se montre qu'au-delà d'un segment, n'apparaissait
+même pas. Il promettait donc un message simple là où deux allaient partir, et
+c'est le pire moment pour se taire : l'utilisateur peut encore raccourcir.
+
+`SmsSegments` (Dart, `lib/ui/utils/`) applique la règle de son homonyme Kotlin :
+mêmes tables, mêmes limites, même refus de couper une paire d'échappement ou de
+substitution. Le reste affiché suit l'unité de l'encodage retenu — des septets
+en 7 bits, où le « € » en coûte deux, des unités UTF-16 en UCS-2 — et se mesure
+sur la place réellement libre dans le dernier segment, pas sur une soustraction
+de caractères : une paire repoussée au segment suivant laisse derrière elle un
+septet que plus personne ne peut utiliser.
+
+La règle est donc écrite deux fois, et c'est délibéré : le compteur se recalcule
+à chaque frappe, et la faire remonter du natif coûterait un aller-retour par
+caractère sur le canal de plateforme — sans rien afficher du tout sur la démo
+macOS, où il n'y a pas de natif au bout du canal. Les deux jeux de tests
+(`SmsSegmentsTest` sur la JVM, `message_composer_segments_test.dart` côté Dart)
+reprennent les mêmes corps et les mêmes frontières, pour qu'une dérive entre les
+deux se voie là plutôt que sur l'écran de l'utilisateur.
+
 ### Un échec d'envoi se dit, même quand l'app n'est plus là
 
 Deux moments peuvent échouer, et ils ne se ressemblent pas.
