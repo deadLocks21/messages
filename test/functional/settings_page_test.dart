@@ -37,6 +37,10 @@ void main() {
       findsOneWidget,
     );
 
+    // La page a plus de cartes que l'écran de test n'a de hauteur : on amène
+    // la tuile sous les yeux avant de la toucher, comme le ferait un doigt.
+    await tester.ensureVisible(find.byKey(const Key('enableNotifications')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('enableNotifications')));
     await tester.pumpAndSettle();
 
@@ -52,10 +56,28 @@ void main() {
     );
 
     await pumpPage(tester, const SettingsPage(), device: device);
+    await tester.ensureVisible(find.byKey(const Key('enableNotifications')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('enableNotifications')));
     await tester.pumpAndSettle();
 
     expect(device.permissions.openSettingsCount, 1);
+  });
+
+  testWidgets('couper le repli rend les réactions telles qu\'elles circulent', (
+    tester,
+  ) async {
+    final device = TestDevice();
+
+    await pumpPage(tester, const SettingsPage(), device: device);
+    final toggle = find.byKey(const Key('foldReactionsSwitch'));
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+
+    expect(await device.reactionPreferences.foldsReactions(), isFalse);
+    expect(find.textContaining('Liked'), findsOneWidget);
   });
 
   testWidgets('sans le rôle par défaut, un bouton le propose', (tester) async {

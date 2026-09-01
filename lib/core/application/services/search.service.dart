@@ -4,6 +4,7 @@ import 'package:messages/core/application/dtos/search_results.dto.dart';
 import 'package:messages/core/application/services/conversation_list.service.dart';
 import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/core/domain/model/enums.dart';
+import 'package:messages/core/domain/model/reaction_codec.dart';
 import 'package:messages/core/domain/services/message.repository.dart';
 
 /// Recherche unifiée : les fils dont le nom (ou le numéro) correspond, puis les
@@ -45,6 +46,11 @@ class SearchService {
 
     final messages = await _messages.search(query, limit: messageLimit);
     final hits = messages
+        // Les réactions sont dans le stock comme les autres messages : sans ce
+        // filtre, chercher « demain » ramènerait le message *et* le `Liked
+        // “demain ?”` qui l'a suivi. Personne n'a écrit cette phrase, et elle
+        // n'est un résultat pour personne.
+        .where((m) => ReactionCodec.decode(m.body) == null)
         .map(
           (m) => MessageHitDto(
             message: MessageDto.fromDomain(m),

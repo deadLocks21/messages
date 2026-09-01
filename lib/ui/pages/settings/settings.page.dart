@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:messages/core/domain/model/enums.dart';
+import 'package:messages/infrastructure/providers/reaction_providers.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
 import 'package:messages/infrastructure/providers/theme_providers.dart';
 import 'package:messages/ui/theme/app_colors.dart';
@@ -18,6 +19,8 @@ class SettingsPage extends ConsumerWidget {
     final colors = context.appColors;
     final themeMode = ref.watch(themeModeControllerProvider).value;
     final access = ref.watch(smsAccessControllerProvider).value;
+    final foldsReactions =
+        ref.watch(reactionFoldingControllerProvider).value ?? true;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -51,6 +54,30 @@ class SettingsPage extends ConsumerWidget {
                   )
                   .toList(),
             ),
+          ),
+          const CardGroupHeader('Messages'),
+          CardGroup(
+            children: [
+              CardRow(
+                key: const Key('foldReactionsTile'),
+                icon: Icons.add_reaction_outlined,
+                iconColor: colors.accent,
+                label: 'Afficher les réactions comme des emoji',
+                // Dire ce qu'on verra si on coupe, plutôt que ce qu'on perd :
+                // c'est la phrase brute qui explique tout le reste — pourquoi
+                // il y a un réglage, et ce qui circule vraiment sur le réseau.
+                subtitle: foldsReactions
+                    ? 'Les réactions se posent sur la bulle qu\'elles visent.'
+                    : 'Affichées telles qu\'elles circulent : « Liked “…” ».',
+                trailing: Switch(
+                  key: const Key('foldReactionsSwitch'),
+                  value: foldsReactions,
+                  onChanged: (value) => ref
+                      .read(reactionFoldingControllerProvider.notifier)
+                      .set(value),
+                ),
+              ),
+            ],
           ),
           const CardGroupHeader('SMS'),
           CardGroup(

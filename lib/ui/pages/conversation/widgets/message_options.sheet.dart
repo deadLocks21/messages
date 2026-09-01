@@ -1,47 +1,83 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:messages/core/application/dtos/message.dto.dart';
+import 'package:messages/ui/pages/conversation/widgets/reaction_bar.widget.dart';
 import 'package:messages/ui/utils/date_format.dart';
 
 /// Ce qu'on peut faire d'un message : appui long dans le fil.
 enum MessageAction { copy, forward, delete, resend }
 
+/// Ce que la feuille rend : une action, ou un emoji.
+///
+/// Deux formes plutôt qu'une action de plus, parce qu'une réaction porte une
+/// donnée que les autres n'ont pas — l'emoji choisi.
+sealed class MessageChoice {
+  const MessageChoice();
+}
+
+class MessageActionChoice extends MessageChoice {
+  final MessageAction action;
+  const MessageActionChoice(this.action);
+}
+
+class MessageReactionChoice extends MessageChoice {
+  final String emoji;
+  const MessageReactionChoice(this.emoji);
+}
+
 /// Feuille d'actions d'un message, plus la fiche « Détails ».
 abstract final class MessageOptionsSheet {
-  static Future<MessageAction?> show(
+  static Future<MessageChoice?> show(
     BuildContext context,
     MessageDto message,
   ) {
-    return showModalBottomSheet<MessageAction>(
+    return showModalBottomSheet<MessageChoice>(
       context: context,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // En tête, comme dans l'app d'origine : réagir est le geste le plus
+            // fréquent, et le seul qu'on vient rarement chercher dans une
+            // liste.
+            ReactionBar(
+              message: message,
+              onPick: (emoji) =>
+                  Navigator.of(context).pop(MessageReactionChoice(emoji)),
+            ),
+            const Divider(height: 1),
             if (message.status.hasFailed)
               ListTile(
                 key: const Key('messageActionResend'),
                 leading: const Icon(Icons.refresh),
                 title: const Text('Réessayer'),
-                onTap: () => Navigator.of(context).pop(MessageAction.resend),
+                onTap: () => Navigator.of(
+                  context,
+                ).pop(const MessageActionChoice(MessageAction.resend)),
               ),
             ListTile(
               key: const Key('messageActionCopy'),
               leading: const Icon(Icons.content_copy_outlined),
               title: const Text('Copier'),
-              onTap: () => Navigator.of(context).pop(MessageAction.copy),
+              onTap: () => Navigator.of(
+                  context,
+                ).pop(const MessageActionChoice(MessageAction.copy)),
             ),
             ListTile(
               key: const Key('messageActionForward'),
               leading: const Icon(Icons.forward_outlined),
               title: const Text('Transférer'),
-              onTap: () => Navigator.of(context).pop(MessageAction.forward),
+              onTap: () => Navigator.of(
+                  context,
+                ).pop(const MessageActionChoice(MessageAction.forward)),
             ),
             ListTile(
               key: const Key('messageActionDelete'),
               leading: const Icon(Icons.delete_outline),
               title: const Text('Supprimer'),
-              onTap: () => Navigator.of(context).pop(MessageAction.delete),
+              onTap: () => Navigator.of(
+                  context,
+                ).pop(const MessageActionChoice(MessageAction.delete)),
             ),
             ListTile(
               key: const Key('messageActionDetails'),

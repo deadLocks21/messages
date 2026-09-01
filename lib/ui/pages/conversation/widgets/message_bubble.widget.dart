@@ -3,6 +3,7 @@ import 'package:messages/core/application/dtos/conversation_timeline.dto.dart';
 import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_attachments.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_status_tick.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/reaction_chips.widget.dart';
 import 'package:messages/ui/theme/app_colors.dart';
 
 /// Une bulle de message.
@@ -19,6 +20,9 @@ class MessageBubble extends StatelessWidget {
   });
 
   final TimelineMessage entry;
+
+  /// Ouvre la feuille du message — c'est aussi de là qu'on réagit, et c'est
+  /// pourquoi une pastille de réaction y mène elle aussi.
   final VoidCallback onLongPress;
   final VoidCallback? onRetry;
 
@@ -59,7 +63,9 @@ class MessageBubble extends StatelessWidget {
         14,
         entry.isFirstOfGroup ? 6 : 2,
         14,
-        entry.isLastOfGroup ? 2 : 2,
+        // Les pastilles mordent sur la bulle et dépassent en dessous : sans
+        // cette réserve, elles chevaucheraient la bulle suivante.
+        message.hasReactions ? 8 : 2,
       ),
       child: Column(
         crossAxisAlignment: outgoing
@@ -162,6 +168,8 @@ class MessageBubble extends StatelessWidget {
               ),
             ],
           ),
+          if (message.hasReactions)
+            ReactionChips(message: message, onTap: onLongPress),
           if (entry.showStatus || failed)
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 6, right: 6),

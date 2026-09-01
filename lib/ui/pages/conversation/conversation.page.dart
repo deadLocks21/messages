@@ -278,23 +278,56 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   }
 
   Future<void> _onMessageAction(MessageDto message) async {
-    final action = await MessageOptionsSheet.show(context, message);
-    if (action == null || !mounted) return;
+    final choice = await MessageOptionsSheet.show(context, message);
+    if (choice == null || !mounted) return;
 
-    switch (action) {
-      case MessageAction.copy:
+    switch (choice) {
+      case MessageReactionChoice(:final emoji):
+        await _react(message, emoji);
+      case MessageActionChoice(action: MessageAction.copy):
         await MessageOptionsSheet.copy(message);
         _announce('Message copié');
-      case MessageAction.forward:
+      case MessageActionChoice(action: MessageAction.forward):
         await context.push(AppRoutes.newConversation, extra: message.body);
-      case MessageAction.delete:
+      case MessageActionChoice(action: MessageAction.delete):
         await ref.read(deleteMessageUseCaseProvider).execute(message.id);
         if (!mounted) return;
         ref.invalidate(conversationTimelineProvider(widget.threadId));
         ref.invalidate(conversationsProvider);
-      case MessageAction.resend:
+      case MessageActionChoice(action: MessageAction.resend):
         await _resend(message);
     }
+  }
+
+  /// Réagir envoie un SMS — et le retirer en envoie un second.
+  ///
+  /// Rien de tout cela n'est gratuit ni instantané : la pastille n'apparaît
+  /// qu'une fois le message déposé et relu du stock, comme n'importe quel
+  /// envoi. Toucher l'emoji qu'on a déjà posé le retire.
+  Future<void> _react(MessageDto message, String emoji) async {
+    final conversation = ref.read(conversationProvider(widget.threadId)).value;
+    final recipients = conversation?.addresses ?? const <String>[];
+    if (recipients.isEmpty) {
+      _announce('Destinataire inconnu pour ce fil.');
+      return;
+    }
+
+    try {
+      await ref
+          .read(reactToMessageUseCaseProvider)
+          .execute(
+            messageId: message.id,
+            recipients: recipients,
+            emoji: emoji,
+            remove: message.myReaction == emoji,
+          );
+    } on SmsException catch (e) {
+      _announce(e.message);
+      return;
+    }
+    if (!mounted) return;
+    ref.invalidate(conversationTimelineProvider(widget.threadId));
+    ref.invalidate(conversationsProvider);
   }
 
   VoiceRecorder get _voice =>

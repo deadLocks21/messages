@@ -107,7 +107,10 @@ object SmsNotifications {
             .setSmallIcon(android.R.drawable.stat_notify_error)
             .setContentTitle("Message non envoyé")
             .setContentText(name.ifBlank { "Touchez pour réessayer" })
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            // Une réaction en échec est un SMS en échec : annoncer
+            // `Liked “…”` demanderait à l'utilisateur de décoder lui-même ce
+            // qu'il n'a jamais écrit.
+            .setStyle(NotificationCompat.BigTextStyle().bigText(ReactionText.display(body)))
             .setCategory(NotificationCompat.CATEGORY_ERROR)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
@@ -162,15 +165,18 @@ object SmsNotifications {
         val anchor = resolveAnchor(context, threadId, history, timestamp)
         val shown = history.filter { dateOf(it) >= anchor }
 
+        // Une réaction est un SMS : sans [ReactionText], le volet annoncerait
+        // `Liked “On se voit demain ?”` — la phrase que l'app existe pour ne
+        // plus montrer.
         if (shown.isEmpty() && body != null) {
             // Le stock n'a pas encore rendu le message (cas limite) : on affiche
             // au moins celui qu'on vient de recevoir.
-            style.addMessage(body, timestamp, sender)
+            style.addMessage(ReactionText.display(body), timestamp, sender)
         } else {
             for (message in shown) {
                 val outgoing = message["direction"] == "outgoing"
                 style.addMessage(
-                    message["body"] as? String ?: "",
+                    ReactionText.display(message["body"] as? String ?: ""),
                     dateOf(message),
                     if (outgoing) null else sender,
                 )

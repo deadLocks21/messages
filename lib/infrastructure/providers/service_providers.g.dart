@@ -484,6 +484,54 @@ final class ResendMessageUseCaseProvider
 String _$resendMessageUseCaseHash() =>
     r'137b143767a299282617032469d60ff82eb2b9f3';
 
+@ProviderFor(reactToMessageUseCase)
+final reactToMessageUseCaseProvider = ReactToMessageUseCaseProvider._();
+
+final class ReactToMessageUseCaseProvider
+    extends
+        $FunctionalProvider<
+          ReactToMessageUseCase,
+          ReactToMessageUseCase,
+          ReactToMessageUseCase
+        >
+    with $Provider<ReactToMessageUseCase> {
+  ReactToMessageUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'reactToMessageUseCaseProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$reactToMessageUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<ReactToMessageUseCase> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  ReactToMessageUseCase create(Ref ref) {
+    return reactToMessageUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ReactToMessageUseCase value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ReactToMessageUseCase>(value),
+    );
+  }
+}
+
+String _$reactToMessageUseCaseHash() =>
+    r'14856a1c21c10be887ec9362b86069d40e02eaaa';
+
 @ProviderFor(deleteMessageUseCase)
 final deleteMessageUseCaseProvider = DeleteMessageUseCaseProvider._();
 

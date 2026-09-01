@@ -3,6 +3,7 @@ import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/core/application/services/contact_directory.service.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/core/domain/model/message.dart';
+import 'package:messages/core/domain/model/reaction_fold.dart';
 import 'package:messages/core/domain/services/message.repository.dart';
 
 /// Transforme la suite plate des messages d'un fil en ce que l'écran affiche :
@@ -15,6 +16,11 @@ import 'package:messages/core/domain/services/message.repository.dart';
 /// - **Groupement** des messages consécutifs du même interlocuteur espacés de
 ///   moins de cinq minutes : seule la dernière bulle du groupe a un coin
 ///   « queue », seule la première porte le nom en conversation de groupe.
+///
+/// C'est aussi ici que les **réactions** cessent d'être des messages : le stock
+/// n'en connaît pas, il ne connaît que les SMS qui les transportent. Le repli
+/// (`ReactionFolder`) les retire du fil et les accroche aux bulles qu'elles
+/// visent — tout le reste du service travaille ensuite sur ce qu'il en reste.
 class ConversationTimelineService {
   final MessageRepository _messages;
   final ContactDirectoryService _directory;
@@ -31,8 +37,18 @@ class ConversationTimelineService {
   /// Écart max entre deux bulles d'une même salve.
   static const groupingGap = Duration(minutes: 5);
 
-  Future<ConversationTimelineDto> build(String threadId, {int limit = 500}) async {
-    final messages = await _messages.listForThread(threadId, limit: limit);
+  Future<ConversationTimelineDto> build(
+    String threadId, {
+    int limit = 500,
+    bool foldReactions = true,
+  }) async {
+    final stored = await _messages.listForThread(threadId, limit: limit);
+    if (stored.isEmpty) {
+      return ConversationTimelineDto(threadId: threadId, entries: const []);
+    }
+
+    final folded = ReactionFolder.fold(stored, enabled: foldReactions);
+    final messages = folded.messages;
     if (messages.isEmpty) {
       return ConversationTimelineDto(threadId: threadId, entries: const []);
     }
@@ -40,6 +56,9 @@ class ConversationTimelineService {
     final directory = await _directory.load();
     final isGroup =
         messages.map((m) => m.address.key).toSet().length > 1;
+    // Sur les bulles restantes, pas sur le stock : une réaction repliée est le
+    // dernier message envoyé du fil, et l'état « Envoyé » disparaîtrait avec
+    // elle.
     final lastOutgoingId = messages
         .where((m) => m.isOutgoing)
         .map((m) => m.id)
@@ -61,6 +80,7 @@ class ConversationTimelineService {
             senderName: isGroup && !message.isOutgoing
                 ? directory.nameFor(message.address)
                 : null,
+            reactions: folded.on(message.id),
           ),
           isFirstOfGroup: startsSection || !_groups(previous, message),
           isLastOfGroup: next == null ||

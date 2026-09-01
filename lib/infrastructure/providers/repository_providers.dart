@@ -13,6 +13,7 @@ import 'package:messages/core/domain/services/emoji_history.repository.dart';
 import 'package:messages/core/domain/services/message.repository.dart';
 import 'package:messages/core/domain/services/notification.gateway.dart';
 import 'package:messages/core/domain/services/sms_permissions.service.dart';
+import 'package:messages/core/domain/services/reaction_preferences.repository.dart';
 import 'package:messages/core/domain/services/theme.repository.dart';
 import 'package:messages/infrastructure/attachments/android.attachment.repository.dart';
 import 'package:messages/infrastructure/attachments/android.attachment_compressor.service.dart';
@@ -32,6 +33,7 @@ import 'package:messages/infrastructure/permissions/in_memory.sms_permissions.se
 import 'package:messages/infrastructure/permissions/permission_handler.sms_permissions.service.dart';
 import 'package:messages/infrastructure/preferences/shared_preferences.conversation_preferences.repository.dart';
 import 'package:messages/infrastructure/preferences/shared_preferences.draft.repository.dart';
+import 'package:messages/infrastructure/preferences/shared_preferences.reaction_preferences.repository.dart';
 import 'package:messages/infrastructure/preferences/shared_preferences.theme.repository.dart';
 import 'package:http/http.dart' as http;
 import 'package:messages/core/domain/services/gif_catalog.service.dart';
@@ -216,6 +218,12 @@ DraftRepository draftRepository(Ref ref) =>
 
 @Riverpod(keepAlive: true)
 ThemeRepository themeRepository(Ref ref) => SharedPreferencesThemeRepository();
+
+/// Le repli des réactions se coupe depuis les réglages : c'est le filet quand
+/// la reconnaissance d'une phrase se trompe.
+@Riverpod(keepAlive: true)
+ReactionPreferencesRepository reactionPreferencesRepository(Ref ref) =>
+    const SharedPreferencesReactionPreferencesRepository();
 
 /// Emoji récemment utilisés. `keepAlive` : c'est de la préférence, elle vit
 /// aussi longtemps que l'app.

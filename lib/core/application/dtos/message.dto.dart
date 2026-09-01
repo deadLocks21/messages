@@ -1,6 +1,8 @@
 import 'package:messages/core/application/dtos/attachment.dto.dart';
+import 'package:messages/core/application/dtos/reaction.dto.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/core/domain/model/message.dart';
+import 'package:messages/core/domain/model/reaction.dart';
 
 /// Un message prêt à l'affichage.
 class MessageDto {
@@ -20,6 +22,10 @@ class MessageDto {
   /// Pièces jointes du message. Vide pour un SMS.
   final List<AttachmentDto> attachments;
 
+  /// Réactions posées sur ce message. Elles ne sont pas dans le message : ce
+  /// sont d'autres messages du fil, que le repli est venu accrocher ici.
+  final List<ReactionDto> reactions;
+
   const MessageDto({
     required this.id,
     required this.threadId,
@@ -30,9 +36,14 @@ class MessageDto {
     required this.address,
     this.senderName,
     this.attachments = const [],
+    this.reactions = const [],
   });
 
-  factory MessageDto.fromDomain(Message message, {String? senderName}) {
+  factory MessageDto.fromDomain(
+    Message message, {
+    String? senderName,
+    List<Reaction> reactions = const [],
+  }) {
     return MessageDto(
       id: message.id,
       threadId: message.threadId,
@@ -43,10 +54,18 @@ class MessageDto {
       address: message.address.raw,
       senderName: senderName,
       attachments: message.attachments.map(AttachmentDto.fromDomain).toList(),
+      reactions: ReactionDto.group(reactions),
     );
   }
 
   bool get hasAttachments => attachments.isNotEmpty;
+
+  bool get hasReactions => reactions.isNotEmpty;
+
+  /// L'emoji que l'utilisateur a déjà posé sur ce message, s'il l'a fait : un
+  /// nouvel appui dessus le retire.
+  String? get myReaction =>
+      reactions.where((r) => r.isMine).map((r) => r.emoji).firstOrNull;
 
   /// Ce qu'on montre du message là où il n'y a de place que pour une ligne :
   /// résumé de fil, notification, résultat de recherche.

@@ -7,6 +7,7 @@ import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/core/domain/model/conversation.dart';
 import 'package:messages/core/domain/model/conversation_preference.dart';
 import 'package:messages/core/domain/model/enums.dart';
+import 'package:messages/core/domain/model/reaction_codec.dart';
 import 'package:messages/core/domain/services/conversation.repository.dart';
 import 'package:messages/core/domain/services/conversation_preferences.repository.dart';
 import 'package:messages/core/domain/services/draft.repository.dart';
@@ -122,7 +123,14 @@ class ConversationListService {
   /// Un MMS sans légende n'a pas de texte à montrer : on le nomme par sa pièce
   /// jointe (« Photo »), comme l'app d'origine. Avec légende, le libellé
   /// précède le texte.
+  ///
+  /// Un fil dont le dernier message est une **réaction** afficherait, lui, la
+  /// phrase anglaise qui la transporte (`Liked “…”`) : c'est ce que le stock
+  /// contient, et c'est justement ce qu'on ne veut plus montrer.
   String _snippetFor(Conversation conversation) {
+    final reaction = ReactionCodec.summarize(conversation.snippet);
+    if (reaction != null) return reaction;
+
     final kind = conversation.lastAttachmentKind;
     if (kind == null) return conversation.snippet;
     final label = AttachmentDto.previewLabelFor(kind);

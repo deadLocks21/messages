@@ -17,6 +17,7 @@ import 'package:messages/infrastructure/notifications/in_memory.notification.gat
 import 'package:messages/infrastructure/permissions/in_memory.sms_permissions.service.dart';
 import 'package:messages/infrastructure/preferences/in_memory.conversation_preferences.repository.dart';
 import 'package:messages/infrastructure/preferences/in_memory.draft.repository.dart';
+import 'package:messages/infrastructure/preferences/in_memory.reaction_preferences.repository.dart';
 import 'package:messages/infrastructure/preferences/in_memory.theme.repository.dart';
 import 'package:messages/infrastructure/providers/infra_providers.dart';
 import 'package:messages/infrastructure/providers/repository_providers.dart';
@@ -71,6 +72,10 @@ class TestDevice {
   /// section des récents déjà remplie.
   final InMemoryEmojiHistoryRepository emojiHistory =
       InMemoryEmojiHistoryRepository();
+
+  /// Le repli des réactions, actif comme sur un téléphone neuf.
+  final InMemoryReactionPreferencesRepository reactionPreferences =
+      InMemoryReactionPreferencesRepository();
 
   /// Le rapatriement d'un GIF choisi. Il dépose ses octets dans le stock de
   /// *ce* device — d'où l'initialisation dans le corps.
@@ -150,6 +155,9 @@ Future<void> _pump(WidgetTester tester, TestDevice device, Widget child) async {
         mmsConfigurationProvider.overrideWithValue(device.carrier),
         inMemoryGifCatalogProvider.overrideWithValue(device.gifs),
         emojiHistoryRepositoryProvider.overrideWithValue(device.emojiHistory),
+        reactionPreferencesRepositoryProvider.overrideWithValue(
+          device.reactionPreferences,
+        ),
         inMemoryMediaDownloaderProvider.overrideWithValue(device.downloads),
       ],
       child: child,

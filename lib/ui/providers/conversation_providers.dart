@@ -3,6 +3,7 @@ import 'package:messages/core/application/dtos/conversation.dto.dart';
 import 'package:messages/core/application/dtos/conversation_timeline.dto.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/infrastructure/providers/infra_providers.dart';
+import 'package:messages/infrastructure/providers/reaction_providers.dart';
 import 'package:messages/infrastructure/providers/repository_providers.dart';
 import 'package:messages/infrastructure/providers/service_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -37,7 +38,12 @@ Future<ConversationTimelineDto> conversationTimeline(
   String threadId,
 ) async {
   ref.watch(smsEventsProvider);
-  return ref.watch(conversationTimelineServiceProvider).build(threadId);
+  // Le réglage est lu ici et non dans le service : basculer l'interrupteur doit
+  // reconstruire le fil, et c'est le provider qui sait le faire.
+  final folds = await ref.watch(reactionFoldingControllerProvider.future);
+  return ref
+      .watch(conversationTimelineServiceProvider)
+      .build(threadId, foldReactions: folds);
 }
 
 /// Nombre de fils non lus — pastille de la puce « Non lus ».

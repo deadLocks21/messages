@@ -651,6 +651,132 @@ retomber chaque matin sur « Vous n'avez encore utilisé aucun emoji ».
   milieu d'une phrase déjà écrite, et le coller à la fin obligerait à le
   redéplacer à la main.
 
+## Réactions : le RCS est fermé, il reste le texte
+
+Les réactions de Google Messages sont une fonctionnalité **RCS**, et Android
+n'expose aucune API RCS aux applications tierces — `RcsMessageStore` est restée
+`@SystemApi`, jamais ouverte. Une application SMS qui veut des réactions n'a donc
+qu'un seul canal : **le corps du message**.
+
+C'est exactement ce que fait iMessage depuis toujours quand il « tapback » un
+correspondant Android — il envoie la phrase `Liked “Bonjour”` — et c'est ce que
+Google Messages sait décoder depuis 2022 pour la reposer sur la bulle citée
+(réglage « Afficher les réactions iPhone en tant qu'emoji », activé par défaut).
+On se glisse dans ce format-là.
+
+### Ce qu'on émet, et pourquoi pas le format de Google Messages
+
+Google Messages, lui, envoie `👍 to Bonjour`. On préfère **imiter l'iPhone** :
+c'est le format pour lequel la fonctionnalité de décodage a été écrite, donc le
+seul dont on sache qu'il aboutit.
+
+| Emoji | Ce qui part | Confiance |
+|---|---|---|
+| 👍 😍 😂 😮 👎 | `Liked “…”`, `Loved “…”`, `Laughed at “…”`, `Emphasized “…”`, `Disliked “…”` | haute — c'est le tapback historique |
+| 😢 😡, et tout autre | `Reacted 😢 to “…”` | moyenne — la forme d'iOS 18, plus récente |
+| retrait | `Removed a heart from “…”` | moyenne |
+
+Les guillemets sont **courbes**, comme ceux d'iOS, et non les droits d'un
+clavier : on imite jusqu'au détail, faute de savoir ce que l'analyseur d'en face
+regarde. La palette s'arrête aux sept emoji de Google Messages pour la même
+raison — un emoji pris au clavier partirait toujours sous la forme la moins sûre.
+
+### Ce qu'on décode
+
+Tout ce qu'on a pu identifier : les six verbes d'iOS, leurs traductions
+françaises (iOS localise ses tapbacks dans la langue de l'expéditeur, d'où le
+`a aimé « … »` d'un iPhone français), la forme emoji d'iOS 18, celle de Google
+Messages, et les retraits. Une phrase qu'on ne reconnaît pas n'est jamais une
+perte : elle reste le message qu'elle est.
+
+Ce que Google Messages envoie vraiment, relevé dans le stock d'un Pixel :
+
+```
+U+200A U+200B 👍 U+200B ␣ à ␣ " U+200A J'ai besoin du code stp U+200A "
+```
+
+Deux invisibles, et ils décident de tout. Les **espaces de largeur nulle**
+(`U+200B`) qui encadrent l'emoji ne se voient nulle part — ni dans la bulle, ni
+dans un `adb shell content query`, ni dans un copier-coller — et pourtant un
+emoji encadré de deux caractères qui n'en sont pas cesse d'être un emoji pour
+qui vérifie qu'un jeton n'est *que* pictographique. Les **espaces fins**
+(`U+200A`) à l'intérieur des guillemets, eux, décalent la citation.
+
+D'où `stripInvisible`, appliqué avant toute analyse et à l'emoji rendu. La
+jonction `U+200D` en est exclue : c'est elle qui tient `👨‍👩‍👧` d'un seul tenant,
+et `U+200C` aussi, qui sépare des lettres dans les écritures qui en ont besoin —
+la citation qu'on recopie n'est pas toujours du français. Le test qui garde
+cette leçon rejoue la chaîne **à l'octet près**, invisibles compris : c'est le
+seul moyen qu'une régression se voie, puisque le bug, lui, ne se voyait pas.
+
+### Le repli, et ses deux garde-fous
+
+Une réaction **est un message du stock** — elle a un `_id`, elle coûte un SMS,
+une autre application SMS de l'appareil la voit. Il n'y a donc rien à stocker :
+ce que l'app en fait est une **règle de présentation**, tenue par
+`ReactionFolder` et appliquée par `ConversationTimelineService`. C'est ce qui
+permet aux réactions de survivre au redémarrage sans base locale, dans un projet
+qui n'en a pas.
+
+Deux règles gouvernent le reste :
+
+- **Pas de cible, pas de repli.** La citation doit retrouver son message dans le
+  fil, sinon la bulle reste affichée telle quelle. C'est ce qui empêche un
+  « 👍 to be honest » d'avaler une conversation, et ce qui garantit qu'aucun
+  message n'est masqué sans raison lisible. Une citation entre guillemets vaut
+  pour **préfixe** (iOS coupe les longs messages, nous aussi) ; sans guillemets,
+  il faut le message entier.
+- **Un échec reste visible.** Une réaction qu'on n'a pas réussi à envoyer garde
+  sa bulle, son liseré rouge et son bouton « Réessayer ». Repliée, elle
+  disparaîtrait avec son échec et l'utilisateur croirait avoir réagi.
+
+En corollaire, `showStatus` se calcule sur les bulles **restantes** : sans cela,
+le « Envoyé » du dernier message disparaîtrait sous la première réaction reçue.
+
+### Ce que ça coûte, et pourquoi on paie
+
+Un emoji fait sortir le SMS de l'alphabet GSM : le segment tombe de 160 à **70
+caractères** (67 en concaténé). Une réaction citant un message d'une ligne part
+donc en deux ou trois SMS facturés.
+
+On cite quand même largement — 120 caractères avant de couper. Une citation
+courte tiendrait dans un segment, mais ne se retrouverait pas à l'arrivée, et la
+réaction s'afficherait alors en toutes lettres chez le correspondant : on aurait
+payé un SMS pour le résultat qu'on cherchait à éviter. `SmsEncoding` porte ce
+calcul, et le compteur du champ de rédaction s'en sert désormais lui aussi — il
+annonçait 160 caractères quoi qu'on tape, emoji compris.
+
+### Le natif doit savoir, lui aussi
+
+Le récepteur `SMS_DELIVER` notifie **sans moteur Dart** : au moment d'écrire dans
+le volet, il ne peut demander à personne ce que `Liked “On se voit demain ?”`
+veut dire. `ReactionText.kt` reprend donc le strict nécessaire du codec —
+reconnaître, et reformuler — et rien de plus : retrouver le message visé
+demanderait de relire le fil, ce qui est le travail du repli, et il se fera à
+l'ouverture. Deux implémentations d'un même format dérivent : les tests JVM
+(`ReactionTextTest`) sont le miroir de `reaction_codec_test.dart`, délibérément.
+
+### Ce qui n'est pas garanti
+
+Le décodage de Google Messages n'est pas une spécification publique : c'est une
+heuristique, non documentée, susceptible de changer. Ce qui précède est le pari
+le mieux informé qu'on puisse faire, pas une certitude. Le journal en tient
+compte : `message.reacted` dit si la réaction est partie sous un verbe iOS ou
+sous la forme emoji, et la longueur du corps expédié — de quoi trancher, le jour
+où un correspondant dit voir du texte, sans avoir son téléphone sous la main. Le
+contenu, lui, n'y figure pas : ni l'emoji, ni la citation.
+
+Le **nombre de segments** n'y figure pas non plus, et c'est une dette assumée :
+`SmsSegments` vit dans `lib/ui/`, où un cas d'usage n'a pas le droit d'aller. Le
+jour où l'on voudra chiffrer ce que les réactions coûtent vraiment, c'est ce
+calcul qu'il faudra descendre dans le domaine — il n'a rien d'une affaire
+d'écran.
+
+Reste à faire, et cela ne se fait qu'appareil en main : envoyer les trois formes
+à un vrai Google Messages et regarder lesquelles s'accrochent à la bulle. Le
+codec est écrit pour que ce verdict se traduise par une table à changer, pas par
+une refonte.
+
 ## Enregistrer un vocal : la limite se pose sur la durée, pas sur le fichier
 
 Une photo trop lourde s'allège ; une phrase, non. La seule façon de faire tenir

@@ -5,6 +5,7 @@ import 'package:messages/core/domain/model/attachment.dart';
 import 'package:messages/core/domain/model/contact.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/core/domain/model/message.dart';
+import 'package:messages/core/domain/model/reaction_codec.dart';
 import 'package:messages/infrastructure/attachments/sample_image.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
@@ -149,7 +150,24 @@ abstract final class DemoSeed {
 
       // Un fil récent sans non-lu, avec un envoi encore en cours.
       make(julien, 'On se cale un créneau pour la revue ?', const Duration(hours: 3)),
+      // Deux réactions, telles qu'elles arrivent réellement : des SMS. Elles
+      // n'apparaissent pas comme des bulles — le repli les accroche à celles
+      // qu'elles citent. C'est le seul moyen de développer l'affichage hors
+      // téléphone, et de voir tout de suite si l'on a cassé le rattachement.
+      make(
+        julien,
+        ReactionCodec.encode(
+          emoji: '😂',
+          target: 'On se cale un créneau pour la revue ?',
+        ),
+        const Duration(hours: 2, minutes: 59),
+        outgoing: true,
+      ),
       make(julien, 'Jeudi 14h chez moi ?', const Duration(hours: 2, minutes: 58), outgoing: true, status: MessageStatus.sent),
+      // Le tapback d'un iPhone, dans sa langue et sa forme d'origine : c'est
+      // exactement ce que le stock contient quand un correspondant Apple
+      // réagit à l'un de nos messages.
+      make(julien, 'Liked “Jeudi 14h chez moi ?”', const Duration(hours: 2, minutes: 57)),
       // Une pièce jointe non visuelle : la bulle en fait une ligne de fichier.
       make(
         julien,

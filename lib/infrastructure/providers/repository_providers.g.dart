@@ -889,6 +889,65 @@ final class ThemeRepositoryProvider
 
 String _$themeRepositoryHash() => r'a948ece27b72bfc7a1e94052873d117823355140';
 
+/// Le repli des réactions se coupe depuis les réglages : c'est le filet quand
+/// la reconnaissance d'une phrase se trompe.
+
+@ProviderFor(reactionPreferencesRepository)
+final reactionPreferencesRepositoryProvider =
+    ReactionPreferencesRepositoryProvider._();
+
+/// Le repli des réactions se coupe depuis les réglages : c'est le filet quand
+/// la reconnaissance d'une phrase se trompe.
+
+final class ReactionPreferencesRepositoryProvider
+    extends
+        $FunctionalProvider<
+          ReactionPreferencesRepository,
+          ReactionPreferencesRepository,
+          ReactionPreferencesRepository
+        >
+    with $Provider<ReactionPreferencesRepository> {
+  /// Le repli des réactions se coupe depuis les réglages : c'est le filet quand
+  /// la reconnaissance d'une phrase se trompe.
+  ReactionPreferencesRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'reactionPreferencesRepositoryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$reactionPreferencesRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<ReactionPreferencesRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  ReactionPreferencesRepository create(Ref ref) {
+    return reactionPreferencesRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ReactionPreferencesRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ReactionPreferencesRepository>(
+        value,
+      ),
+    );
+  }
+}
+
+String _$reactionPreferencesRepositoryHash() =>
+    r'e9e8c414a0d7432ea516b0e18dd16efed46b6a65';
+
 /// Emoji récemment utilisés. `keepAlive` : c'est de la préférence, elle vit
 /// aussi longtemps que l'app.
 

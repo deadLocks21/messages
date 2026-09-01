@@ -18,6 +18,7 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 | **Pièces jointes** | Galerie, appareil photo, GIF, fichiers, fiche de contact ; compression des images au plafond de l'opérateur, une pièce jointe par MMS, image rouverte en grand, PDF et vidéos confiés au système. |
 | **Emoji & GIF** | Un panneau sous le champ, deux onglets, un seul en-tête. **Emoji** : les 1 906 emoji d'Unicode, noms et mots-clés français de CLDR (« mdr » trouve 😂), recherche sans accents, familles, récents persistés, retour arrière au caractère perçu. **GIF** : catalogue **Klipy** — recherche et grille en quinconce à deux colonnes. Ouvert et refermé par le même bouton du champ, dépliable au doigt. |
 | **Taille d'un GIF** | La déclinaison envoyée est **choisie** dans le budget MMS de l'opérateur avant tout téléchargement — un GIF ne se comprime pas, le ré-encoder le figerait. |
+| **Réactions** | Appui long → sept emoji, ceux de Google Messages. Une réaction n'est pas un champ : c'est un **SMS**, dont le corps imite le tapback d'un iPhone (`Liked “Bonjour”`) pour que Google Messages le repose sur la bulle plutôt que de l'afficher en toutes lettres. À l'arrivée, le repli les décroche du fil : les six verbes d'iOS et leurs traductions, la forme emoji d'iOS 18, celle de Google Messages, et les retraits. Pas de cible retrouvée, pas de repli — le message reste la bulle qu'il est. |
 | **Vocaux** | Deux gestes sur le même disque : appui bref → panneau à trois états (invitation, enregistrement avec compteur et piste, relecture) ; appui **maintenu** → la barre « Faire glisser pour annuler », relâcher joint, glisser vers la corbeille annule, glisser vers le cadenas rend la main au panneau. Durée bornée au budget MMS de l'opérateur, suppression du bruit annoncée quand l'appareil la sert, envoi en MMS `audio/amr`. |
 | **Réception** | `SMS_DELIVER` → écriture dans le stock + notification + rafraîchissement live de l'UI. |
 | **Réception MMS** | `WAP_PUSH_DELIVER` → décodage de la notification de dépôt, téléchargement auprès du MMSC, décodage du PDU, écriture des trois tables `content://mms` + notification. Photo, GIF, vocal, PDF et vCard reçus s'affichent comme ceux qu'on envoie. |
@@ -29,10 +30,19 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 Reste à faire : couvrir par des tests instrumentés le Kotlin qui touche au
 `ContentProvider` — `flutter_test` ne l'atteint pas. Ce qui s'en passe est déjà
 testé sur la JVM (`android/app/src/test/`, `./gradlew :app:testDebugUnitTest`) :
-le codec des PDU MMS en aller-retour de l'encodeur au décodeur, et le découpage
-d'un SMS en segments.
+le codec des PDU MMS en aller-retour de l'encodeur au décodeur, le découpage
+d'un SMS en segments, et la lecture des réactions par le récepteur qui notifie.
 
-Hors périmètre : le **RCS**.
+Hors périmètre : le **RCS** — d'où le détour par le texte pour les réactions,
+puisque Android n'ouvre pas sa pile RCS aux applications tierces.
+
+Le format des réactions reste un **pari mesuré** : le décodage de Google
+Messages n'est pas une spécification publique, seulement une fonctionnalité
+observée. On émet donc ce qui a le plus de chances de passer — le verbe anglais
+d'iOS pour les cinq emoji qui en ont un, la forme `Reacted 😢 to “…”` pour les
+deux autres — et le journal (`message.reacted`) dit lequel est parti, pour qu'un
+correspondant qui voit du texte à la place d'un emoji soit une information et
+non une énigme.
 
 ## Le stock SMS est la source de vérité
 
