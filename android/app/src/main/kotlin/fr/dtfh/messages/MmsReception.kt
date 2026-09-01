@@ -178,6 +178,7 @@ object MmsReception {
             Log.e(TAG, "téléchargement échoué (code $resultCode)")
             return
         }
+        Log.i(TAG, "téléchargement réussi, relecture du PDU")
 
         val store = MmsStore(context)
         val pdu = store.consumeDownloadFile(fileUri)

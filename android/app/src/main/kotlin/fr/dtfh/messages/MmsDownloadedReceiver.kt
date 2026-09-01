@@ -19,8 +19,13 @@ import android.content.Intent
  */
 class MmsDownloadedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val pending = goAsync()
+        // `resultCode` **avant** `goAsync()`, et l'ordre n'est pas une
+        // coquetterie : `goAsync()` détache le `PendingResult` du receveur, et
+        // `getResultCode()` rend alors `0` au lieu du code du service MMS. Lu
+        // après, tout téléchargement réussi (`RESULT_OK`, soit `-1`) passe pour
+        // un échec, et le MMS descendu est jeté.
         val code = resultCode
+        val pending = goAsync()
         Thread {
             try {
                 MmsReception.finish(context, intent, code)

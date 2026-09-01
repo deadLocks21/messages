@@ -551,17 +551,41 @@ class MmsStore(private val context: Context) {
         }
     }
 
-    private fun insertTextPart(messageId: Long, text: String) {
+    private fun insertTextPart(messageId: Long, text: String) = insertTextPart(
+        messageId = messageId,
+        contentType = "text/plain",
+        contentId = "<text_0>",
+        name = "text_0.txt",
+        charset = 106,
+        text = text,
+    )
+
+    /**
+     * Une partie **textuelle** vit dans la colonne `text`, pas dans un fichier.
+     *
+     * Le provider n'alloue de `_data` que pour les parties binaires : demander
+     * un flux de sortie sur une partie texte échoue par un
+     * `FileNotFoundException: Column _data not found`. C'est vrai du texte du
+     * message comme du SMIL, qui n'est rien d'autre qu'un document XML.
+     */
+    private fun insertTextPart(
+        messageId: Long,
+        contentType: String,
+        contentId: String,
+        name: String,
+        charset: Int,
+        text: String,
+    ) {
         val values = ContentValues().apply {
             put(Telephony.Mms.Part.MSG_ID, messageId)
-            put(Telephony.Mms.Part.CONTENT_TYPE, "text/plain")
-            put(Telephony.Mms.Part.CHARSET, 106)
-            put(Telephony.Mms.Part.CONTENT_ID, "<text_0>")
-            put(Telephony.Mms.Part.CONTENT_LOCATION, "text_0.txt")
+            put(Telephony.Mms.Part.CONTENT_TYPE, contentType)
+            put(Telephony.Mms.Part.CHARSET, charset)
+            put(Telephony.Mms.Part.CONTENT_ID, contentId)
+            put(Telephony.Mms.Part.CONTENT_LOCATION, name)
             put(Telephony.Mms.Part.TEXT, text)
         }
         runCatching { resolver.insert(partUriFor(messageId), values) }.onFailure {
-            Log.e(MmsReception.TAG, "partie texte non écrite sur $messageId", it)
+            Log.e(MmsReception.TAG, "partie $contentType non écrite sur $messageId", it)
         }
     }
 
@@ -666,13 +690,22 @@ class MmsStore(private val context: Context) {
 
         var index = 0
         for (part in retrieved.parts) {
-            // La partie SMIL est de la mise en page, pas une pièce jointe :
-            // elle est écrite quand même — le stock est partagé avec les autres
-            // apps — mais la lecture l'écarte déjà.
-            if (part.isText && !part.isSmil) {
-                insertTextPart(messageId, part.text())
-            } else {
-                insertDataPart(
+            when {
+                // Le SMIL est de la mise en page, pas une pièce jointe : la
+                // lecture l'écarte déjà. Il est écrit quand même — le stock est
+                // partagé avec les autres apps, et un MMS amputé de sa
+                // présentation s'afficherait mal ailleurs — mais comme un
+                // texte, sa colonne étant `text` et non un fichier.
+                part.isSmil -> insertTextPart(
+                    messageId = messageId,
+                    contentType = part.contentType,
+                    contentId = "<smil>",
+                    name = part.name ?: "smil.xml",
+                    charset = part.charset ?: 106,
+                    text = part.text(),
+                )
+                part.isText -> insertTextPart(messageId, part.text())
+                else -> insertDataPart(
                     messageId = messageId,
                     contentType = part.contentType,
                     contentId = "<part${index}>",
