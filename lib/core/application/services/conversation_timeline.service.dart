@@ -1,6 +1,10 @@
+import 'package:messages/core/application/dtos/avatar.dto.dart';
 import 'package:messages/core/application/dtos/conversation_timeline.dto.dart';
 import 'package:messages/core/application/dtos/message.dto.dart';
+import 'package:messages/core/application/dtos/reaction.dto.dart';
+import 'package:messages/core/application/services/avatar_palette.service.dart';
 import 'package:messages/core/application/services/contact_directory.service.dart';
+import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/core/domain/model/message.dart';
 import 'package:messages/core/domain/model/reaction_fold.dart';
@@ -81,6 +85,15 @@ class ConversationTimelineService {
                 ? directory.nameFor(message.address)
                 : null,
             reactions: folded.on(message.id),
+            // Les noms des réacteurs se résolvent ici et pas dans le DTO : le
+            // carnet est déjà chargé, et un fil à deux en a besoin autant
+            // qu'un groupe — c'est la fiche « Réactions » qui les lit, pas
+            // l'en-tête des bulles.
+            reactionAuthors: ReactionAuthorDto.list(
+              folded.on(message.id),
+              nameFor: directory.nameFor,
+              avatarFor: (address) => _avatarFor(address, directory),
+            ),
           ),
           isFirstOfGroup: startsSection || !_groups(previous, message),
           isLastOfGroup: next == null ||
@@ -92,6 +105,19 @@ class ConversationTimelineService {
     }
 
     return ConversationTimelineDto(threadId: threadId, entries: entries);
+  }
+
+  /// Pastille d'un réacteur : la même que partout ailleurs dans l'app, pour
+  /// qu'on reconnaisse dans la fiche le visage vu dans la liste des fils.
+  AvatarDto _avatarFor(Address address, ContactDirectory directory) {
+    final contact = directory.lookup(address);
+    return AvatarDto(
+      initial: contact?.initial ?? (address.isAlphanumeric
+          ? address.raw.trim().substring(0, 1).toUpperCase()
+          : ''),
+      colorSlot: AvatarPaletteService.slotFor(directory.colorSeedFor([address])),
+      photo: contact?.photo,
+    );
   }
 
   bool _separates(Message a, Message b) {

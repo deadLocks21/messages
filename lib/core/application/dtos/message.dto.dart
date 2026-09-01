@@ -26,6 +26,10 @@ class MessageDto {
   /// sont d'autres messages du fil, que le repli est venu accrocher ici.
   final List<ReactionDto> reactions;
 
+  /// Les mêmes réactions, une ligne par personne : de quoi répondre à « qui a
+  /// envoyé quoi » quand on appuie sur une pastille.
+  final List<ReactionAuthorDto> reactionAuthors;
+
   const MessageDto({
     required this.id,
     required this.threadId,
@@ -37,12 +41,14 @@ class MessageDto {
     this.senderName,
     this.attachments = const [],
     this.reactions = const [],
+    this.reactionAuthors = const [],
   });
 
   factory MessageDto.fromDomain(
     Message message, {
     String? senderName,
     List<Reaction> reactions = const [],
+    List<ReactionAuthorDto> reactionAuthors = const [],
   }) {
     return MessageDto(
       id: message.id,
@@ -55,6 +61,7 @@ class MessageDto {
       senderName: senderName,
       attachments: message.attachments.map(AttachmentDto.fromDomain).toList(),
       reactions: ReactionDto.group(reactions),
+      reactionAuthors: reactionAuthors,
     );
   }
 

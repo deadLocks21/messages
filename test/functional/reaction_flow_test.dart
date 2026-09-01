@@ -126,4 +126,91 @@ void main() {
     expect(find.textContaining('👍 Réaction à'), findsOneWidget);
     expect(find.textContaining('Liked'), findsNothing);
   });
+  testWidgets('toucher une pastille dit qui a posé quoi', (tester) async {
+    final device = TestDevice(
+      contacts: [
+        Build.contact(displayName: 'Camille', addresses: ['0612345678']),
+      ],
+    );
+    final threadId = device.store.threadIdFor([Build.address('+33612345678')]);
+    final mine = Build.message(
+      threadId: threadId,
+      body: 'Rendez-vous à 18h',
+      direction: MessageDirection.outgoing,
+    );
+    device.store.insert(mine);
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+
+    // Camille aime, puis nous rions : deux personnes, deux emoji.
+    device.store.receive(
+      from: Address.parse('+33612345678'),
+      body: 'Loved “Rendez-vous à 18h”',
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(Key('bubble_${mine.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('react_😂')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(Key('reaction_${mine.id}_😍')));
+    await tester.pumpAndSettle();
+
+    // Restreint à la feuille : l'en-tête du fil affiche lui aussi « Camille ».
+    final sheet = find.byKey(const Key('reactionsSheet'));
+    expect(sheet, findsOneWidget);
+    expect(find.descendant(of: sheet, matching: find.text('Camille')),
+        findsOneWidget);
+    expect(find.descendant(of: sheet, matching: find.text('Vous')),
+        findsOneWidget);
+  });
+
+  testWidgets('la fiche nomme le numéro quand le carnet ne connaît personne', (
+    tester,
+  ) async {
+    final device = TestDevice();
+    final threadId = device.store.threadIdFor([Build.address('+33612345678')]);
+    final mine = Build.message(
+      threadId: threadId,
+      body: 'Rendez-vous à 18h',
+      direction: MessageDirection.outgoing,
+    );
+    device.store.insert(mine);
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    device.store.receive(
+      from: Address.parse('+33612345678'),
+      body: 'Loved “Rendez-vous à 18h”',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(Key('reaction_${mine.id}_😍')));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(const Key('reactionsSheet'));
+    expect(sheet, findsOneWidget);
+    expect(
+      find.descendant(of: sheet, matching: find.text('06 12 34 56 78')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('un appui long sur la pastille garde le chemin du retrait', (
+    tester,
+  ) async {
+    final (device, threadId) = deviceWithThread();
+    final message = device.store.messagesFor(threadId).single;
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    await tester.longPress(find.byKey(Key('bubble_${message.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('react_👍')));
+    await tester.pumpAndSettle();
+
+    // La pastille mord sur la bulle : sans cet appui long, poser une réaction
+    // condamnerait le geste qui permet de la retirer.
+    await tester.longPress(find.byKey(Key('reaction_${message.id}_👍')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('messageActionCopy')), findsOneWidget);
+  });
 }

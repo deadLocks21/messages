@@ -16,14 +16,18 @@ class MessageBubble extends StatelessWidget {
     super.key,
     required this.entry,
     required this.onLongPress,
+    required this.onReactionsTap,
     this.onRetry,
   });
 
   final TimelineMessage entry;
 
   /// Ouvre la feuille du message — c'est aussi de là qu'on réagit, et c'est
-  /// pourquoi une pastille de réaction y mène elle aussi.
+  /// pourquoi un appui long sur une pastille y mène lui aussi.
   final VoidCallback onLongPress;
+
+  /// Ouvre la fiche « Réactions » : un appui sur une pastille.
+  final VoidCallback onReactionsTap;
   final VoidCallback? onRetry;
 
   static const _round = Radius.circular(20);
@@ -169,7 +173,11 @@ class MessageBubble extends StatelessWidget {
             ],
           ),
           if (message.hasReactions)
-            ReactionChips(message: message, onTap: onLongPress),
+            ReactionChips(
+              message: message,
+              onTap: onReactionsTap,
+              onLongPress: onLongPress,
+            ),
           if (entry.showStatus || failed)
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 6, right: 6),

@@ -12,13 +12,20 @@ class ReactionChips extends StatelessWidget {
     super.key,
     required this.message,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final MessageDto message;
 
-  /// Un appui rouvre la feuille : c'est de là qu'on change ou retire sa
-  /// réaction.
+  /// Un appui ouvre la fiche « Réactions » : qui a posé quoi. C'est la seule
+  /// question que la pastille elle-même ne sait pas répondre — elle compte,
+  /// elle ne nomme pas.
   final VoidCallback onTap;
+
+  /// Un appui long rouvre la feuille du message : c'est de là qu'on change ou
+  /// retire sa réaction. La pastille mord sur la bulle, elle en intercepterait
+  /// sinon l'appui long et fermerait ce chemin.
+  final VoidCallback onLongPress;
 
   /// De combien la rangée remonte sur la bulle.
   static const _overlap = 10.0;
@@ -42,6 +49,7 @@ class ReactionChips extends StatelessWidget {
                 child: InkWell(
                   key: Key('reaction_${message.id}_${reaction.emoji}'),
                   onTap: onTap,
+                  onLongPress: onLongPress,
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
                     padding: const EdgeInsets.symmetric(

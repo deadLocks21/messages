@@ -18,6 +18,7 @@ import 'package:messages/ui/pages/conversation/widgets/expression_picker.widget.
 import 'package:messages/ui/pages/conversation/widgets/message_bubble.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_composer.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_options.sheet.dart';
+import 'package:messages/ui/pages/conversation/widgets/reactions.sheet.dart';
 import 'package:messages/ui/pages/conversation/widgets/timeline_separator.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/voice_recorder.widget.dart';
 import 'package:messages/ui/providers/attachment_providers.dart';
@@ -128,6 +129,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                         timeline: timeline,
                         controller: _scroll,
                         onLongPress: _onMessageAction,
+                        onReactionsTap: _onReactionsTap,
                         onRetry: _resend,
                       ),
               ),
@@ -276,6 +278,10 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     if (!mounted) return;
     ref.invalidate(conversationTimelineProvider(widget.threadId));
   }
+
+  /// Qui a posé quoi : un appui sur une pastille de réaction.
+  Future<void> _onReactionsTap(MessageDto message) =>
+      ReactionsSheet.show(context, message);
 
   Future<void> _onMessageAction(MessageDto message) async {
     final choice = await MessageOptionsSheet.show(context, message);
@@ -479,12 +485,14 @@ class _Timeline extends StatelessWidget {
     required this.timeline,
     required this.controller,
     required this.onLongPress,
+    required this.onReactionsTap,
     required this.onRetry,
   });
 
   final ConversationTimelineDto timeline;
   final ScrollController controller;
   final ValueChanged<MessageDto> onLongPress;
+  final ValueChanged<MessageDto> onReactionsTap;
   final ValueChanged<MessageDto> onRetry;
 
   @override
@@ -504,6 +512,7 @@ class _Timeline extends StatelessWidget {
           TimelineMessage() => MessageBubble(
             entry: entry,
             onLongPress: () => onLongPress(entry.message),
+            onReactionsTap: () => onReactionsTap(entry.message),
             onRetry: entry.message.status.hasFailed
                 ? () => onRetry(entry.message)
                 : null,
