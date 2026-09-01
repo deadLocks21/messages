@@ -14,7 +14,7 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 |---|---|
 | **Conversations** | Liste triée (épinglés d'abord), pastille de non-lus, recherche et ses filtres (« Non lues », « Archivées »), archives, mode sélection multiple (épingler, archiver, sourdine, marquer lu, supprimer). |
 | **Fil** | Bulles groupées à la Google Messages, séparateurs de date, états `Envoi… / Envoyé / Distribué / Non distribué`, appui long (copier, transférer, supprimer, détails, réessayer), appel du correspondant. |
-| **Envoi** | SMS simple et multi-parties (compteur de segments), envoi optimiste, accusés de dépôt et de remise, renvoi d'un échec. |
+| **Envoi** | SMS simple et multi-parties (découpage GSM 7 bits / UCS-2 fait par l'app, compteur de segments), envoi optimiste, accusés de dépôt et de remise, notification « Message non envoyé », renvoi d'un échec. |
 | **Pièces jointes** | Galerie, appareil photo, GIF, fichiers, fiche de contact ; compression des images au plafond de l'opérateur, une pièce jointe par MMS, image rouverte en grand, PDF et vidéos confiés au système. |
 | **Emoji & GIF** | Un panneau sous le champ, deux onglets, un seul en-tête. **Emoji** : les 1 906 emoji d'Unicode, noms et mots-clés français de CLDR (« mdr » trouve 😂), recherche sans accents, familles, récents persistés, retour arrière au caractère perçu. **GIF** : catalogue **Klipy** — recherche et grille en quinconce à deux colonnes. Ouvert et refermé par le même bouton du champ, dépliable au doigt. |
 | **Taille d'un GIF** | La déclinaison envoyée est **choisie** dans le budget MMS de l'opérateur avant tout téléchargement — un GIF ne se comprime pas, le ré-encoder le figerait. |
@@ -22,15 +22,15 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 | **Réception** | `SMS_DELIVER` → écriture dans le stock + notification + rafraîchissement live de l'UI. |
 | **Réception MMS** | `WAP_PUSH_DELIVER` → décodage de la notification de dépôt, téléchargement auprès du MMSC, décodage du PDU, écriture des trois tables `content://mms` + notification. Photo, GIF, vocal, PDF et vCard reçus s'affichent comme ceux qu'on envoie. |
 | **Rédaction** | Sélecteur de contacts (nom ou numéro), numéro libre, brouillons persistés, transfert d'un message. |
-| **Notifications** | `MessagingStyle` (fil des derniers échanges, nom du contact), **réponse directe** et **marquer comme lu** depuis le volet, groupement + résumé, sourdine par fil respectée, annulation quand le fil est lu dans l'app. |
+| **Notifications** | `MessagingStyle` (fil des derniers échanges, nom du contact), **réponse directe** et **marquer comme lu** depuis le volet, groupement + résumé, sourdine par fil respectée, annulation quand le fil est lu dans l'app. Les **échecs d'envoi** ont leur propre canal. |
 | **Système** | Demande des permissions (SMS, contacts, notifications) puis du rôle **application SMS par défaut**, ouverture depuis une notification ou un lien `sms:`, thème clair/sombre. |
 | **Journalisation** | Logs applicatifs et erreurs expédiés à **Signoz** en OTLP/HTTP, avec l'écran courant et l'état du rôle d'app par défaut sur chaque ligne. |
 
-Reste à faire : notifier les **échecs d'envoi** (« Message non envoyé »), et
-couvrir par des tests instrumentés le Kotlin qui touche au `ContentProvider` —
-`flutter_test` ne l'atteint pas. Ce qui s'en passe est déjà testé sur la JVM
-(`android/app/src/test/`, `./gradlew :app:testDebugUnitTest`) : le codec des
-PDU MMS, en aller-retour de l'encodeur au décodeur.
+Reste à faire : couvrir par des tests instrumentés le Kotlin qui touche au
+`ContentProvider` — `flutter_test` ne l'atteint pas. Ce qui s'en passe est déjà
+testé sur la JVM (`android/app/src/test/`, `./gradlew :app:testDebugUnitTest`) :
+le codec des PDU MMS en aller-retour de l'encodeur au décodeur, et le découpage
+d'un SMS en segments.
 
 Hors périmètre : le **RCS**.
 

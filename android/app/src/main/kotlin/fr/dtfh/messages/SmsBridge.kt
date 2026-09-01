@@ -2,12 +2,8 @@ package fr.dtfh.messages
 
 import android.app.Activity
 import android.app.role.RoleManager
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
-import android.app.PendingIntent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
@@ -24,11 +20,14 @@ import java.util.concurrent.Executors
 /**
  * Côté natif du canal `fr.dtfh.messages/sms`.
  *
- * Trois responsabilités :
+ * Deux responsabilités :
  * 1. exposer [SmsStore] à Dart (fils, messages, envoi, suppression) ;
  * 2. porter la demande du rôle « application SMS par défaut », qui exige une
- *    `Activity` et un retour d'`onActivityResult` ;
- * 3. écouter les accusés d'envoi/remise et les republier vers Dart.
+ *    `Activity` et un retour d'`onActivityResult`.
+ *
+ * Les accusés d'envoi et de remise, eux, ne passent plus par ici : ils
+ * arrivent à [SmsSendStatusReceiver], déclaré au manifeste, pour continuer
+ * d'être traités quand l'app n'est plus à l'écran.
  *
  * Les codes d'erreur rendus (`not_default_sms_app`, `permission_denied`,
  * `not_found`) sont ceux que `AndroidSmsChannel` traduit en exceptions du
@@ -43,32 +42,6 @@ class SmsBridge(
         const val METHOD_CHANNEL = "fr.dtfh.messages/sms"
         const val EVENT_CHANNEL = "fr.dtfh.messages/sms_events"
         const val ROLE_REQUEST_CODE = 4711
-
-        /**
-         * L'accusé que le service MMS du système rendra une fois le PDU déposé
-         * auprès du MMSC.
-         *
-         * Le MMS n'a pas d'accusé de remise séparé comme le SMS : le dépôt est
-         * le seul retour, et il arrive par ce `PendingIntent` que
-         * [MmsStore.sendMessage] confie à `sendMultimediaMessage`.
-         */
-        fun mmsSentIntent(
-            context: Context,
-            messageId: String,
-            threadId: String,
-        ): PendingIntent {
-            val intent = Intent(MmsStore.ACTION_MMS_SENT).apply {
-                setPackage(context.packageName)
-                putExtra(SmsStore.EXTRA_MESSAGE_ID, messageId)
-                putExtra(SmsStore.EXTRA_THREAD_ID, threadId)
-            }
-            return PendingIntent.getBroadcast(
-                context,
-                (messageId + MmsStore.ACTION_MMS_SENT).hashCode(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-        }
     }
 
     private val methodChannel = MethodChannel(messenger, METHOD_CHANNEL)
@@ -137,44 +110,15 @@ class SmsBridge(
      */
     private var launchRequest: Map<String, Any?>? = parseComposeIntent(activity.intent)
 
-    /** Accusés d'envoi et de remise, publiés par [SmsStore] via PendingIntent. */
-    private val sendStatusReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val messageId = intent.getStringExtra(SmsStore.EXTRA_MESSAGE_ID) ?: return
-            val threadId = intent.getStringExtra(SmsStore.EXTRA_THREAD_ID).orEmpty()
-            val delivered = intent.action == SmsStore.ACTION_SMS_DELIVERED
-            val success = resultCode == Activity.RESULT_OK
-            val status = runCatching {
-                store.applySendResult(messageId, delivered = delivered, success = success)
-            }.getOrDefault(if (success) "sent" else "failed")
-            SmsEventBus.emitStatus(messageId, threadId, status)
-            // Le stock a changé de forme, pas seulement d'état : un MMS passé
-            // en « envoyé » sort de la boîte d'envoi.
-            if (MmsStore.isMmsId(messageId)) SmsEventBus.emitChanged()
-        }
-    }
-
     fun attach() {
         methodChannel.setMethodCallHandler(this)
         eventChannel.setStreamHandler(this)
-        val filter = IntentFilter().apply {
-            addAction(SmsStore.ACTION_SMS_SENT)
-            addAction(SmsStore.ACTION_SMS_DELIVERED)
-            addAction(MmsStore.ACTION_MMS_SENT)
-        }
-        ContextCompat.registerReceiver(
-            activity,
-            sendStatusReceiver,
-            filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED,
-        )
     }
 
     fun detach() {
         methodChannel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
         SmsEventBus.detach()
-        runCatching { activity.unregisterReceiver(sendStatusReceiver) }
         storeExecutor.shutdown()
     }
 

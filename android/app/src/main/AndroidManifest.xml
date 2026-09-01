@@ -90,6 +90,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- Issue d'un envoi : dépôt réseau du SMS, remise au destinataire,
+             dépôt du MMS auprès du MMSC. Déclaré au manifeste, et non
+             enregistré à chaud par l'Activity : l'accusé arrive après un
+             aller-retour réseau, souvent alors que l'utilisateur a déjà quitté
+             l'application — c'est justement là qu'un échec doit se signaler. -->
+        <receiver
+            android:name=".SmsSendStatusReceiver"
+            android:exported="false"/>
+
         <!-- Issue du téléchargement du MMS auprès du MMSC. Déclaré au
              manifeste : entre l'annonce et la descente il s'écoule un
              aller-retour réseau, pendant lequel l'app peut ne plus tourner —

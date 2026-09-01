@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
-import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.os.Build
@@ -32,7 +31,7 @@ class SmsStore(private val context: Context) {
     private val mms = MmsStore(context)
 
     companion object {
-        /** Action des accusés de dépôt réseau (`PendingIntent` de `sendTextMessage`). */
+        /** Action des accusés de dépôt réseau, portée par [SmsSendStatusReceiver]. */
         const val ACTION_SMS_SENT = "fr.dtfh.messages.SMS_SENT"
 
         /** Action des accusés de remise. */
@@ -317,7 +316,7 @@ class SmsStore(private val context: Context) {
      * Dépose un SMS et l'écrit immédiatement dans le stock, en `outbox`.
      *
      * Le message rendu est donc visible tout de suite, à l'état « Envoi… » ;
-     * `SmsSendStatusReceiver` le fera passer à « Envoyé » puis « Distribué »
+     * [SmsSendStatusReceiver] le fera passer à « Envoyé » puis « Distribué »
      * (ou « Non distribué ») via les `PendingIntent` posés ici.
      */
     fun sendMessage(
@@ -352,7 +351,10 @@ class SmsStore(private val context: Context) {
         val messageId = uri.lastPathSegment ?: throw IllegalStateException("_id manquant")
 
         val manager = smsManager(subscriptionId)
-        val parts = manager.divideMessage(body)
+        // Le découpage est le nôtre, pas celui de `SmsManager.divideMessage` :
+        // au-delà d'un segment en UCS-2, celui d'Android lit la SIM et exige
+        // `READ_PHONE_STATE`. Cf. [SmsSegments].
+        val parts = ArrayList(SmsSegments.divide(body))
         // Un seul accusé suffit par message : seule la dernière partie porte les
         // PendingIntent, sinon un SMS long produirait autant d'événements que de
         // segments.
@@ -360,16 +362,40 @@ class SmsStore(private val context: Context) {
         val delivered = ArrayList<PendingIntent?>(parts.size)
         for (index in parts.indices) {
             val last = index == parts.size - 1
-            sent.add(if (last) pendingIntent(ACTION_SMS_SENT, messageId, threadId) else null)
+            sent.add(
+                if (last) {
+                    SmsSendStatusReceiver.pendingIntent(
+                        context, ACTION_SMS_SENT, messageId, threadId,
+                    )
+                } else {
+                    null
+                }
+            )
             delivered.add(
-                if (last) pendingIntent(ACTION_SMS_DELIVERED, messageId, threadId) else null
+                if (last) {
+                    SmsSendStatusReceiver.pendingIntent(
+                        context, ACTION_SMS_DELIVERED, messageId, threadId,
+                    )
+                } else {
+                    null
+                }
             )
         }
 
         // Plusieurs destinataires ⇒ autant de SMS distincts : le SMS n'a pas de
         // notion de groupe, c'est le MMS qui l'apporte.
-        for (recipient in recipients) {
-            manager.sendMultipartTextMessage(recipient, null, parts, sent, delivered)
+        try {
+            for (recipient in recipients) {
+                manager.sendMultipartTextMessage(recipient, null, parts, sent, delivered)
+            }
+        } catch (e: Exception) {
+            // Le message est déjà écrit dans le stock, en `outbox` : un refus
+            // ici l'y laisserait « Envoi… » pour toujours, alors que rien n'est
+            // parti. On le marque échoué avant de laisser remonter l'erreur,
+            // pour que le fil le présente comme tel et propose de réessayer.
+            runCatching { applySendResult(messageId, delivered = false, success = false) }
+            SmsEventBus.emitChanged()
+            throw e
         }
 
         return getMessage(messageId) ?: mapOf(
@@ -452,23 +478,6 @@ class SmsStore(private val context: Context) {
         } else {
             SmsManager.getDefault()
         }
-    }
-
-    private fun pendingIntent(action: String, messageId: String, threadId: String): PendingIntent {
-        val intent = Intent(action).apply {
-            setPackage(context.packageName)
-            putExtra(EXTRA_MESSAGE_ID, messageId)
-            putExtra(EXTRA_THREAD_ID, threadId)
-        }
-        return PendingIntent.getBroadcast(
-            context,
-            // Un code distinct par (message, action) : sans cela deux envois
-            // simultanés partageraient le même PendingIntent et donc les mêmes
-            // extras.
-            (messageId + action).hashCode(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
     }
 
     private inline fun query(

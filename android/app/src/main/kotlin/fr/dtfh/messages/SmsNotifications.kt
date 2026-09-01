@@ -13,7 +13,8 @@ import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 
 /**
- * Notifications de SMS entrants.
+ * Notifications de la messagerie : les SMS entrants, et les envois que le
+ * réseau a refusés.
  *
  * Une application SMS par défaut est seule responsable de prévenir
  * l'utilisateur : le système ne notifie plus rien à sa place.
@@ -32,6 +33,23 @@ import androidx.core.app.RemoteInput
 object SmsNotifications {
     private const val CHANNEL_ID = "sms"
     private const val CHANNEL_NAME = "Messages SMS"
+
+    /**
+     * Un échec d'envoi ne se range pas avec les messages reçus : ce n'est pas
+     * la même urgence, et l'utilisateur doit pouvoir couper l'un sans l'autre.
+     * D'où un canal séparé, que le système présente sous son propre nom dans
+     * les réglages.
+     */
+    private const val FAILURE_CHANNEL_ID = "send_failures"
+    private const val FAILURE_CHANNEL_NAME = "Échecs d'envoi"
+
+    /**
+     * Préfixe du tag des notifications d'échec : elles portent le même
+     * `thread_id` que celle du fil, mais ne disent pas la même chose et ne
+     * doivent pas se remplacer l'une l'autre.
+     */
+    private const val FAILURE_TAG = "send-failure:"
+
     private const val GROUP_KEY = "fr.dtfh.messages.SMS"
     private const val SUMMARY_ID = 1
 
@@ -64,9 +82,52 @@ object SmsNotifications {
     fun refreshAfterReply(context: Context, threadId: String, address: String) =
         notify(context, threadId, address, body = null, timestamp = 0, alert = false)
 
+    /**
+     * Prévient que le message n'est pas parti.
+     *
+     * C'est le pendant de la bulle « Non distribué » pour l'utilisateur qui a
+     * quitté l'écran : l'envoi d'un SMS se joue après coup, et sans cette
+     * notification un message resté au sol ne se découvre qu'en rouvrant le
+     * fil, parfois des heures plus tard.
+     *
+     * La sourdine du fil n'est **pas** consultée : elle dit « ne me préviens
+     * pas de ce que cette personne m'écrit », pas « ne me préviens pas quand
+     * ce que je lui écris n'arrive pas ».
+     */
+    fun notifySendFailure(
+        context: Context,
+        threadId: String,
+        address: String,
+        body: String,
+    ) {
+        ensureFailureChannel(context)
+
+        val name = NotificationSettings.nameFor(context, address) ?: address
+        val builder = NotificationCompat.Builder(context, FAILURE_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_notify_error)
+            .setContentTitle("Message non envoyé")
+            .setContentText(name.ifBlank { "Touchez pour réessayer" })
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setCategory(NotificationCompat.CATEGORY_ERROR)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            // Le fil s'ouvre sur le message en échec, où l'appui long propose
+            // « Réessayer » : la notification mène là où on répare, elle ne se
+            // contente pas d'annoncer.
+            .setContentIntent(openThreadIntent(context, threadId, address))
+
+        runCatching {
+            NotificationManagerCompat.from(context)
+                .notify(FAILURE_TAG + threadId, threadId.hashCode(), builder.build())
+        }
+    }
+
     fun cancel(context: Context, threadId: String) {
         val manager = NotificationManagerCompat.from(context)
         manager.cancel(threadId, threadId.hashCode())
+        // Le fil vient d'être lu : l'échec y est visible sur la bulle, la
+        // notification n'a plus rien à apprendre à personne.
+        manager.cancel(FAILURE_TAG + threadId, threadId.hashCode())
         clearAnchor(context, threadId)
         // Le résumé ne doit pas survivre seul à la dernière notification du
         // groupe : Android le laisserait affiché, vide. `cancel` étant
@@ -210,7 +271,13 @@ object SmsNotifications {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return 0
         val manager = context.getSystemService(NotificationManager::class.java) ?: return 0
         return runCatching {
-            manager.activeNotifications.count { it.id != SUMMARY_ID && it.tag != except }
+            manager.activeNotifications.count {
+                // Un échec d'envoi n'appartient pas au groupe des messages
+                // reçus : le compter ferait survivre leur résumé à lui seul.
+                it.id != SUMMARY_ID &&
+                    it.tag != except &&
+                    it.tag?.startsWith(FAILURE_TAG) != true
+            }
         }.getOrDefault(0)
     }
 
@@ -289,6 +356,22 @@ object SmsNotifications {
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = "Nouveaux messages reçus"
+                enableVibration(true)
+            }
+        )
+    }
+
+    private fun ensureFailureChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        if (manager.getNotificationChannel(FAILURE_CHANNEL_ID) != null) return
+        manager.createNotificationChannel(
+            NotificationChannel(
+                FAILURE_CHANNEL_ID,
+                FAILURE_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Messages que le réseau n'a pas acceptés"
                 enableVibration(true)
             }
         )

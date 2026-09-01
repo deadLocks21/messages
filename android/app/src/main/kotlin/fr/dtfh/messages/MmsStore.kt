@@ -474,7 +474,14 @@ class MmsStore(private val context: Context) {
             pduUri,
             null,
             null,
-            SmsBridge.mmsSentIntent(context, ID_PREFIX + messageId, threadId),
+            // Le MMS n'a pas d'accusé de remise séparé comme le SMS : le dépôt
+            // auprès du MMSC est le seul retour que rende l'opérateur.
+            SmsSendStatusReceiver.pendingIntent(
+                context,
+                ACTION_MMS_SENT,
+                ID_PREFIX + messageId,
+                threadId,
+            ),
         )
 
         return getMessage(ID_PREFIX + messageId) ?: mapOf(

@@ -88,6 +88,117 @@ d'imposer le sien.
   bleue, elle affiche les mêmes pastilles jaune et orange. Elles servent à
   distinguer les correspondants, pas à décorer.
 
+## Envoyer un SMS long : le découper nous-mêmes coûte moins cher qu'une permission
+
+Un SMS de deux segments ou plus partait en échec, systématiquement, là où un
+message d'un seul segment passait. Côté Dart, une
+`SmsPermissionDeniedException` ; côté natif, une `SecurityException` dont le
+message tenait en un mot : `getGroupIdLevel1`.
+
+Ce mot est tout le diagnostic. `SmsStore.sendMessage` demandait ses segments à
+`SmsManager.divideMessage(body)`, qui délègue à
+`android.telephony.SmsMessage.fragmentText`. Là, **dans la seule branche UCS-2,
+et seulement au-delà d'un segment**, `fragmentText` appelle `hasEmsSupport()` —
+qui lit `getSimOperatorNumeric()` puis `getGroupIdLevel1()` pour vérifier si
+l'opérateur de la SIM figure dans la liste système
+`no_ems_support_sim_operators`, celle des rares réseaux incapables de recoller
+un message concaténé. Or `getGroupIdLevel1()` est protégée par
+`READ_PHONE_STATE`, que le manifeste ne déclare pas.
+
+Trois choses expliquent que la panne soit si étroite :
+
+- **Un seul segment ne déclenche rien.** `hasEmsSupport()` n'est appelée qu'à
+  partir de deux. Tous les messages courts passaient.
+- **La branche 7 bits non plus.** Un texte sans accent tient 160 caractères par
+  segment et emprunte l'autre branche de `fragmentText`. Il fallait un message
+  *accentué* **et** long : « ê », « û », « ô » ne sont pas dans l'alphabet GSM
+  et font basculer le message entier en UCS-2, où un segment ne porte plus que
+  70 caractères. Un texte français de 77 caractères suffit.
+- **Le `Binder.clearCallingIdentity()` d'AOSP ne protège pas l'appelant.** Il
+  neutralise l'identité des appels qu'un processus *reçoit*, pas celle que le
+  processus téléphonie voit de l'appel qu'on lui *émet*. Posé autour de
+  `getGroupIdLevel1()`, il sert au processus téléphonie quand celui-ci appelle
+  pour lui-même ; dans le nôtre, il ne change rien.
+
+Ce n'est pas une particularité de GrapheneOS. `no_ems_support_sim_operators`
+est une ressource de `framework-res.apk`, non vide sur le Pixel
+(`["20404;suffix;BAE0000000000000"]` — un opérateur néerlandais reconnu au
+suffixe de son GID1), et les surcouches GrapheneOS n'y touchent pas. Toute
+application SMS qui ne déclare pas `READ_PHONE_STATE` prend la même erreur sur
+le même message.
+
+### Déclarer la permission, ou ne plus poser la question
+
+Les deux voies réparaient l'envoi. C'est la seconde qui est retenue.
+
+`READ_PHONE_STATE` appartient au groupe **Téléphone** : Android la demande sous
+la forme « autoriser Messages à effectuer et gérer les appels téléphoniques ? ».
+Une application de SMS n'a rien à répondre à l'utilisateur qui demande pourquoi
+— et celui qui refuse, à raison, retrouve le bug intact : on aurait troqué une
+panne certaine contre une panne conditionnée à un refus légitime. Le tout pour
+une branche qui ne sert qu'à un opérateur néerlandais, jamais à un abonné
+français.
+
+`SmsSegments` découpe donc le message lui-même, selon le 3GPP TS 23.038 :
+alphabet GSM 7 bits tant que tout le texte y tient (160 caractères seul, 153
+concaténé), UCS-2 sinon (70 et 67). Une paire d'échappement — « € », « [ »,
+« { » — ne se coupe pas en deux ; une paire de substitution UTF-16 — un emoji —
+non plus. Le reste de l'envoi est inchangé : `sendMultipartTextMessage` reçoit
+nos segments, et l'appel à `hasEmsSupport()` qu'il déclenche de son côté a lieu
+**dans le processus téléphonie**, sous l'identité de celui-ci, où la permission
+est acquise.
+
+Ce qu'on abandonne, explicitement :
+
+- **Le repli « pas d'EMS » d'AOSP** — deux caractères de moins par segment pour
+  y écrire un « 1/3 » en clair. Il suppose justement la lecture de la SIM qu'on
+  refuse de faire. Sur un réseau sans EMS, nos segments arriveraient séparés au
+  lieu d'être recollés.
+- **Les tables de langue nationales** du GSM 7 bits, qu'Android n'active que sur
+  configuration opérateur et qu'aucun réseau français ne demande.
+
+En échange, le découpage se **teste** (`SmsSegmentsTest`, sur la JVM), ce que
+`divideMessage` ne permettait pas : rien ne se perd — la concaténation des
+segments rend le corps d'origine — et rien ne déborde.
+
+### Un échec d'envoi se dit, même quand l'app n'est plus là
+
+Deux moments peuvent échouer, et ils ne se ressemblent pas.
+
+Le **refus immédiat** — la plateforme rend la main sur une exception — arrive
+alors que le message est déjà écrit dans le stock, en `outbox`. Sans reprise il
+y resterait « Envoi… » pour toujours, alors que rien n'est parti. `SmsStore` le
+marque donc échoué avant de laisser remonter l'erreur, et publie un changement
+du stock : le fil montre la bulle en échec, avec son « Réessayer », pendant que
+l'écran dit ce qui s'est passé. Le message n'est pas supprimé — plusieurs
+destinataires signifient plusieurs envois, et le deuxième peut échouer après que
+le premier est parti.
+
+Le **dépôt manqué** arrive plus tard, par `PendingIntent`, après un aller-retour
+réseau pendant lequel l'utilisateur a très bien pu quitter l'application. C'est
+pourquoi ces accusés ne sont plus écoutés par un receveur enregistré à chaud sur
+l'`Activity`, mais par `SmsSendStatusReceiver`, **déclaré au manifeste** — la
+même raison que pour `MmsDownloadedReceiver`, et le défaut que corrige ce
+déplacement est le même : un accusé qui n'arrive à personne laisse le message
+figé sur « Envoi… », sans que rien ne le dise jamais. Le receveur applique
+l'issue au stock, republie l'état vers Dart quand l'app est ouverte — il tourne
+dans le même processus, `SmsEventBus` fait le reste — et notifie « Message non
+envoyé » sinon. La notification ouvre le fil sur le message concerné, là où
+l'appui long propose de réessayer : elle mène où l'on répare, elle ne se contente
+pas d'annoncer.
+
+Trois choix sur cette notification :
+
+- **Un canal séparé** (« Échecs d'envoi »), distinct de celui des messages
+  reçus : ce ne sont pas la même urgence, et l'utilisateur doit pouvoir couper
+  l'un sans l'autre.
+- **La sourdine du fil n'est pas consultée.** Elle dit « ne me préviens pas de
+  ce que cette personne m'écrit », pas « ne me préviens pas quand ce que je lui
+  écris n'arrive pas ».
+- **Seul le dépôt manqué se notifie.** Un accusé de remise négatif porte sur un
+  message que le réseau a, lui, bien accepté : la bulle en rend compte, sans
+  qu'il faille sortir l'utilisateur de ce qu'il fait.
+
 ## Pièces jointes : le SMS ne les porte pas, le MMS oui
 
 Joindre une photo change le **transport**, pas seulement le contenu. Un message
@@ -814,6 +925,8 @@ d'implémentation.
   d'échanges déjà vus. C'est l'état affiché qui arbitre, pas le drapeau `read` du
   provider — une notification balayée sans être lue ne doit pas ressortir au
   message suivant.
+- Les **échecs d'envoi** notifient aussi, sur leur propre canal et sans regarder
+  la sourdine du fil : cf. « Envoyer un SMS long ».
 
 ## Permissions & rôle d'app SMS par défaut
 
@@ -821,6 +934,10 @@ d'implémentation.
   défaut. L'UI est redirigée vers `/welcome` tant que la lecture n'est pas possible.
 - Le rôle par défaut est demandé via `RoleManager` (API 29+) avec repli sur l'intent
   `ACTION_CHANGE_DEFAULT` (API < 29).
+- Le manifeste ne déclare **pas** `READ_PHONE_STATE`, et c'est un choix : cf.
+  « Envoyer un SMS long », où l'on préfère découper le message soi-même plutôt
+  que de demander à l'utilisateur un accès au groupe « Téléphone » qu'une
+  application de SMS ne saurait pas justifier.
 
 ## Lancer
 
