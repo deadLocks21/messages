@@ -13,7 +13,7 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 | | |
 |---|---|
 | **Conversations** | Liste triée (épinglés d'abord), pastille de non-lus, recherche et ses filtres (« Non lues », « Archivées »), archives, mode sélection multiple (épingler, archiver, sourdine, marquer lu, supprimer). |
-| **Fil** | Bulles groupées à la Google Messages, séparateurs de date, états `Envoi… / Envoyé / Distribué / Non distribué`, appui long (copier, transférer, supprimer, détails, réessayer), appel du correspondant. |
+| **Fil** | Bulles groupées à la Google Messages, séparateurs de date, état de l'envoi porté par une coche sous la dernière bulle envoyée (horloge, une coche au dépôt, deux à la remise ; l'échec, seul, garde ses mots en rouge), appui long (copier, transférer, supprimer, détails, réessayer), appel du correspondant. |
 | **Envoi** | SMS simple et multi-parties (découpage GSM 7 bits / UCS-2 fait par l'app, compteur de segments), envoi optimiste, accusés de dépôt et de remise, notification « Message non envoyé », renvoi d'un échec. |
 | **Pièces jointes** | Galerie, appareil photo, GIF, fichiers, fiche de contact ; compression des images au plafond de l'opérateur, une pièce jointe par MMS, image rouverte en grand, PDF et vidéos confiés au système. |
 | **Emoji & GIF** | Un panneau sous le champ, deux onglets, un seul en-tête. **Emoji** : les 1 906 emoji d'Unicode, noms et mots-clés français de CLDR (« mdr » trouve 😂), recherche sans accents, familles, récents persistés, retour arrière au caractère perçu. **GIF** : catalogue **Klipy** — recherche et grille en quinconce à deux colonnes. Ouvert et refermé par le même bouton du champ, dépliable au doigt. |

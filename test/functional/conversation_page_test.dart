@@ -63,7 +63,28 @@ void main() {
         .firstWhere((m) => m.direction == MessageDirection.outgoing);
     expect(sent.body, 'Oui, 20h ?');
     expect(find.text('Oui, 20h ?'), findsOneWidget);
-    expect(find.text('Envoi…'), findsOneWidget);
+    expect(find.byIcon(Icons.schedule), findsOneWidget);
+  });
+
+  testWidgets('la remise passe la coche en double coche', (tester) async {
+    final (device, threadId) = deviceWithThread();
+    final sent = Build.message(
+      threadId: threadId,
+      direction: MessageDirection.outgoing,
+      status: MessageStatus.sent,
+      body: 'Oui, 20h ?',
+    );
+    device.store.insert(sent);
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    expect(find.byIcon(Icons.done_all), findsNothing);
+
+    device.store.updateStatus(sent.id, MessageStatus.delivered);
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.done_all), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsNothing);
   });
 
   testWidgets('le brouillon est conservé en quittant le fil', (tester) async {
@@ -102,6 +123,8 @@ void main() {
     await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
 
     expect(find.byKey(Key('retry_${failed.id}')), findsOneWidget);
+    // L'échec est le seul état qui garde ses mots à côté de son icône.
+    expect(find.byIcon(Icons.error_outline), findsOneWidget);
     expect(find.text('Non distribué'), findsOneWidget);
   });
 

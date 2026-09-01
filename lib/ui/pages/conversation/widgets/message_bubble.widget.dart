@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:messages/core/application/dtos/conversation_timeline.dto.dart';
 import 'package:messages/core/application/dtos/message.dto.dart';
 import 'package:messages/ui/pages/conversation/widgets/message_attachments.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/message_status_tick.widget.dart';
 import 'package:messages/ui/theme/app_colors.dart';
 
 /// Une bulle de message.
@@ -164,13 +165,10 @@ class MessageBubble extends StatelessWidget {
           if (entry.showStatus || failed)
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 6, right: 6),
-              child: Text(
-                message.statusLabel,
+              child: MessageStatusTick(
                 key: Key('status_${message.id}'),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: failed ? colors.danger : colors.textMuted,
-                ),
+                status: message.status,
+                label: message.statusLabel,
               ),
             ),
         ],
