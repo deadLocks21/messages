@@ -57,6 +57,21 @@ abstract final class MessageActionsOverlay {
   /// Le menu s'aligne sur le bord de la bulle, donc sur la marge du fil.
   static const _bubbleMargin = 14.0;
 
+  /// Durée relevée sur l'app d'origine, image par image : les deux panneaux y
+  /// sont posés en une quinzaine d'images à 60 Hz.
+  static const _grow = Duration(milliseconds: 250);
+
+  /// Une décélération franche, mais pas instantanée. Relevée sur l'app
+  /// d'origine : le panneau passe six images à grandir avant de se poser, et
+  /// c'est cette phase-là qui le fait lire comme un dépliement. Une courbe plus
+  /// chargée à l'avant (l'« emphasized » de Material) la saute entièrement — le
+  /// panneau naît large, et il ne reste qu'un fondu.
+  static const _ease = Curves.easeOutCubic;
+
+  /// De quelle taille les panneaux partent. Pas de zéro : un panneau qui naît
+  /// d'un point se lit comme un surgissement, alors qu'il se déplie.
+  static const _from = 0.3;
+
   static Future<MessageChoice?> show(
     BuildContext context, {
     required TimelineMessage entry,
@@ -67,13 +82,12 @@ abstract final class MessageActionsOverlay {
       barrierDismissible: true,
       barrierLabel: 'Fermer',
       barrierColor: Colors.black.withValues(alpha: 0.45),
-      transitionDuration: const Duration(milliseconds: 120),
-      pageBuilder: (context, _, _) =>
-          _ActionsLayer(entry: entry, anchor: anchor),
-      transitionBuilder: (context, animation, _, child) => FadeTransition(
-        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-        child: child,
-      ),
+      transitionDuration: _grow,
+      // Chaque bloc a sa propre entrée — une transition d'ensemble les ferait
+      // tous grandir depuis le même point, et le menu se décollerait de la
+      // bulle qu'il commande.
+      pageBuilder: (context, animation, _) =>
+          _ActionsLayer(entry: entry, anchor: anchor, animation: animation),
     );
   }
 
@@ -117,10 +131,15 @@ abstract final class MessageActionsOverlay {
 
 /// La surcouche elle-même : bulle repeinte, pilule au-dessus, menu en dessous.
 class _ActionsLayer extends StatelessWidget {
-  const _ActionsLayer({required this.entry, required this.anchor});
+  const _ActionsLayer({
+    required this.entry,
+    required this.anchor,
+    required this.animation,
+  });
 
   final TimelineMessage entry;
   final Rect anchor;
+  final Animation<double> animation;
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +170,25 @@ class _ActionsLayer extends StatelessWidget {
     final menuTop =
         anchor.bottom + shift + MessageActionsOverlay._gapBelow;
 
+    // La pilule se déplie depuis son centre, le menu depuis le coin qui touche
+    // la bulle : c'est de là qu'ils sortent dans l'app d'origine, et c'est ce
+    // qui les rattache visuellement au message.
+    final grow = Tween<double>(
+      begin: MessageActionsOverlay._from,
+      end: 1,
+    ).animate(
+      CurvedAnimation(
+        parent: animation,
+        curve: MessageActionsOverlay._ease,
+      ),
+    );
+    // Le fondu va plus vite que la taille : sans cela, on verrait une forme
+    // pâle grandir au lieu d'un panneau qui se pose.
+    final fade = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0, 0.25, curve: Curves.easeOut),
+    );
+
     return Stack(
       children: [
         // Le fond entier renvoie l'appui : hors de la bulle et de ses deux
@@ -165,10 +203,16 @@ class _ActionsLayer extends StatelessWidget {
           top: barTop,
           left: MessageActionsOverlay._barMargin,
           right: MessageActionsOverlay._barMargin,
-          child: ReactionBar(
-            message: message,
-            onPick: (emoji) =>
-                Navigator.of(context).pop(MessageReactionChoice(emoji)),
+          child: FadeTransition(
+            opacity: fade,
+            child: ScaleTransition(
+              scale: grow,
+              child: ReactionBar(
+                message: message,
+                onPick: (emoji) =>
+                    Navigator.of(context).pop(MessageReactionChoice(emoji)),
+              ),
+            ),
           ),
         ),
         Positioned(
@@ -179,13 +223,18 @@ class _ActionsLayer extends StatelessWidget {
           // seconde bulle sur laquelle agir.
           // Transparente, mais indispensable : les pastilles de la bulle sont
           // des `InkWell`, qui exigent une surface même inertes.
-          child: Material(
-            type: MaterialType.transparency,
-            child: IgnorePointer(
-              child: MessageBubble(
-                entry: entry,
-                onLongPress: (_) {},
-                onReactionsTap: () {},
+          // La bulle ne grandit pas : elle est déjà à l'écran, elle ne fait que
+          // passer au-dessus du voile.
+          child: FadeTransition(
+            opacity: fade,
+            child: Material(
+              type: MaterialType.transparency,
+              child: IgnorePointer(
+                child: MessageBubble(
+                  entry: entry,
+                  onLongPress: (_) {},
+                  onReactionsTap: () {},
+                ),
               ),
             ),
           ),
@@ -198,7 +247,16 @@ class _ActionsLayer extends StatelessWidget {
           right: message.isOutgoing
               ? MessageActionsOverlay._bubbleMargin
               : null,
-          child: _ActionsMenu(actions: actions),
+          child: FadeTransition(
+            opacity: fade,
+            child: ScaleTransition(
+              scale: grow,
+              alignment: message.isOutgoing
+                  ? Alignment.topRight
+                  : Alignment.topLeft,
+              child: _ActionsMenu(actions: actions),
+            ),
+          ),
         ),
       ],
     );
