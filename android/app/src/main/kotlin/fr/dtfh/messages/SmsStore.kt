@@ -215,6 +215,56 @@ class SmsStore(private val context: Context) {
     fun resolveThreadId(recipients: List<String>): String =
         Telephony.Threads.getOrCreateThreadId(context, recipients.toSet()).toString()
 
+    /**
+     * Destinataires d'un fil, **même s'il n'a aucun message**.
+     *
+     * `buildConversations` part des messages : un fil qu'on vient de créer
+     * pour ouvrir une conversation vide n'en a pas, et son résumé est donc
+     * nul. Les destinataires, eux, existent — Android les tient dans deux
+     * tables que rien d'autre ne joint : `conversations?simple=true` donne les
+     * `recipient_ids` du fil, `canonical-addresses` les traduit en numéros.
+     *
+     * Sans cette lecture, le fil ouvert depuis le sélecteur est un fil dans
+     * lequel on ne peut pas écrire.
+     */
+    fun recipientsOf(threadId: String): List<String> {
+        val ids = mutableListOf<String>()
+        query(
+            Uri.parse("content://mms-sms/conversations?simple=true"),
+            arrayOf("_id", "recipient_ids"),
+            "_id = ?",
+            arrayOf(threadId),
+            null,
+        ) { cursor ->
+            if (cursor.moveToFirst()) {
+                ids.addAll(
+                    cursor.getString("recipient_ids")
+                        .orEmpty()
+                        .split(' ')
+                        .filter { it.isNotBlank() },
+                )
+            }
+        }
+        if (ids.isEmpty()) return emptyList()
+
+        val byId = mutableMapOf<String, String>()
+        query(
+            Uri.parse("content://mms-sms/canonical-addresses"),
+            arrayOf("_id", "address"),
+            null,
+            null,
+            null,
+        ) { cursor ->
+            while (cursor.moveToNext()) {
+                val address = cursor.getString("address").orEmpty()
+                if (address.isNotBlank()) {
+                    byId[cursor.getLong("_id").toString()] = address
+                }
+            }
+        }
+        return ids.mapNotNull { byId[it] }
+    }
+
     /** Marque lus (et vus) tous les entrants du fil. */
     fun markThreadRead(threadId: String): Int {
         val values = ContentValues().apply {

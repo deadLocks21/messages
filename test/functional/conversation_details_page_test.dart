@@ -9,15 +9,6 @@ import '../builders/builders.dart';
 import '../helpers/test_app.dart';
 
 void main() {
-  /// Une surface de téléphone plutôt que le 800×600 de `flutter_test` : le
-  /// 600 de haut couperait la carte des personnes, que `CustomScrollView` ne
-  /// construirait alors même pas. C'est aussi la taille du relevé.
-  void phoneSurface(WidgetTester tester) {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 2.625;
-    addTearDown(tester.view.reset);
-  }
-
   /// Un fil avec un correspondant au carnet d'adresses.
   (TestDevice, String) deviceWithNamedThread() {
     final device = TestDevice(

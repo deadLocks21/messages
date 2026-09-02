@@ -1177,6 +1177,25 @@ Une limite connue : la cible **macOS** de démonstration n'a pas l'entitlement
 `com.apple.security.network.client`, l'envoi y échoue donc (visiblement, dans la
 console de dev). Sans effet sur Android, où `INTERNET` est déclarée.
 
+## Un fil sans message a quand même des destinataires
+
+Ouvrir une conversation depuis le sélecteur crée un `thread_id` avant tout
+envoi — c'est ce qui permet d'afficher un fil vide. Mais un **résumé** de fil se
+construit à partir de ses messages : `getConversation` groupe les lignes de
+`content://sms` par `thread_id`, et un fil qui n'en a aucune est invisible. Le
+fil qu'on venait d'ouvrir s'affichait donc sans nom, et refusait le premier
+envoi faute de savoir à qui l'adresser.
+
+Les destinataires, eux, existent — Android les tient dans deux tables que rien
+d'autre ne joint : `content://mms-sms/conversations?simple=true` donne les
+`recipient_ids` du fil, `content://mms-sms/canonical-addresses` les traduit en
+numéros. `ConversationRepository.recipientsOf` fait ce joint, et
+`ConversationListService.byId` s'en sert en repli : pas de résumé mais des
+destinataires ⇒ on rend l'aperçu que `previewFor` savait déjà fabriquer.
+
+C'est le premier envoi qui inscrit le fil dans le stock ; à partir de là, le
+résumé prend le relais et le repli ne sert plus.
+
 ## Le stock SMS est la source de vérité
 
 Contrairement à motorz, **aucune base locale n'est tenue par l'app** : le `ContentProvider`

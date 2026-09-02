@@ -17,6 +17,14 @@ abstract interface class ConversationRepository {
   /// fil avant d'avoir envoyé le premier message.
   Future<String> resolveThreadId(List<Address> recipients);
 
+  /// Destinataires d'un fil, **même s'il n'a pas encore de message**.
+  ///
+  /// [getById] ne les connaît pas dans ce cas : un résumé de fil se construit
+  /// à partir de ses messages, et un fil qui vient d'être créé n'en a aucun.
+  /// Sans cette lecture, le fil qu'on vient d'ouvrir depuis le sélecteur est
+  /// un fil dans lequel on ne peut pas écrire.
+  Future<List<Address>> recipientsOf(String threadId);
+
   /// Marque tous les entrants du fil comme lus.
   /// Marque lus les entrants du fil.
   ///

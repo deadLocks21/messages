@@ -81,6 +81,17 @@ void main() {
 
     expect(find.byKey(const Key('composerField')), findsOneWidget);
     expect(find.text('Aucun message pour l\'instant.\nÉcrivez le premier.'), findsOneWidget);
+
+    // Le fil n'a pas encore de message, donc pas de résumé : sans repli sur
+    // ses destinataires, il s'ouvrirait sans nom et refuserait ce premier
+    // envoi, faute de savoir à qui.
+    expect(find.text('Camille'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('composerField')), 'Bonjour !');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('sendMessage')));
+    await tester.pumpAndSettle();
+
+    expect(device.store.conversations().single.snippet, 'Bonjour !');
   });
 
   testWidgets('appuyer sur le nom, en haut du fil, ouvre les détails', (
@@ -150,4 +161,5 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('startChat')), findsOneWidget);
   });
+
 }

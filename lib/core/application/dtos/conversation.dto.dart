@@ -54,4 +54,23 @@ class ConversationDto {
 
   bool get hasUnread => unreadCount > 0;
   bool get hasDraft => draft != null && draft!.trim().isNotEmpty;
+
+  /// Le seul champ qu'on remplace après coup : l'aperçu d'un fil sans message
+  /// est bâti depuis ses destinataires, et n'apprend son identifiant qu'après.
+  ConversationDto copyWith({String? threadId}) => ConversationDto(
+    threadId: threadId ?? this.threadId,
+    title: title,
+    snippet: snippet,
+    lastMessageAt: lastMessageAt,
+    addresses: addresses,
+    avatar: avatar,
+    unreadCount: unreadCount,
+    isPinned: isPinned,
+    isArchived: isArchived,
+    isMuted: isMuted,
+    snoozedUntil: snoozedUntil,
+    isSilenced: isSilenced,
+    isGroup: isGroup,
+    draft: draft,
+  );
 }

@@ -106,6 +106,18 @@ class TestDevice {
        notifications = InMemoryNotificationGateway();
 }
 
+/// Une surface de téléphone plutôt que le 800×600 de `flutter_test`.
+///
+/// Les écrans qui descendent bas — l'écran de détails et sa carte des
+/// personnes — sortiraient sinon du cadre, et `CustomScrollView` ne les
+/// construirait même pas. C'est aussi la taille des relevés faits sur
+/// l'émulateur.
+void phoneSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1080, 2400);
+  tester.view.devicePixelRatio = 2.625;
+  addTearDown(tester.view.reset);
+}
+
 /// Monte [home] dans un `MaterialApp` thémé, sur le device fourni.
 ///
 /// Pour les écrans qui ne naviguent pas — c'est le cas de la plupart, les

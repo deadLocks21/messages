@@ -75,6 +75,17 @@ class AndroidSmsChannel {
     return raw;
   }
 
+  /// Destinataires d'un fil, même sans message.
+  Future<List<Address>> recipientsOf(String threadId) async {
+    final raw = await _invoke<List<Object?>>('recipientsOf', {
+      'threadId': threadId,
+    });
+    return (raw ?? const [])
+        .map((e) => Address.tryParse(e as String?))
+        .whereType<Address>()
+        .toList();
+  }
+
   /// Rend `true` si des messages ont réellement basculé en « lu ».
   Future<bool> markThreadRead(String threadId) async =>
       await _invoke<bool>('markThreadRead', {'threadId': threadId}) ?? false;

@@ -92,11 +92,13 @@ class DetailsCardRow extends StatelessWidget {
   }
 }
 
-/// L'intertitre d'une carte — « 1 autre personne ».
+/// L'intertitre d'une carte — « 1 autre personne », et à droite l'action qui
+/// va avec.
 class DetailsCardHeader extends StatelessWidget {
-  const DetailsCardHeader(this.label, {super.key});
+  const DetailsCardHeader(this.label, {super.key, this.action});
 
   final String label;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -105,14 +107,58 @@ class DetailsCardHeader extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: _sideMargin),
-          Text(
-            label,
-            style: TextStyle(
-              color: context.appColors.textMuted,
-              fontSize: 14,
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: context.appColors.textMuted,
+                fontSize: 14,
+              ),
             ),
           ),
+          if (action != null) ...[action!, const SizedBox(width: 12)],
         ],
+      ),
+    );
+  }
+}
+
+/// L'action d'un intertitre : icône et libellé, tous deux à l'accent — c'est
+/// le seul lien de l'écran, et il se lit comme tel.
+class DetailsCardAction extends StatelessWidget {
+  const DetailsCardAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 24, color: colors.accent),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(color: colors.accent, fontSize: 14),
+            ),
+          ],
+        ),
       ),
     );
   }

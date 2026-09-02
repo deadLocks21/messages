@@ -8,16 +8,30 @@ import 'package:messages/ui/pages/new_conversation/widgets/contact_tile.widget.d
 import 'package:messages/ui/providers/conversation_providers.dart';
 import 'package:messages/ui/router/app_router.dart';
 import 'package:messages/ui/theme/app_colors.dart';
+import 'package:messages/ui/widgets/avatar.widget.dart';
 
 /// Sélecteur de destinataire : on tape un nom ou un numéro, on choisit, le fil
 /// s'ouvre.
 ///
 /// Sert aussi de destination au transfert d'un message : [forwardedBody] est
 /// alors déposé comme brouillon du fil choisi, qui l'affiche à l'ouverture.
+///
+/// Et de « Ajouter des personnes », quand [seedRecipients] est fourni : le même
+/// écran, mais choisir n'ouvre plus un fil — ça pose une puce de plus dans le
+/// champ, jusqu'à ce qu'on valide. C'est ce que fait l'app d'origine, dont
+/// « Créer un groupe » rouvre le sélecteur avec l'interlocuteur courant déjà
+/// dedans.
 class NewConversationPage extends ConsumerStatefulWidget {
-  const NewConversationPage({super.key, this.forwardedBody});
+  const NewConversationPage({
+    super.key,
+    this.forwardedBody,
+    this.seedRecipients,
+  });
 
   final String? forwardedBody;
+
+  /// Adresses déjà dans le fil. Non nul ⇒ mode groupe.
+  final List<String>? seedRecipients;
 
   @override
   ConsumerState<NewConversationPage> createState() =>
@@ -26,6 +40,31 @@ class NewConversationPage extends ConsumerStatefulWidget {
 
 class _NewConversationPageState extends ConsumerState<NewConversationPage> {
   final TextEditingController _query = TextEditingController();
+
+  /// Les destinataires retenus, en mode groupe. Des fiches et non des
+  /// adresses : la puce porte un nom, et c'est le nom qu'on relit.
+  final List<ContactDto> _picked = [];
+
+  bool get _group => widget.seedRecipients != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final seed = widget.seedRecipients;
+    if (seed != null) _resolveSeed(seed);
+  }
+
+  /// Les adresses du fil arrivent brutes : c'est le carnet qui leur rend un
+  /// nom, et il se lit de façon asynchrone.
+  Future<void> _resolveSeed(List<String> addresses) async {
+    final picker = ref.read(contactPickerServiceProvider);
+    final resolved = <ContactDto>[];
+    for (final address in addresses) {
+      resolved.add(await picker.forAddress(address));
+    }
+    if (!mounted) return;
+    setState(() => _picked.addAll(resolved));
+  }
 
   @override
   void dispose() {
@@ -43,16 +82,30 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> {
       backgroundColor: colors.background,
       appBar: AppBar(
         toolbarHeight: 64,
-        title: Text(
-          widget.forwardedBody == null ? 'Nouveau chat' : 'Transférer à',
-        ),
+        title: Text(switch ((_group, widget.forwardedBody)) {
+          (true, _) => 'Ajouter des personnes',
+          (_, null) => 'Nouveau chat',
+          _ => 'Transférer à',
+        }),
       ),
+      // Le bouton de validation n'existe qu'en mode groupe : ailleurs, choisir
+      // *est* valider.
+      floatingActionButton: _group && _picked.isNotEmpty
+          ? FloatingActionButton(
+              key: const Key('confirmRecipients'),
+              tooltip: 'Démarrer la discussion',
+              onPressed: _start,
+              child: const Icon(Icons.check),
+            )
+          : null,
       body: Column(
         children: [
           const SizedBox(height: 4),
           _RecipientField(
             controller: _query,
             onChanged: (_) => setState(() {}),
+            picked: _picked,
+            onRemove: (contact) => setState(() => _picked.remove(contact)),
           ),
           if (widget.forwardedBody != null)
             _ForwardPreview(body: widget.forwardedBody!),
@@ -78,12 +131,38 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> {
     );
   }
 
-  Future<void> _pick(ContactDto contact) async {
+  /// En mode groupe, choisir pose ou retire une puce ; ailleurs, ça ouvre le
+  /// fil sans détour.
+  void _pick(ContactDto contact) {
     if (contact.addresses.isEmpty) return;
+    if (!_group) {
+      _open([contact.addresses.first]);
+      return;
+    }
+    setState(() {
+      final existing = _picked.indexWhere((c) => c.id == contact.id);
+      if (existing >= 0) {
+        _picked.removeAt(existing);
+      } else {
+        _picked.add(contact);
+      }
+      // La saisie a servi : la garder filtrerait encore la liste alors que le
+      // choix est fait.
+      _query.clear();
+    });
+  }
+
+  void _start() => _open([
+    for (final contact in _picked)
+      if (contact.addresses.isNotEmpty) contact.addresses.first,
+  ]);
+
+  Future<void> _open(List<String> addresses) async {
+    if (addresses.isEmpty) return;
     try {
       final threadId = await ref
           .read(startConversationUseCaseProvider)
-          .execute([contact.addresses.first]);
+          .execute(addresses);
 
       // Le message transféré arrive dans le fil comme un brouillon : rien n'est
       // envoyé tant que l'utilisateur n'a pas confirmé.
@@ -104,12 +183,21 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> {
 }
 
 /// Le champ « À : » de l'app d'origine — une pilule pleine, le libellé collé
-/// devant la saisie.
+/// devant la saisie, et les destinataires déjà retenus en puces devant elle.
 class _RecipientField extends StatelessWidget {
-  const _RecipientField({required this.controller, required this.onChanged});
+  const _RecipientField({
+    required this.controller,
+    required this.onChanged,
+    this.picked = const [],
+    this.onRemove,
+  });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+
+  /// Destinataires déjà retenus, en mode groupe.
+  final List<ContactDto> picked;
+  final ValueChanged<ContactDto>? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -123,16 +211,28 @@ class _RecipientField extends StatelessWidget {
           color: colors.surface,
           borderRadius: BorderRadius.circular(30),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        // `Wrap` et non `Row` : à cinq destinataires les puces passent à la
+        // ligne, et le champ grandit avec elles.
+        child: Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 6,
           children: [
             Text(
               'À :',
               style: TextStyle(color: colors.textPrimary, fontSize: 17),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: TextField(
+            const SizedBox(width: 8),
+            for (final contact in picked)
+              _RecipientChip(
+                contact: contact,
+                onRemove: onRemove == null ? null : () => onRemove!(contact),
+              ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 160),
+              child: IntrinsicWidth(
+                child: TextField(
                 key: const Key('recipientField'),
                 controller: controller,
                 autofocus: true,
@@ -146,13 +246,57 @@ class _RecipientField extends StatelessWidget {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
-                  hintText: 'Saisissez un nom ou un numéro',
-                  hintStyle: TextStyle(color: colors.textMuted, fontSize: 17),
+                    hintText: picked.isEmpty
+                        ? 'Saisissez un nom ou un numéro'
+                        : 'Quelqu\'un d\'autre ?',
+                    hintStyle: TextStyle(color: colors.textMuted, fontSize: 17),
+                  ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Un destinataire retenu : sa pastille, son nom, et de quoi le retirer.
+class _RecipientChip extends StatelessWidget {
+  const _RecipientChip({required this.contact, this.onRemove});
+
+  final ContactDto contact;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Container(
+      key: Key('recipientChip_${contact.id}'),
+      padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+      decoration: BoxDecoration(
+        color: colors.accentSoft,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Avatar(avatar: contact.avatar, size: 28),
+          const SizedBox(width: 8),
+          Text(
+            contact.displayName,
+            style: TextStyle(color: colors.onAccentSoft, fontSize: 15),
+          ),
+          if (onRemove != null) ...[
+            const SizedBox(width: 4),
+            InkResponse(
+              onTap: onRemove,
+              radius: 16,
+              child: Icon(Icons.close, size: 18, color: colors.onAccentSoft),
+            ),
+          ],
+        ],
       ),
     );
   }

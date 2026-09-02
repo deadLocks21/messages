@@ -185,6 +185,10 @@ class SmsBridge(
                     )
                 )
 
+                "recipientsOf" -> result.success(
+                    store.recipientsOf(call.argument<String>("threadId")!!)
+                )
+
                 "getMessage" -> result.success(store.getMessage(call.argument<String>("id")!!))
 
                 "sendMessage" -> {

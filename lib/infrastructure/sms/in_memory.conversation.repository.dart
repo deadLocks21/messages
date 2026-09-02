@@ -22,6 +22,10 @@ class InMemoryConversationRepository implements ConversationRepository {
       _store.threadIdFor(recipients);
 
   @override
+  Future<List<Address>> recipientsOf(String threadId) async =>
+      _store.recipientsOf(threadId);
+
+  @override
   Future<bool> markRead(String threadId) async => _store.markThreadRead(threadId);
 
   @override

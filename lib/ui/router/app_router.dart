@@ -21,6 +21,10 @@ abstract final class AppRoutes {
   static const archived = '/archived';
   static const search = '/search';
   static const newConversation = '/new';
+
+  /// « Créer un groupe » : le même sélecteur, amorcé des adresses du fil,
+  /// passées en `extra`.
+  static const addPeople = '/add-people';
   static const settings = '/settings';
   static String thread(String id) => '/thread/$id';
   static String threadDetails(String id) => '/thread/$id/details';
@@ -138,6 +142,14 @@ GoRouter _buildRouter(Ref ref, ValueNotifier<int> refresh) {
         path: AppRoutes.newConversation,
         // `extra` porte le texte d'un message transféré, le cas échéant.
         builder: (_, st) => NewConversationPage(forwardedBody: st.extra as String?),
+      ),
+      GoRoute(
+        path: AppRoutes.addPeople,
+        // `extra` porte les adresses déjà dans le fil.
+        builder: (_, st) => NewConversationPage(
+          seedRecipients: (st.extra as List<Object?>? ?? const [])
+              .cast<String>(),
+        ),
       ),
       GoRoute(path: AppRoutes.settings, builder: (_, _) => const SettingsPage()),
     ],

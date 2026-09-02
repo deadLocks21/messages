@@ -61,9 +61,19 @@ class ConversationListService {
   }
 
   /// Un fil précis, pour l'en-tête de la page de conversation.
+  ///
+  /// Un fil **sans message** n'a pas de résumé — un résumé se construit à
+  /// partir de ses messages, et celui qu'on vient de créer depuis le sélecteur
+  /// n'en a aucun. Ses destinataires, eux, existent : sans ce repli, la
+  /// conversation qu'on vient d'ouvrir s'affiche sans nom et refuse le premier
+  /// envoi, faute de savoir à qui.
   Future<ConversationDto?> byId(String threadId) async {
     final conversation = await _conversations.getById(threadId);
-    if (conversation == null) return null;
+    if (conversation == null) {
+      final recipients = await _conversations.recipientsOf(threadId);
+      if (recipients.isEmpty) return null;
+      return (await previewFor(recipients)).copyWith(threadId: threadId);
+    }
     final directory = await _directory.load();
     final preferences = await _preferences.listAll();
     return _toDto(

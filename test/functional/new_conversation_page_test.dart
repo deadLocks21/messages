@@ -85,4 +85,36 @@ void main() {
     expect(find.text('Transférer à'), findsOneWidget);
     expect(find.text('Rendez-vous à 20h'), findsOneWidget);
   });
+
+  testWidgets('en mode groupe, le fil est déjà dans le champ', (tester) async {
+    await pumpPage(
+      tester,
+      const NewConversationPage(seedRecipients: ['+33612345678']),
+      device: deviceWithContacts(),
+    );
+
+    // Une fois dans la puce du champ, une fois dans le carnet en dessous :
+    // l'interlocuteur du fil est là sans qu'on ait eu à le choisir.
+    expect(find.text('Camille Rousseau'), findsNWidgets(2));
+    expect(find.text('Ajouter des personnes'), findsOneWidget);
+    expect(find.byKey(const Key('confirmRecipients')), findsOneWidget);
+  });
+
+  testWidgets('choisir un contact pose une puce, le rechoisir la retire', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      const NewConversationPage(seedRecipients: ['+33612345678']),
+      device: deviceWithContacts(),
+    );
+
+    await tester.tap(find.text('Julien Marchand'));
+    await tester.pumpAndSettle();
+    expect(find.text('Julien Marchand'), findsNWidgets(2));
+
+    await tester.tap(find.text('Julien Marchand').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Julien Marchand'), findsOneWidget);
+  });
 }

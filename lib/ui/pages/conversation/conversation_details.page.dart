@@ -289,6 +289,15 @@ class _ConversationDetailsPageState
             participants.length == 1
                 ? '1 autre personne'
                 : '${participants.length} autres personnes',
+            action: DetailsCardAction(
+              key: const Key('createGroup'),
+              icon: Icons.group_add_outlined,
+              label: 'Créer un groupe',
+              onTap: () => context.push(
+                AppRoutes.addPeople,
+                extra: [for (final p in participants) p.rawAddress],
+              ),
+            ),
           ),
           for (final participant in participants)
             DetailsMemberRow(
