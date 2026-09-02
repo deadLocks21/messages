@@ -368,7 +368,11 @@ object SmsNotifications {
             .build()
     }
 
-    private fun ensureChannel(context: Context) {
+    /**
+     * Exposé : les réglages de notification n'ont rien à montrer tant que le
+     * canal n'existe pas, et il n'était créé qu'à la première notification.
+     */
+    fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return

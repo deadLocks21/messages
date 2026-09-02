@@ -2,6 +2,7 @@ package fr.dtfh.messages
 
 import android.app.Activity
 import android.app.role.RoleManager
+import android.app.NotificationManager
 import android.content.Intent
 import android.provider.Settings
 import java.io.File
@@ -412,13 +413,30 @@ class SmsBridge(
      * Rend `true` si l'écran s'est ouvert.
      */
     private fun openThreadNotificationSettings(threadId: String): Boolean {
+        // Le canal était créé à la première notification. Sur une app fraîche,
+        // il n'existait donc pas encore, et l'écran des réglages s'ouvrait sur
+        // rien : un panneau transparent, refermé aussitôt, qu'on ne distingue
+        // pas d'un appui sans effet.
+        SmsNotifications.ensureChannel(activity)
+
+        val manager = activity.getSystemService(NotificationManager::class.java)
+        val conversationId = ConversationShortcuts.idFor(threadId)
+        // Même chose pour le fil : passer l'identifiant d'une conversation que
+        // le système ne connaît pas — parce qu'elle n'a jamais notifié — ouvre
+        // une page vide. On ne le passe que lorsqu'il y a une page derrière.
+        val hasConversation = runCatching {
+            manager?.getNotificationChannel(
+                SmsNotifications.CHANNEL_ID,
+                conversationId,
+            )
+        }.getOrNull() != null
+
         val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
             .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)
             .putExtra(Settings.EXTRA_CHANNEL_ID, SmsNotifications.CHANNEL_ID)
-            .putExtra(
-                Settings.EXTRA_CONVERSATION_ID,
-                ConversationShortcuts.idFor(threadId),
-            )
+        if (hasConversation) {
+            intent.putExtra(Settings.EXTRA_CONVERSATION_ID, conversationId)
+        }
         return runCatching { activity.startActivity(intent) }.isSuccess
     }
 

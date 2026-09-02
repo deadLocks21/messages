@@ -283,11 +283,26 @@ fil, et autorise les bulles.
 
 Il n'y a pas d'action dédiée pour ouvrir cette page : c'est
 `ACTION_CHANNEL_NOTIFICATION_SETTINGS` plus un `EXTRA_CONVERSATION_ID`,
-l'identifiant du raccourci. Le système montre la page du fil quand il a un
-canal pour lui — c'est-à-dire une fois la conversation réglée au moins une fois
-depuis le volet — et celle du canal sinon. Relevé sur l'émulateur : sans
-réglage préalable, on tombe bien sur la page du canal, et le volet, lui,
-propose déjà les trois niveaux du fil.
+l'identifiant du raccourci.
+
+Deux choses doivent exister avant de l'ouvrir, et **aucune des deux n'est
+garantie** :
+
+- **Le canal.** Il n'était créé qu'à la première notification. Sur une app
+  fraîchement installée, l'écran des réglages n'avait donc rien à montrer :
+  Android ouvre alors un `ChannelPanelActivity` transparent, qui se referme
+  aussitôt — indiscernable d'un appui sans effet. C'est le bug qu'on a vu.
+  `ensureChannel` est appelé avant le lancement.
+- **La conversation.** Le système ne lui donne un canal qu'une fois qu'on l'a
+  réglée depuis le volet ; passer l'identifiant d'une conversation qu'il ne
+  connaît pas ouvre la même page vide. On ne joint donc l'extra que si
+  `getNotificationChannel(canal, conversation)` rend quelque chose.
+
+Ce qui est vérifié sur l'émulateur : la ligne ouvre bien la page du canal, y
+compris sur une app qui n'a jamais notifié, et le volet propose déjà les trois
+niveaux du fil (« Priority / Default / Silent »). La page **du fil**, elle,
+n'a pas pu être reproduite : elle demande que la conversation ait été réglée
+une première fois depuis le volet, et cet état ne s'est pas laissé fabriquer.
 
 ### Bloquer : la liste est celle du système, pas la nôtre
 
