@@ -15,14 +15,20 @@ class UpdateConversationFlagsUseCase {
   final ConversationPreferencesRepository _preferences;
   final SyncNotificationSettingsUseCase _notifications;
   final LoggerApplicationService _logger;
+  final DateTime Function() _clock;
 
   const UpdateConversationFlagsUseCase({
     required ConversationPreferencesRepository preferences,
     required SyncNotificationSettingsUseCase notifications,
     required LoggerApplicationService logger,
+
+    /// L'heure, injectable : une mise en veille est une date, et un test qui
+    /// ne peut pas la choisir ne peut pas vérifier qu'elle expire.
+    DateTime Function() clock = DateTime.now,
   }) : _preferences = preferences,
        _notifications = notifications,
-       _logger = logger;
+       _logger = logger,
+       _clock = clock;
 
   Future<void> togglePinned(String threadId) =>
       _update(threadId, (p) => p.copyWith(pinned: !p.pinned, archived: false));
@@ -31,7 +37,24 @@ class UpdateConversationFlagsUseCase {
       _update(threadId, (p) => p.copyWith(archived: !p.archived, pinned: false));
 
   Future<void> toggleMuted(String threadId) =>
-      _update(threadId, (p) => p.copyWith(muted: !p.muted));
+      _update(threadId, (p) => p.copyWith(muted: !p.muted, clearSnooze: true));
+
+  /// Met le fil en veille pour [duration], ou **sans fin** si elle est nulle —
+  /// le « Toujours » du dialogue, qui est exactement la sourdine.
+  ///
+  /// Les deux s'excluent : une veille à échéance efface la sourdine, et
+  /// inversement. Sans quoi un fil pourrait être en veille jusqu'à 18 h *et*
+  /// en sourdine pour toujours, et l'écran ne saurait quoi en dire.
+  Future<void> snooze(String threadId, Duration? duration) => _update(
+    threadId,
+    (p) => duration == null
+        ? p.copyWith(muted: true, clearSnooze: true)
+        : p.copyWith(muted: false, snoozedUntil: _clock().add(duration)),
+  );
+
+  /// Réveille le fil, qu'il ait été mis en veille ou en sourdine.
+  Future<void> wake(String threadId) =>
+      _update(threadId, (p) => p.copyWith(muted: false, clearSnooze: true));
 
   Future<void> _update(
     String threadId,
@@ -57,6 +80,7 @@ class UpdateConversationFlagsUseCase {
         'thread.pinned': updated.pinned,
         'thread.archived': updated.archived,
         'thread.muted': updated.muted,
+        'thread.snoozed_until': ?updated.snoozedUntil?.toIso8601String(),
       },
     );
   }

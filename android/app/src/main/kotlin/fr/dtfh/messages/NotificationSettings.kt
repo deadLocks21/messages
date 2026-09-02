@@ -17,18 +17,42 @@ import org.json.JSONObject
  */
 object NotificationSettings {
     private const val PREFS = "fr.dtfh.messages.notifications"
-    private const val KEY_MUTED = "muted_threads"
+
+    /**
+     * Fil → échéance de la sourdine, en millisecondes d'époque ; `0` pour
+     * « sans fin ». Clé distincte de l'ancien `muted_threads`, qui était un
+     * `StringSet` : relire un `StringSet` comme une `String` lève, et une mise
+     * à jour de l'app doit repartir proprement plutôt que planter le
+     * récepteur. Le premier retour au premier plan republie tout de toute
+     * façon.
+     */
+    private const val KEY_MUTED_UNTIL = "muted_threads_until"
     private const val KEY_NAMES = "directory"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun setMutedThreads(context: Context, threadIds: Set<String>) {
-        prefs(context).edit().putStringSet(KEY_MUTED, threadIds).apply()
+    fun setMutedThreads(context: Context, mutedUntil: Map<String, Long>) {
+        prefs(context)
+            .edit()
+            .putString(KEY_MUTED_UNTIL, JSONObject(mutedUntil as Map<*, *>).toString())
+            .apply()
     }
 
-    fun isMuted(context: Context, threadId: String): Boolean =
-        prefs(context).getStringSet(KEY_MUTED, emptySet())?.contains(threadId) == true
+    /**
+     * Le fil notifie-t-il maintenant ? Une veille échue ne coupe plus rien, et
+     * personne n'a eu à la nettoyer — c'est tout l'intérêt de publier une date
+     * plutôt qu'un booléen, le récepteur tournant sans moteur Dart.
+     */
+    fun isMuted(context: Context, threadId: String): Boolean {
+        val raw = prefs(context).getString(KEY_MUTED_UNTIL, null) ?: return false
+        return runCatching {
+            val until = JSONObject(raw)
+            if (!until.has(threadId)) return false
+            val deadline = until.optLong(threadId, 0L)
+            deadline == 0L || deadline > System.currentTimeMillis()
+        }.getOrDefault(false)
+    }
 
     fun setDirectory(context: Context, names: Map<String, String>) {
         prefs(context).edit().putString(KEY_NAMES, JSONObject(names).toString()).apply()

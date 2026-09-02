@@ -15,7 +15,15 @@ class ConversationDto {
   final int unreadCount;
   final bool isPinned;
   final bool isArchived;
+  /// Sourdine sans échéance.
   final bool isMuted;
+
+  /// Fin de la mise en veille, `null` s'il n'y en a pas.
+  final DateTime? snoozedUntil;
+
+  /// Ce fil notifie-t-il ? Calculé à la construction du DTO, pas à la lecture :
+  /// une veille échue ne doit pas dépendre du moment où l'UI y jette un œil.
+  final bool isSilenced;
   final bool isGroup;
 
   /// Texte tapé mais pas envoyé, s'il y en a un.
@@ -38,6 +46,8 @@ class ConversationDto {
     this.isPinned = false,
     this.isArchived = false,
     this.isMuted = false,
+    this.snoozedUntil,
+    this.isSilenced = false,
     this.isGroup = false,
     this.draft,
   });

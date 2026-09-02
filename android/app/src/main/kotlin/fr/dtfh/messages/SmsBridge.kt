@@ -278,7 +278,8 @@ class SmsBridge(
                 "setMutedThreads" -> {
                     NotificationSettings.setMutedThreads(
                         activity,
-                        call.argument<List<String>>("threadIds")!!.toSet(),
+                        call.argument<Map<String, Number>>("mutedUntil")!!
+                            .mapValues { it.value.toLong() },
                     )
                     result.success(null)
                 }

@@ -234,8 +234,16 @@ class AndroidSmsChannel {
 
   /// Fils en sourdine, relus par le récepteur `SMS_DELIVER` au moment de
   /// notifier.
-  Future<void> setMutedThreads(Set<String> threadIds) =>
-      _invoke<void>('setMutedThreads', {'threadIds': threadIds.toList()});
+  /// Le natif reçoit des millisecondes d'époque, et `0` pour « sans fin » :
+  /// un `null` de plus dans une map traversant le canal se lirait mal côté
+  /// Kotlin, où il faudrait le distinguer d'une clé absente.
+  Future<void> setMutedThreads(Map<String, DateTime?> mutedUntil) =>
+      _invoke<void>('setMutedThreads', {
+        'mutedUntil': {
+          for (final entry in mutedUntil.entries)
+            entry.key: entry.value?.millisecondsSinceEpoch ?? 0,
+        },
+      });
 
   /// Annuaire `clé d'adresse → nom`, pour que la notification porte un nom.
   Future<void> setNotificationDirectory(Map<String, String> namesByAddressKey) =>

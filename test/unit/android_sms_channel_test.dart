@@ -178,14 +178,19 @@ void main() {
     test('pousse les fils en sourdine et l\'annuaire au natif', () async {
       final calls = <String, Object?>{};
       mock({
-        'setMutedThreads': (call) => calls['muted'] = call.arguments['threadIds'],
+        'setMutedThreads': (call) => calls['muted'] = call.arguments['mutedUntil'],
         'setNotificationDirectory': (call) => calls['names'] = call.arguments['names'],
       });
 
-      await channel.setMutedThreads({'42'});
+      await channel.setMutedThreads({
+        '42': null,
+        '43': DateTime.fromMillisecondsSinceEpoch(1750000000000),
+      });
       await channel.setNotificationDirectory({'612345678': 'Camille'});
 
-      expect(calls['muted'], ['42']);
+      // Le natif reçoit des millisecondes, et `0` pour « sans fin » : il n'a
+      // pas à distinguer un `null` d'une clé absente.
+      expect(calls['muted'], {'42': 0, '43': 1750000000000});
       expect(calls['names'], {'612345678': 'Camille'});
     });
 

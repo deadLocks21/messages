@@ -19,16 +19,21 @@ class SyncNotificationSettingsUseCase {
   final ConversationPreferencesRepository _preferences;
   final NotificationGateway _notifications;
   final LoggerApplicationService _logger;
+  final DateTime Function() _clock;
 
   const SyncNotificationSettingsUseCase({
     required ContactDirectoryService directory,
     required ConversationPreferencesRepository preferences,
     required NotificationGateway notifications,
     required LoggerApplicationService logger,
+
+    /// L'heure, injectable : c'est elle qui décide qu'une veille est échue.
+    DateTime Function() clock = DateTime.now,
   }) : _directory = directory,
        _preferences = preferences,
        _notifications = notifications,
-       _logger = logger;
+       _logger = logger,
+       _clock = clock;
 
   /// Tout republier. Appelé au démarrage et à chaque retour au premier plan :
   /// un contact ajouté ou renommé pendant que l'app dormait doit être nommé
@@ -38,17 +43,24 @@ class SyncNotificationSettingsUseCase {
     await _publishDirectory();
   }
 
-  /// Ne republier que les fils en sourdine — le cas d'un simple basculement,
-  /// qui n'a aucune raison de relire tout le carnet d'adresses.
+  /// Ne republier que les fils qui ne notifient pas — le cas d'un simple
+  /// basculement, qui n'a aucune raison de relire tout le carnet d'adresses.
+  ///
+  /// Les veilles **échues sont laissées de côté** : elles ne coupent plus
+  /// rien, et les publier n'apprendrait au natif qu'une date déjà passée.
   Future<void> publishMutedThreads() async {
-    final muted = (await _preferences.listAll())
-        .where((p) => p.muted)
-        .map((p) => p.threadId)
-        .toSet();
+    final now = _clock();
+    final muted = {
+      for (final p in await _preferences.listAll())
+        if (p.isSilencedAt(now)) p.threadId: p.muted ? null : p.snoozedUntil,
+    };
     await _notifications.setMutedThreads(muted);
     await _logger.debug(
       'notifications.muted_published',
-      attrs: {'threads.muted': muted.length},
+      attrs: {
+        'threads.muted': muted.length,
+        'threads.snoozed': muted.values.nonNulls.length,
+      },
     );
   }
 

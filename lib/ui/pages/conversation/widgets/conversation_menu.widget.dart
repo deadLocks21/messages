@@ -52,7 +52,9 @@ class ConversationMenu extends ConsumerWidget {
           value: 'mute',
           height: 56,
           child: Text(
-            conversation.isMuted ? 'Réactiver les notifications' : 'Sourdine',
+            conversation.isSilenced
+                ? 'Réactiver les notifications'
+                : 'Sourdine',
           ),
         ),
         const PopupMenuItem(
@@ -79,7 +81,12 @@ class ConversationMenu extends ConsumerWidget {
       case 'archive':
         await flags.toggleArchived(conversation.threadId);
       case 'mute':
-        await flags.toggleMuted(conversation.threadId);
+        // `wake` plutôt qu'un basculement : un fil mis en veille jusqu'à 18 h
+        // n'est pas « en sourdine », et pourtant le menu propose bien de le
+        // réveiller. Les deux états sortent par la même porte.
+        await (conversation.isSilenced
+            ? flags.wake(conversation.threadId)
+            : flags.toggleMuted(conversation.threadId));
       case 'delete':
         if (!context.mounted) return;
         final confirmed = await confirmDelete(context);

@@ -11,7 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// Forme stockée :
 /// ```json
-/// {"42": {"pinned": true, "archived": false, "muted": false}}
+/// {"42": {"pinned": true, "archived": false, "muted": false,
+///         "snoozedUntil": "2026-09-02T18:30:00.000"}}
 /// ```
 class SharedPreferencesConversationPreferencesRepository
     implements ConversationPreferencesRepository {
@@ -60,6 +61,11 @@ class SharedPreferencesConversationPreferencesRepository
             pinned: (value as Map<String, dynamic>)['pinned'] == true,
             archived: value['archived'] == true,
             muted: value['muted'] == true,
+            // Absente des blobs écrits avant la mise en veille : un fil sans
+            // cette clé est simplement un fil qui n'est pas en veille.
+            snoozedUntil: DateTime.tryParse(
+              value['snoozedUntil'] as String? ?? '',
+            ),
           ),
         ),
       );
@@ -84,6 +90,7 @@ class SharedPreferencesConversationPreferencesRepository
         'pinned': entry.value.pinned,
         'archived': entry.value.archived,
         'muted': entry.value.muted,
+        'snoozedUntil': ?entry.value.snoozedUntil?.toIso8601String(),
       },
   });
 }

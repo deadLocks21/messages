@@ -12,6 +12,9 @@ import '../helpers/test_logger.dart';
 /// Le récepteur `SMS_DELIVER` notifie sans moteur Dart : tout ce dont il a
 /// besoin doit lui avoir été poussé avant. Ces tests vérifient que ça part.
 void main() {
+  /// Une horloge qu'on avance à la main : une veille est une date, et un test
+  /// qui ne peut pas la choisir ne peut pas la voir expirer.
+  late DateTime now;
   late InMemoryContactRepository contacts;
   late InMemoryConversationPreferencesRepository preferences;
   late InMemoryNotificationGateway gateway;
@@ -19,6 +22,7 @@ void main() {
   late UpdateConversationFlagsUseCase flags;
 
   setUp(() {
+    now = DateTime(2026, 9, 2, 10);
     contacts = InMemoryContactRepository();
     preferences = InMemoryConversationPreferencesRepository();
     gateway = InMemoryNotificationGateway();
@@ -27,11 +31,13 @@ void main() {
       preferences: preferences,
       notifications: gateway,
       logger: testLogger(),
+      clock: () => now,
     );
     flags = UpdateConversationFlagsUseCase(
       preferences: preferences,
       notifications: sync,
       logger: testLogger(),
+      clock: () => now,
     );
   });
 
@@ -66,7 +72,7 @@ void main() {
 
       await sync.execute();
 
-      expect(gateway.mutedThreads, {'42'});
+      expect(gateway.mutedThreads, {'42': null});
     });
   });
 
@@ -74,7 +80,7 @@ void main() {
     test('mettre en sourdine redescend immédiatement au natif', () async {
       await flags.toggleMuted('42');
 
-      expect(gateway.mutedThreads, {'42'});
+      expect(gateway.mutedThreads, {'42': null});
     });
 
     test('réactiver le son retire le fil de la liste', () async {
@@ -88,7 +94,57 @@ void main() {
       await flags.toggleMuted('42');
       await flags.togglePinned('43');
 
-      expect(gateway.mutedThreads, {'42'});
+      expect(gateway.mutedThreads, {'42': null});
+    });
+  });
+
+  group('Mise en veille', () {
+    test('une veille part au natif avec son échéance', () async {
+      await flags.snooze('42', const Duration(hours: 8));
+
+      expect(gateway.mutedThreads, {'42': DateTime(2026, 9, 2, 18)});
+    });
+
+    test('« Toujours » est la sourdine, sans échéance', () async {
+      await flags.snooze('42', null);
+
+      expect(gateway.mutedThreads, {'42': null});
+      final preference = (await preferences.listAll()).single;
+      expect(preference.muted, isTrue);
+      expect(preference.snoozedUntil, isNull);
+    });
+
+    test('une veille échue ne coupe plus rien et n\'est plus publiée', () async {
+      await flags.snooze('42', const Duration(hours: 1));
+      expect(gateway.mutedThreads, hasLength(1));
+
+      // Deux heures plus tard, le réglage est toujours en base — c'est
+      // l'échéance qui décide, pas un nettoyage.
+      now = DateTime(2026, 9, 2, 12);
+      await sync.publishMutedThreads();
+
+      expect(gateway.mutedThreads, isEmpty);
+      expect(await preferences.listAll(), hasLength(1));
+    });
+
+    test('réveiller un fil efface veille et sourdine', () async {
+      await flags.snooze('42', const Duration(hours: 8));
+      await flags.wake('42');
+
+      expect(gateway.mutedThreads, isEmpty);
+      // Plus rien à persister : le fil est rendu à son état par défaut.
+      expect(await preferences.listAll(), isEmpty);
+    });
+
+    test('la sourdine efface une veille en cours, et l\'inverse', () async {
+      await flags.snooze('42', const Duration(hours: 8));
+      await flags.toggleMuted('42');
+      expect((await preferences.listAll()).single.snoozedUntil, isNull);
+
+      await flags.snooze('42', const Duration(hours: 1));
+      final preference = (await preferences.listAll()).single;
+      expect(preference.muted, isFalse);
+      expect(preference.snoozedUntil, DateTime(2026, 9, 2, 11));
     });
   });
 }

@@ -107,6 +107,8 @@ class ConversationListService {
       isPinned: preference.pinned,
       isArchived: preference.archived,
       isMuted: preference.muted,
+      snoozedUntil: preference.snoozedUntil,
+      isSilenced: preference.isSilencedAt(DateTime.now()),
       isGroup: conversation.isGroup,
       draft: draft,
       addresses: conversation.recipients.map((a) => a.raw).toList(),

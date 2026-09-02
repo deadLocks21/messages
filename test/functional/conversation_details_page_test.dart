@@ -179,8 +179,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Ne plus épingler'), findsOneWidget);
 
-    expect(find.text('Sourdine'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('toggleMuted')));
+    expect(find.text('Mettre en veille'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('toggleSnooze')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('snooze_8')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmSnooze')));
     await tester.pumpAndSettle();
     expect(find.text('Réactiver les notifications'), findsOneWidget);
 
@@ -190,7 +194,9 @@ void main() {
 
     final preference = (await device.preferences.listAll()).single;
     expect(preference.threadId, threadId);
-    expect(preference.muted, isTrue);
+    // Huit heures : une veille à échéance, pas une sourdine sans fin.
+    expect(preference.muted, isFalse);
+    expect(preference.snoozedUntil, isNotNull);
     expect(preference.archived, isTrue);
     // Archiver dépingle : les deux états s'excluent, et l'écran de détails
     // passe par le même cas d'usage que le menu « ⋮ ».

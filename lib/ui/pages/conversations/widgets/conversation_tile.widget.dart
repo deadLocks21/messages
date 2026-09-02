@@ -109,7 +109,7 @@ class _Stamp extends StatelessWidget {
           key: Key('threadMeta_${conversation.threadId}'),
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (conversation.isMuted) ...[
+            if (conversation.isSilenced) ...[
               Icon(
                 Icons.notifications_off_outlined,
                 size: 15,

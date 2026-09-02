@@ -6,8 +6,15 @@
 /// l'expéditeur. Ces deux informations lui sont donc poussées à l'avance, et il
 /// les relit depuis son propre stockage au moment de notifier.
 abstract interface class NotificationGateway {
-  /// Fils dont les notifications sont coupées. Remplace l'ensemble précédent.
-  Future<void> setMutedThreads(Set<String> threadIds);
+  /// Fils dont les notifications sont coupées, et **jusqu'à quand**. Remplace
+  /// l'ensemble précédent.
+  ///
+  /// Une valeur `null` veut dire « sans échéance » (la sourdine, ou la veille
+  /// « Toujours ») ; une date veut dire une mise en veille, que le natif
+  /// laissera expirer tout seul. C'est bien lui qui compare à l'heure
+  /// courante : le récepteur tourne sans moteur Dart, et une veille qui arrive
+  /// à terme pendant que l'app est fermée doit se terminer quand même.
+  Future<void> setMutedThreads(Map<String, DateTime?> mutedUntil);
 
   /// Annuaire minimal `clé d'adresse → nom affichable`, pour que la
   /// notification porte « Camille » et non « +33612345678 ».

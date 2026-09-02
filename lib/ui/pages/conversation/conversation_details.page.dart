@@ -10,6 +10,7 @@ import 'package:messages/infrastructure/providers/service_providers.dart';
 import 'package:messages/ui/pages/conversation/widgets/conversation_menu.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/details_action_pill.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/details_card.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/snooze.dialog.dart';
 import 'package:messages/ui/providers/conversation_providers.dart';
 import 'package:messages/ui/router/app_router.dart';
 import 'package:messages/ui/theme/app_colors.dart';
@@ -227,15 +228,19 @@ class _ConversationDetailsPageState
           label: conversation.isPinned ? 'Ne plus épingler' : 'Épingler',
           onTap: () => _flag((f) => f.togglePinned(widget.threadId)),
         ),
+        // Un fil déjà en veille ne repropose pas les durées : la seule chose
+        // qu'on veuille alors, c'est le réveiller. L'app d'origine garde son
+        // libellé, mais elle a une ligne « Notifications » à côté pour dire
+        // l'état ; nous n'en avons qu'une, elle doit porter les deux sens.
         DetailsCardRow(
-          key: const Key('toggleMuted'),
-          icon: conversation.isMuted
+          key: const Key('toggleSnooze'),
+          icon: conversation.isSilenced
               ? Icons.notifications_outlined
               : Icons.notifications_off_outlined,
-          label: conversation.isMuted
+          label: conversation.isSilenced
               ? 'Réactiver les notifications'
-              : 'Sourdine',
-          onTap: () => _flag((f) => f.toggleMuted(widget.threadId)),
+              : 'Mettre en veille',
+          onTap: conversation.isSilenced ? _wake : _snooze,
         ),
         DetailsCardRow(
           key: const Key('toggleArchived'),
@@ -283,6 +288,14 @@ class _ConversationDetailsPageState
       ),
     );
   }
+
+  Future<void> _snooze() async {
+    final choice = await SnoozeDialog.show(context);
+    if (choice == null || !mounted) return;
+    await _flag((f) => f.snooze(widget.threadId, choice.duration));
+  }
+
+  Future<void> _wake() => _flag((f) => f.wake(widget.threadId));
 
   Future<void> _copy(String address) async {
     await Clipboard.setData(ClipboardData(text: address));

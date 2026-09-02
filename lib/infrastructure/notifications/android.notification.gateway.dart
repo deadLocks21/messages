@@ -10,8 +10,8 @@ class AndroidNotificationGateway implements NotificationGateway {
   const AndroidNotificationGateway(this._channel);
 
   @override
-  Future<void> setMutedThreads(Set<String> threadIds) =>
-      _channel.setMutedThreads(threadIds);
+  Future<void> setMutedThreads(Map<String, DateTime?> mutedUntil) =>
+      _channel.setMutedThreads(mutedUntil);
 
   @override
   Future<void> setDirectory(Map<String, String> namesByAddressKey) =>

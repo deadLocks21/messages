@@ -120,6 +120,7 @@ sombre, pour un fil à deux :
 | Boutons ronds | 56 de haut, en gousse, à parts égales, 8 entre eux, 16 aux bords |
 | Libellé d'un bouton | 12, interligne 16, à 8 sous la pastille |
 | Lignes de réglage | 56, **une carte par ligne**, 2 entre les cartes, rayon 12 |
+| Dialogue de veille | 1 h / 8 h / 24 h / Toujours, « 8 heures » présélectionné |
 | Icône d'une ligne | 24, à 16 du bord ; le libellé à 56 |
 | Carte des personnes | intertitre de 64, puis une ligne de 72 par personne |
 
@@ -149,10 +150,10 @@ les seuls textes de l'app teintés par la palette primaire (`onAccentSoft`,
 
 L'app d'origine aligne quatre boutons ronds (Appeler, Vidéo, Infos contact,
 Rechercher) et cinq lignes (Thème, Mettre en veille, Notifications, Archiver,
-Bloquer et signaler comme spam). Trois de ces neuf actions n'existent pas ici, et
+Bloquer et signaler comme spam). Deux de ces neuf actions n'existent pas ici, et
 une dixième — « Créer un groupe » — non plus :
 
-- **Vidéo**, **Thème** et **Mettre en veille** : hors périmètre de l'app.
+- **Vidéo** et **Thème** : hors périmètre de l'app.
 - **Rechercher** cherche *dans le fil* ; la nôtre cherche dans tout le stock.
   Un bouton qui promet l'un et fait l'autre ment plus qu'il ne rend service.
 - **Bloquer et signaler comme spam** : c'est « Supprimer la conversation » qui
@@ -163,6 +164,33 @@ une dixième — « Créer un groupe » — non plus :
 Restent deux boutons ronds et quatre lignes, dans la forme et l'ordre de l'app
 d'origine. Les lignes sont celles du menu « ⋮ », au même cas d'usage : archiver
 dépingle, et l'écran de détails le montre comme le menu.
+
+### Mettre en veille : une date, pas un booléen
+
+Le dialogue est celui de l'app d'origine — 1 h, 8 h, 24 h, Toujours, avec
+« 8 heures » présélectionné — et « Toujours » n'est pas une durée : c'est
+exactement la sourdine, et c'est elle qu'on pose. Les deux s'excluent, sans quoi
+un fil serait en veille jusqu'à 18 h *et* en sourdine pour toujours, et l'écran
+ne saurait quoi en dire.
+
+Ce qui descend au natif n'est plus un ensemble de fils mais une **map
+`fil → échéance`**, en millisecondes d'époque, `0` valant « sans fin ». C'est le
+récepteur `SMS_DELIVER` qui compare à l'heure courante, et c'est tout l'intérêt :
+il tourne **sans moteur Dart**, et une veille qui arrive à terme pendant que
+l'app est fermée doit se terminer quand même. Un booléen aurait exigé que
+quelqu'un pense à le retourner — c'est-à-dire un réveil programmé, pour un
+service que la date rend inutile.
+
+Côté natif, la clé change de nom (`muted_threads_until` au lieu de
+`muted_threads`) : l'ancienne était un `StringSet`, et la relire comme une
+`String` lève. Une mise à jour de l'app repart donc d'un store vide plutôt que
+de faire planter le récepteur — le premier retour au premier plan republie tout.
+
+L'écran de détails n'a qu'une ligne pour les deux états, là où l'app d'origine
+en a deux (« Mettre en veille » et « Notifications ») : elle propose les durées
+quand le fil notifie, et le réveil quand il ne notifie plus. Le menu « ⋮ » sort
+par la même porte — un fil mis en veille jusqu'à 18 h n'est pas « en sourdine »,
+et pourtant c'est bien le réveiller qu'on veut lui proposer.
 
 ### La fiche contact appartient à l'app Contacts
 
