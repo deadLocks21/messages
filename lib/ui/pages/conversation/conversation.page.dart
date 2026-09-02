@@ -195,25 +195,42 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     return AppBar(
       toolbarHeight: 64,
       titleSpacing: 4,
-      title: Row(
-        children: [
-          if (conversation != null) ...[
-            Avatar(avatar: conversation.avatar, size: 40),
-            const SizedBox(width: 16),
-          ],
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.w400,
-                color: colors.textPrimary,
+      // La pastille et le nom forment **un seul bouton**, comme le
+      // `top_app_bar_title_row` de l'app d'origine : il ouvre les détails du
+      // fil. C'est le geste qu'on tente naturellement pour voir qui est en
+      // face, et il ne doit pas tomber à plat.
+      title: InkWell(
+        key: const Key('openThreadDetails'),
+        onTap: conversation == null
+            ? null
+            : () => context.push(AppRoutes.threadDetails(widget.threadId)),
+        borderRadius: BorderRadius.circular(28),
+        // Vertical seulement : l'app d'origine cale le bord gauche de son
+        // bouton sur celui de la pastille, et lui donne 48 de haut pour 40 de
+        // pastille.
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              if (conversation != null) ...[
+                Avatar(avatar: conversation.avatar, size: 40),
+                const SizedBox(width: 16),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w400,
+                    color: colors.textPrimary,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
       actions: [
         if (address != null)

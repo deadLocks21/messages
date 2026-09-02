@@ -6,6 +6,7 @@ import 'package:messages/core/domain/services/audio_player.service.dart';
 import 'package:messages/core/domain/services/audio_recorder.service.dart';
 import 'package:messages/core/domain/services/mms_configuration.service.dart';
 import 'package:messages/core/domain/services/contact.repository.dart';
+import 'package:messages/core/domain/services/contact_card.service.dart';
 import 'package:messages/core/domain/services/conversation.repository.dart';
 import 'package:messages/core/domain/services/conversation_preferences.repository.dart';
 import 'package:messages/core/domain/services/draft.repository.dart';
@@ -27,6 +28,7 @@ import 'package:messages/infrastructure/audio/android.audio_player.service.dart'
 import 'package:messages/infrastructure/audio/android.audio_recorder.service.dart';
 import 'package:messages/infrastructure/audio/in_memory.audio_player.service.dart';
 import 'package:messages/infrastructure/contacts/flutter_contacts.contact.repository.dart';
+import 'package:messages/infrastructure/contacts/flutter_contacts.contact_card.service.dart';
 import 'package:messages/infrastructure/notifications/android.notification.gateway.dart';
 import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
 import 'package:messages/infrastructure/permissions/in_memory.sms_permissions.service.dart';
@@ -182,6 +184,14 @@ ContactRepository contactRepository(Ref ref) {
     return const FlutterContactsContactRepository();
   }
   return ref.watch(inMemoryContactsProvider);
+}
+
+@Riverpod(keepAlive: true)
+ContactCardService contactCardService(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return FlutterContactsContactCardService(logger: ref.watch(loggerProvider));
+  }
+  return ref.watch(inMemoryContactCardProvider);
 }
 
 @Riverpod(keepAlive: true)

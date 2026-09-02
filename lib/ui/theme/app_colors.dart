@@ -116,6 +116,17 @@ abstract final class GmTones {
   static const GmTone audioControl = (light: 63, dark: 45);
   static const GmTone onAudioControl = (light: 100, dark: 100);
 
+  /// Les cartes de l'écran de détails d'un fil.
+  ///
+  /// **Hors rôles standard**, et le seul endroit de l'app où le contenu monte
+  /// au lieu de descendre : partout ailleurs le panneau est plus clair que le
+  /// fond en thème clair (t97 sur t92) et plus **sombre** que lui en thème
+  /// sombre (t5 sous t11) — c'est [surface]. Ici la carte reste au-dessus du
+  /// fond dans les deux modes. Relevé #F4F6FF sur #E8EBFF en clair,
+  /// **#32375D sur #161E40** en sombre : un fil de détails posé sur un fond
+  /// t5 disparaîtrait, l'écran n'ayant pas de panneau pour l'en séparer.
+  static const GmTone card = (light: 97, dark: 24);
+
   /// Le panneau d'enregistrement, sous le champ de rédaction. Puise dans la
   /// palette **secondaire** — ni le fond (`background`), ni la bulle
   /// (`accentSoft`) : un panneau qui prendrait le ton du fond ne se
@@ -193,6 +204,7 @@ class AppColors extends ThemeExtension<AppColors> {
   const AppColors({
     required this.background,
     required this.surface,
+    required this.card,
     required this.surfaceAlt,
     required this.outline,
     required this.outlineVariant,
@@ -230,6 +242,7 @@ class AppColors extends ThemeExtension<AppColors> {
     return AppColors(
       background: background,
       surface: p.neutral.tone(t(GmTones.surface)),
+      card: p.neutral.tone(t(GmTones.card)),
       // Champs et bulles reçues partagent la couleur des barres : c'est ce que
       // fait l'app d'origine, où le composeur et le fond d'en-tête sont
       // exactement le même bleu-lavande.
@@ -266,6 +279,10 @@ class AppColors extends ThemeExtension<AppColors> {
   /// Panneau de contenu (listes, cartes) : posé sur [background], coins hauts
   /// arrondis.
   final Color surface;
+
+  /// Cartes de l'écran de détails d'un fil — au-dessus de [background] dans
+  /// les deux thèmes, contrairement à [surface].
+  final Color card;
 
   /// Champs de saisie, bulles reçues, puces.
   final Color surfaceAlt;
@@ -328,6 +345,7 @@ class AppColors extends ThemeExtension<AppColors> {
   AppColors copyWith({
     Color? background,
     Color? surface,
+    Color? card,
     Color? surfaceAlt,
     Color? outline,
     Color? outlineVariant,
@@ -356,6 +374,7 @@ class AppColors extends ThemeExtension<AppColors> {
     return AppColors(
       background: background ?? this.background,
       surface: surface ?? this.surface,
+      card: card ?? this.card,
       surfaceAlt: surfaceAlt ?? this.surfaceAlt,
       outline: outline ?? this.outline,
       outlineVariant: outlineVariant ?? this.outlineVariant,
@@ -389,6 +408,7 @@ class AppColors extends ThemeExtension<AppColors> {
     return AppColors(
       background: Color.lerp(background, other.background, t)!,
       surface: Color.lerp(surface, other.surface, t)!,
+      card: Color.lerp(card, other.card, t)!,
       surfaceAlt: Color.lerp(surfaceAlt, other.surfaceAlt, t)!,
       outline: Color.lerp(outline, other.outline, t)!,
       outlineVariant: Color.lerp(outlineVariant, other.outlineVariant, t)!,

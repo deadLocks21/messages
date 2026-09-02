@@ -9,6 +9,7 @@ import 'package:messages/infrastructure/attachments/in_memory.media_downloader.s
 import 'package:messages/infrastructure/gif/in_memory.gif_catalog.service.dart';
 import 'package:messages/infrastructure/audio/in_memory.audio_recorder.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
+import 'package:messages/infrastructure/contacts/in_memory.contact_card.service.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/seed/demo_seed.dart';
 import 'package:messages/infrastructure/sms/android.compose_request.source.dart';
@@ -40,6 +41,12 @@ AndroidSmsChannel smsChannel(Ref ref) =>
 /// Carnet d'adresses simulé, partagé par le seed et le repository InMemory.
 @Riverpod(keepAlive: true)
 InMemoryContactRepository inMemoryContacts(Ref ref) => InMemoryContactRepository();
+
+/// Fiche contact simulée. Exposée à part pour que les tests lisent quelle
+/// fiche a été ouverte, et simulent un appareil sans app de contacts.
+@Riverpod(keepAlive: true)
+InMemoryContactCardService inMemoryContactCard(Ref ref) =>
+    InMemoryContactCardService();
 
 /// Stock SMS simulé, monté avec les données de démonstration.
 @Riverpod(keepAlive: true)

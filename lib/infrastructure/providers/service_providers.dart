@@ -1,5 +1,6 @@
 import 'package:messages/core/application/services/contact_directory.service.dart';
 import 'package:messages/core/application/services/contact_picker.service.dart';
+import 'package:messages/core/application/services/conversation_details.service.dart';
 import 'package:messages/core/application/services/conversation_list.service.dart';
 import 'package:messages/core/application/services/conversation_timeline.service.dart';
 import 'package:messages/core/application/services/search.service.dart';
@@ -43,6 +44,13 @@ ConversationListService conversationListService(Ref ref) =>
       directory: ref.watch(contactDirectoryServiceProvider),
       preferences: ref.watch(conversationPreferencesRepositoryProvider),
       drafts: ref.watch(draftRepositoryProvider),
+    );
+
+@Riverpod(keepAlive: true)
+ConversationDetailsService conversationDetailsService(Ref ref) =>
+    ConversationDetailsService(
+      conversations: ref.watch(conversationListServiceProvider),
+      directory: ref.watch(contactDirectoryServiceProvider),
     );
 
 @Riverpod(keepAlive: true)

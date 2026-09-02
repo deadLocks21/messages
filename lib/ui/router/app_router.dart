@@ -4,6 +4,7 @@ import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
 import 'package:messages/ui/pages/archived/archived.page.dart';
 import 'package:messages/ui/pages/conversation/conversation.page.dart';
+import 'package:messages/ui/pages/conversation/conversation_details.page.dart';
 import 'package:messages/ui/pages/conversations/conversations.page.dart';
 import 'package:messages/ui/pages/new_conversation/new_conversation.page.dart';
 import 'package:messages/ui/pages/search/search.page.dart';
@@ -21,6 +22,7 @@ abstract final class AppRoutes {
   static const newConversation = '/new';
   static const settings = '/settings';
   static String thread(String id) => '/thread/$id';
+  static String threadDetails(String id) => '/thread/$id/details';
 }
 
 /// Router unique. Le `redirect` est piloté par l'accès aux SMS : sans droit de
@@ -109,6 +111,16 @@ GoRouter _buildRouter(Ref ref, ValueNotifier<int> refresh) {
       GoRoute(
         path: '/thread/:id',
         builder: (_, st) => ConversationPage(threadId: st.pathParameters['id']!),
+        routes: [
+          // Sous-route et non route sœur : quitter les détails doit ramener au
+          // fil, y compris quand on y est entré par le bouton « retour »
+          // d'Android.
+          GoRoute(
+            path: 'details',
+            builder: (_, st) =>
+                ConversationDetailsPage(threadId: st.pathParameters['id']!),
+          ),
+        ],
       ),
     ],
   );

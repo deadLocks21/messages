@@ -646,6 +646,54 @@ final class ContactRepositoryProvider
 
 String _$contactRepositoryHash() => r'6f7ff898ea8e721a2d8e0b00bdcd1191d8ffef85';
 
+@ProviderFor(contactCardService)
+final contactCardServiceProvider = ContactCardServiceProvider._();
+
+final class ContactCardServiceProvider
+    extends
+        $FunctionalProvider<
+          ContactCardService,
+          ContactCardService,
+          ContactCardService
+        >
+    with $Provider<ContactCardService> {
+  ContactCardServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'contactCardServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$contactCardServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<ContactCardService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  ContactCardService create(Ref ref) {
+    return contactCardService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ContactCardService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ContactCardService>(value),
+    );
+  }
+}
+
+String _$contactCardServiceHash() =>
+    r'0e252421acab016002d8f1f70c106ece106bea96';
+
 @ProviderFor(smsPermissionsService)
 final smsPermissionsServiceProvider = SmsPermissionsServiceProvider._();
 

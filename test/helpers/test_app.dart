@@ -13,6 +13,7 @@ import 'package:messages/infrastructure/gif/in_memory.gif_catalog.service.dart';
 import 'package:messages/infrastructure/preferences/in_memory.emoji_history.repository.dart';
 import 'package:messages/infrastructure/audio/in_memory.audio_recorder.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
+import 'package:messages/infrastructure/contacts/in_memory.contact_card.service.dart';
 import 'package:messages/infrastructure/notifications/in_memory.notification.gateway.dart';
 import 'package:messages/infrastructure/permissions/in_memory.sms_permissions.service.dart';
 import 'package:messages/infrastructure/preferences/in_memory.conversation_preferences.repository.dart';
@@ -76,6 +77,11 @@ class TestDevice {
   /// Le repli des réactions, actif comme sur un téléphone neuf.
   final InMemoryReactionPreferencesRepository reactionPreferences =
       InMemoryReactionPreferencesRepository();
+
+  /// La fiche contact du système : c'est par elle qu'un test lit quelle fiche
+  /// l'écran de détails a demandé d'ouvrir, ou simule un appareil sans app de
+  /// contacts.
+  final InMemoryContactCardService contactCard = InMemoryContactCardService();
 
   /// Le rapatriement d'un GIF choisi. Il dépose ses octets dans le stock de
   /// *ce* device — d'où l'initialisation dans le corps.
@@ -159,6 +165,7 @@ Future<void> _pump(WidgetTester tester, TestDevice device, Widget child) async {
           device.reactionPreferences,
         ),
         inMemoryMediaDownloaderProvider.overrideWithValue(device.downloads),
+        inMemoryContactCardProvider.overrideWithValue(device.contactCard),
       ],
       child: child,
     ),

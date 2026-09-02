@@ -179,6 +179,62 @@ final class InMemoryContactsProvider
 
 String _$inMemoryContactsHash() => r'81de0a26938d24c1ca7b7fbe6fb7766358be507e';
 
+/// Fiche contact simulée. Exposée à part pour que les tests lisent quelle
+/// fiche a été ouverte, et simulent un appareil sans app de contacts.
+
+@ProviderFor(inMemoryContactCard)
+final inMemoryContactCardProvider = InMemoryContactCardProvider._();
+
+/// Fiche contact simulée. Exposée à part pour que les tests lisent quelle
+/// fiche a été ouverte, et simulent un appareil sans app de contacts.
+
+final class InMemoryContactCardProvider
+    extends
+        $FunctionalProvider<
+          InMemoryContactCardService,
+          InMemoryContactCardService,
+          InMemoryContactCardService
+        >
+    with $Provider<InMemoryContactCardService> {
+  /// Fiche contact simulée. Exposée à part pour que les tests lisent quelle
+  /// fiche a été ouverte, et simulent un appareil sans app de contacts.
+  InMemoryContactCardProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'inMemoryContactCardProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$inMemoryContactCardHash();
+
+  @$internal
+  @override
+  $ProviderElement<InMemoryContactCardService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  InMemoryContactCardService create(Ref ref) {
+    return inMemoryContactCard(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(InMemoryContactCardService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<InMemoryContactCardService>(value),
+    );
+  }
+}
+
+String _$inMemoryContactCardHash() =>
+    r'09b783e113fc948d169cf1ad89695e08c808d3d1';
+
 /// Stock SMS simulé, monté avec les données de démonstration.
 
 @ProviderFor(inMemorySmsStore)

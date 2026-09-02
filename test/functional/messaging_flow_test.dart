@@ -82,4 +82,31 @@ void main() {
     expect(find.byKey(const Key('composerField')), findsOneWidget);
     expect(find.text('Aucun message pour l\'instant.\nÉcrivez le premier.'), findsOneWidget);
   });
+
+  testWidgets('appuyer sur le nom, en haut du fil, ouvre les détails', (
+    tester,
+  ) async {
+    final device = TestDevice(
+      contacts: [
+        Build.contact(displayName: 'Camille', addresses: ['0612345678']),
+      ],
+    );
+    final threadId = device.store.threadIdFor([Build.address('+33612345678')]);
+    device.store.insert(Build.message(threadId: threadId, body: 'Coucou'));
+
+    await pumpApp(tester, device: device);
+    await tester.tap(find.byKey(Key('conversationTile_$threadId')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('openThreadDetails')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('callParticipant')), findsOneWidget);
+    expect(find.byKey(const Key('openContactCard')), findsOneWidget);
+
+    // Et l'on revient au fil, pas à la liste.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('composerField')), findsOneWidget);
+  });
 }

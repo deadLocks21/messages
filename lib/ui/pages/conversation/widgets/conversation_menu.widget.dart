@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:messages/core/application/dtos/conversation.dto.dart';
 import 'package:messages/infrastructure/providers/service_providers.dart';
 import 'package:messages/ui/providers/conversation_providers.dart';
+import 'package:messages/ui/router/app_router.dart';
 
-/// Menu « ⋮ » d'un fil : épingler, archiver, mettre en sourdine, supprimer.
+/// Menu « ⋮ » d'un fil : ses détails, puis épingler, archiver, mettre en
+/// sourdine, supprimer.
+///
+/// « Détails » ouvre le même écran que l'appui sur le nom, et se tient en tête
+/// du menu comme dans l'app d'origine : le menu est le second chemin vers lui,
+/// pour qui ne devine pas que le nom est un bouton.
 class ConversationMenu extends ConsumerWidget {
   const ConversationMenu({
     super.key,
@@ -26,6 +33,11 @@ class ConversationMenu extends ConsumerWidget {
       position: PopupMenuPosition.under,
       onSelected: (value) => _onSelected(context, ref, value),
       itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'details',
+          height: 56,
+          child: Text('Détails'),
+        ),
         PopupMenuItem(
           value: 'pin',
           height: 56,
@@ -59,6 +71,9 @@ class ConversationMenu extends ConsumerWidget {
   ) async {
     final flags = ref.read(updateConversationFlagsUseCaseProvider);
     switch (value) {
+      case 'details':
+        context.push(AppRoutes.threadDetails(conversation.threadId));
+        return;
       case 'pin':
         await flags.togglePinned(conversation.threadId);
       case 'archive':
@@ -67,7 +82,7 @@ class ConversationMenu extends ConsumerWidget {
         await flags.toggleMuted(conversation.threadId);
       case 'delete':
         if (!context.mounted) return;
-        final confirmed = await _confirmDelete(context);
+        final confirmed = await confirmDelete(context);
         if (confirmed != true) return;
         await ref
             .read(deleteConversationUseCaseProvider)
@@ -80,7 +95,9 @@ class ConversationMenu extends ConsumerWidget {
     ref.invalidate(conversationsProvider);
   }
 
-  Future<bool?> _confirmDelete(BuildContext context) => showDialog<bool>(
+  /// Exposée : l'écran de détails supprime le même fil, et la question doit
+  /// être posée dans les mêmes mots des deux endroits.
+  static Future<bool?> confirmDelete(BuildContext context) => showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('Supprimer cette conversation ?'),

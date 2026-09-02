@@ -57,6 +57,7 @@ d'imposer le sien.
   | Token | Palette | Clair | Sombre | Relevé |
   |---|---|---|---|---|
   | `surface` (panneau) | neutre | 97 | 5 | `#F8F5FF` / `#05092F` |
+  | `card` (cartes de l'écran de détails) | neutre | 97 | **24** | `#F4F6FF` / `#32375D` |
   | `background` (barres, bulles reçues, champs) | neutre | 92 | 11 | `#E6E6FF` / `#161E40` |
   | `accent` (liens, envoi, non-lus) | primaire | 40 | 80 | `#0055D5` |
   | `accentSoft` (bandeaux, puces) | primaire | 90 | 30 | `#DAE2FF` |
@@ -67,14 +68,17 @@ d'imposer le sien.
   | `record` (bouton micro) | secondaire | 40 | 80 | `#3C4279` |
   | `audioControl` (lecteur d'un vocal) | neutre variante | 63 | 45 | `#8D95D6` |
 
-  Quatre de ces tons — ceux du **FAB**, de la **bulle envoyée** et du **lecteur
-  de vocal** — ne sont pas des rôles Material standard, et c'est ce qui
+  Cinq de ces tons — ceux du **FAB**, de la **bulle envoyée**, du **lecteur
+  de vocal** et des **cartes de l'écran de détails** — ne sont pas des rôles
+  Material standard, et c'est ce qui
   distingue l'app d'origine d'une app Material par défaut : le FAB a un ton
   médian, le même en clair et en sombre ; la bulle envoyée reste **claire à
   texte foncé** en thème sombre (t77) au lieu de basculer sur le conteneur
   sombre (t30) ; et le lecteur d'un vocal se tient à une trentaine de tons du
-  fond de sa bulle, ni à son contraste ni à sa couleur. Les autres sont bien
-  les rôles de la spécification, appliqués là où l'app d'origine les applique.
+  fond de sa bulle, ni à son contraste ni à sa couleur ; et les cartes de
+  l'écran de détails **montent** en thème sombre (t24 au-dessus d'un fond t11)
+  là où le panneau de contenu descend. Les autres sont bien les rôles de la
+  spécification, appliqués là où l'app d'origine les applique.
 - Dans l'app d'origine, les barres, les bulles reçues et le champ de rédaction
   sont **exactement la même couleur** — d'où `surfaceAlt == background`. Un bloc
   posé à même le fond doit donc prendre `surface`, pas `surfaceAlt`.
@@ -87,6 +91,98 @@ d'imposer le sien.
   suivent pas le thème. L'app d'origine non plus : sur un appareil à palette
   bleue, elle affiche les mêmes pastilles jaune et orange. Elles servent à
   distinguer les correspondants, pas à décorer.
+
+## Le nom, en haut d'un fil, est un bouton
+
+Dans Google Messages, la pastille et le nom de l'en-tête ne sont pas un titre :
+c'est un seul bouton (`top_app_bar_title_row` au relevé de `uiautomator`), et il
+ouvre l'écran de **détails du fil**. C'est le geste qu'on tente pour voir qui est
+en face, et il ne doit pas tomber à plat. Le menu « ⋮ » y mène aussi, par
+« Détails » en tête de liste — comme dans l'app d'origine, qui offre les deux
+chemins parce que le premier ne se devine pas.
+
+L'écran vit sous `/thread/:id/details`, en **sous-route** du fil : quitter les
+détails ramène au fil et non à la liste, y compris par le bouton retour
+d'Android.
+
+### Le relevé
+
+Mesuré sur l'émulateur Android 16 (1080×2400, 2,625 px/dp), en clair puis en
+sombre, pour un fil à deux :
+
+| | dp |
+|---|---|
+| Barre du haut | 64, nue — le titre n'apparaît qu'une fois l'en-tête passé dessous |
+| Pastille | 96, collée sous la barre |
+| Nom | 24, interligne 32, à 24 de la pastille |
+| Numéro | 16, interligne 24, à 8 sous le nom, 16 avant les boutons |
+| Sans numéro | 24 pleins entre le nom et les boutons — les mêmes 48 au total |
+| Boutons ronds | 56 de haut, en gousse, à parts égales, 8 entre eux, 16 aux bords |
+| Libellé d'un bouton | 12, interligne 16, à 8 sous la pastille |
+| Lignes de réglage | 56, **une carte par ligne**, 2 entre les cartes, rayon 12 |
+| Icône d'une ligne | 24, à 16 du bord ; le libellé à 56 |
+| Carte des personnes | intertitre de 64, puis une ligne de 72 par personne |
+
+Une carte par ligne, et non un groupe à filets comme les réglages (`CardGroup`) :
+l'écart de 2 remplace le filet, et c'est lui qui permet à la ligne rouge du bas
+de se détacher sans bordure.
+
+### Un ton qui monte là où tous les autres descendent
+
+`GmTones.card` est le seul ton de l'app dont le thème sombre ne suit pas
+`surface`. Partout ailleurs le panneau de contenu est **plus clair** que le fond
+en thème clair (t97 sur t92) et **plus sombre** que lui en thème sombre (t5 sous
+t11) : c'est ce qui donne au fil son creux. Ici les cartes restent au-dessus du
+fond dans les deux modes — relevé #F4F6FF sur #E8EBFF en clair, **#32375D sur
+#161E40** en sombre, soit t97 et t24. Un écran sans panneau n'a rien pour
+détacher ses cartes ; il les fait monter.
+
+Les autres couleurs de l'écran sont des tokens déjà là, et le relevé confirme
+lesquels : la pastille d'un bouton rond est le `secondaryContainer` du panneau
+d'enregistrement (`panel`, #DFE0FF / #2E3AA1, icône en `onPanel` #000965), le
+**libellé** sous la pastille est posé sur le fond et prend donc `textPrimary`
+(#13183D) et non l'`on` de la pastille, et le nom et le numéro de l'en-tête sont
+les seuls textes de l'app teintés par la palette primaire (`onAccentSoft`,
+#001849 / #DAE2FF).
+
+### Ce qu'on n'a pas repris, et par quoi
+
+L'app d'origine aligne quatre boutons ronds (Appeler, Vidéo, Infos contact,
+Rechercher) et cinq lignes (Thème, Mettre en veille, Notifications, Archiver,
+Bloquer et signaler comme spam). Trois de ces neuf actions n'existent pas ici, et
+une dixième — « Créer un groupe » — non plus :
+
+- **Vidéo**, **Thème** et **Mettre en veille** : hors périmètre de l'app.
+- **Rechercher** cherche *dans le fil* ; la nôtre cherche dans tout le stock.
+  Un bouton qui promet l'un et fait l'autre ment plus qu'il ne rend service.
+- **Bloquer et signaler comme spam** : c'est « Supprimer la conversation » qui
+  prend sa place et sa couleur — la seule action de l'écran dont on ne revient
+  pas.
+- **Créer un groupe** : le sélecteur de destinataires n'en compose qu'un.
+
+Restent deux boutons ronds et quatre lignes, dans la forme et l'ordre de l'app
+d'origine. Les lignes sont celles du menu « ⋮ », au même cas d'usage : archiver
+dépingle, et l'écran de détails le montre comme le menu.
+
+### La fiche contact appartient à l'app Contacts
+
+`ContactCardService` ouvre l'app Contacts, en lecture (`ACTION_VIEW`) ou en
+création pré-remplie du numéro (`ACTION_INSERT`) — ce que fait l'app d'origine,
+dont « Infos contact » et « Ajouter un contact » sortent de Messages. Un client
+SMS ne sait du carnet que ce qu'il en lit : un nom, des numéros, une vignette.
+Les adresses, les comptes liés, la fusion des doublons appartiennent à l'app qui
+les détient, et lui faire une fiche à nous serait en montrer moins tout en
+laissant croire le contraire.
+
+L'appel rend un booléen plutôt que de lever : un appareil sans app de contacts
+est un cas prévu, pas une panne. L'écran le dit (« Aucune application de contacts
+disponible. »), et le journal garde la trace (`contact_card.open_failed`) — sans
+elle, l'utilisateur appuie et rien ne bouge.
+
+Un appui sur le **numéro**, sous le nom, le copie : c'est ce que fait l'app
+d'origine, qui ne dit rien de plus et laisse la vignette de presse-papiers
+d'Android 13+ s'en charger. On ajoute un message, pour les Android d'avant qui
+n'en affichent aucune.
 
 ## Envoyer un SMS long : le découper nous-mêmes coûte moins cher qu'une permission
 

@@ -199,6 +199,93 @@ final class ConversationFamily extends $Family
   String toString() => r'conversationProvider';
 }
 
+/// Détails d'un fil : l'en-tête, les interlocuteurs, les réglages.
+
+@ProviderFor(conversationDetails)
+final conversationDetailsProvider = ConversationDetailsFamily._();
+
+/// Détails d'un fil : l'en-tête, les interlocuteurs, les réglages.
+
+final class ConversationDetailsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<ConversationDetailsDto?>,
+          ConversationDetailsDto?,
+          FutureOr<ConversationDetailsDto?>
+        >
+    with
+        $FutureModifier<ConversationDetailsDto?>,
+        $FutureProvider<ConversationDetailsDto?> {
+  /// Détails d'un fil : l'en-tête, les interlocuteurs, les réglages.
+  ConversationDetailsProvider._({
+    required ConversationDetailsFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'conversationDetailsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$conversationDetailsHash();
+
+  @override
+  String toString() {
+    return r'conversationDetailsProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<ConversationDetailsDto?> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<ConversationDetailsDto?> create(Ref ref) {
+    final argument = this.argument as String;
+    return conversationDetails(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ConversationDetailsProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$conversationDetailsHash() =>
+    r'b3b2bd2aa1db3551bb22605f45d229dd20c683b8';
+
+/// Détails d'un fil : l'en-tête, les interlocuteurs, les réglages.
+
+final class ConversationDetailsFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<ConversationDetailsDto?>, String> {
+  ConversationDetailsFamily._()
+    : super(
+        retry: null,
+        name: r'conversationDetailsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Détails d'un fil : l'en-tête, les interlocuteurs, les réglages.
+
+  ConversationDetailsProvider call(String threadId) =>
+      ConversationDetailsProvider._(argument: threadId, from: this);
+
+  @override
+  String toString() => r'conversationDetailsProvider';
+}
+
 @ProviderFor(conversationTimeline)
 final conversationTimelineProvider = ConversationTimelineFamily._();
 

@@ -153,6 +153,55 @@ final class ConversationListServiceProvider
 String _$conversationListServiceHash() =>
     r'6a4575974684ebb6cfd18a925f286bef24d65f6a';
 
+@ProviderFor(conversationDetailsService)
+final conversationDetailsServiceProvider =
+    ConversationDetailsServiceProvider._();
+
+final class ConversationDetailsServiceProvider
+    extends
+        $FunctionalProvider<
+          ConversationDetailsService,
+          ConversationDetailsService,
+          ConversationDetailsService
+        >
+    with $Provider<ConversationDetailsService> {
+  ConversationDetailsServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'conversationDetailsServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$conversationDetailsServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<ConversationDetailsService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  ConversationDetailsService create(Ref ref) {
+    return conversationDetailsService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ConversationDetailsService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ConversationDetailsService>(value),
+    );
+  }
+}
+
+String _$conversationDetailsServiceHash() =>
+    r'd7ba8d3aeb3cf63b9b4cdbbb17a9420bbb7ee1da';
+
 @ProviderFor(conversationTimelineService)
 final conversationTimelineServiceProvider =
     ConversationTimelineServiceProvider._();

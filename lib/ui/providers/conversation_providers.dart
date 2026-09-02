@@ -1,5 +1,6 @@
 import 'package:messages/core/application/dtos/contact.dto.dart';
 import 'package:messages/core/application/dtos/conversation.dto.dart';
+import 'package:messages/core/application/dtos/conversation_details.dto.dart';
 import 'package:messages/core/application/dtos/conversation_timeline.dto.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/infrastructure/providers/infra_providers.dart';
@@ -30,6 +31,16 @@ Future<List<ConversationDto>> conversations(
 Future<ConversationDto?> conversation(Ref ref, String threadId) async {
   ref.watch(smsEventsProvider);
   return ref.watch(conversationListServiceProvider).byId(threadId);
+}
+
+/// Détails d'un fil : l'en-tête, les interlocuteurs, les réglages.
+@riverpod
+Future<ConversationDetailsDto?> conversationDetails(
+  Ref ref,
+  String threadId,
+) async {
+  ref.watch(smsEventsProvider);
+  return ref.watch(conversationDetailsServiceProvider).byId(threadId);
 }
 
 @riverpod
