@@ -165,14 +165,26 @@ class MessagesPalettes {
   /// Reconstitue les palettes à la façon d'Android (« tonal spot ») à partir
   /// d'une teinte : même recette de chroma, pour que le repli se comporte
   /// comme le système et non comme une palette à part.
-  factory MessagesPalettes.seeded(Color seed) {
+  factory MessagesPalettes.seeded(
+    Color seed, {
+    /// Combien de teinte dans les gris.
+    ///
+    /// 4 est la valeur d'Android — celle du repli, qui doit se comporter comme
+    /// le système. Un **thème de discussion** en demande davantage : c'est tout
+    /// ce qui distingue un fil violet d'un fil gris, puisque le fond, les
+    /// barres et les bulles reçues sont des neutres. Le relevé de l'app
+    /// d'origine donne d'ailleurs raison à la valeur haute — ses « neutres »
+    /// portent une chroma d'environ 28.
+    double neutralChroma = 4,
+    double neutralVariantChroma = 8,
+  }) {
     final hct = Hct.fromInt(seed.toARGB32());
     return MessagesPalettes(
       primary: TonalPalette.of(hct.hue, math.max(48, hct.chroma)),
       secondary: TonalPalette.of(hct.hue, 16),
       tertiary: TonalPalette.of(hct.hue + 60, 24),
-      neutral: TonalPalette.of(hct.hue, 4),
-      neutralVariant: TonalPalette.of(hct.hue, 8),
+      neutral: TonalPalette.of(hct.hue, neutralChroma),
+      neutralVariant: TonalPalette.of(hct.hue, neutralVariantChroma),
       error: TonalPalette.of(25, 84),
     );
   }

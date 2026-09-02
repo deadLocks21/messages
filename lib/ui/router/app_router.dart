@@ -4,6 +4,7 @@ import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
 import 'package:messages/ui/pages/archived/archived.page.dart';
 import 'package:messages/ui/pages/blocked/blocked.page.dart';
+import 'package:messages/ui/pages/conversation/chat_theme.page.dart';
 import 'package:messages/ui/pages/conversation/conversation.page.dart';
 import 'package:messages/ui/pages/conversation/conversation_details.page.dart';
 import 'package:messages/ui/pages/conversation/conversation_search.page.dart';
@@ -31,6 +32,7 @@ abstract final class AppRoutes {
   static String thread(String id) => '/thread/$id';
   static String threadDetails(String id) => '/thread/$id/details';
   static String threadSearch(String id) => '/thread/$id/search';
+  static String threadTheme(String id) => '/thread/$id/theme';
 }
 
 /// Router unique. Le `redirect` est piloté par l'accès aux SMS : sans droit de
@@ -128,6 +130,11 @@ GoRouter _buildRouter(Ref ref, ValueNotifier<int> refresh) {
                 path: 'details',
                 builder: (_, st) =>
                     ConversationDetailsPage(threadId: st.pathParameters['id']!),
+              ),
+              GoRoute(
+                path: 'theme',
+                builder: (_, st) =>
+                    ChatThemePage(threadId: st.pathParameters['id']!),
               ),
               GoRoute(
                 path: 'search',

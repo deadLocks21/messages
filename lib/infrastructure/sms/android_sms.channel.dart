@@ -93,6 +93,12 @@ class AndroidSmsChannel {
       }) ??
       false;
 
+  /// Copie l'image choisie dans le stockage de l'app, et rend son chemin.
+  Future<String?> saveWallpaper({
+    required String threadId,
+    required String uri,
+  }) => _invoke<String>('saveWallpaper', {'threadId': threadId, 'uri': uri});
+
   // ---------------------------------------------------- numéros bloqués
 
   Future<List<Address>> listBlockedNumbers() async {

@@ -10,6 +10,7 @@ import 'package:messages/infrastructure/gif/in_memory.gif_catalog.service.dart';
 import 'package:messages/infrastructure/audio/in_memory.audio_recorder.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact_card.service.dart';
+import 'package:messages/infrastructure/attachments/in_memory.wallpaper.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.blocked_numbers.repository.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/seed/demo_seed.dart';
@@ -48,6 +49,12 @@ InMemoryContactRepository inMemoryContacts(Ref ref) => InMemoryContactRepository
 @Riverpod(keepAlive: true)
 InMemoryContactCardService inMemoryContactCard(Ref ref) =>
     InMemoryContactCardService();
+
+/// Fond d'écran simulé. Exposé à part pour que les tests lisent ce qui a été
+/// rangé, et simulent une image illisible.
+@Riverpod(keepAlive: true)
+InMemoryWallpaperRepository inMemoryWallpaper(Ref ref) =>
+    InMemoryWallpaperRepository();
 
 /// Numéros bloqués simulés. Exposés à part pour que les tests lisent ce qui a
 /// été bloqué.

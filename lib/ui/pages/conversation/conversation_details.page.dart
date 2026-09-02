@@ -236,6 +236,13 @@ class _ConversationDetailsPageState
 
     return Column(
       children: [
+        // En tête, comme dans l'app d'origine.
+        DetailsCardRow(
+          key: const Key('chatTheme'),
+          icon: Icons.palette_outlined,
+          label: 'Thème de discussion',
+          onTap: () => context.push(AppRoutes.threadTheme(widget.threadId)),
+        ),
         DetailsCardRow(
           key: const Key('togglePinned'),
           icon: Icons.push_pin_outlined,

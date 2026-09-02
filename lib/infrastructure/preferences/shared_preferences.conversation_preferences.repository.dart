@@ -66,6 +66,8 @@ class SharedPreferencesConversationPreferencesRepository
             snoozedUntil: DateTime.tryParse(
               value['snoozedUntil'] as String? ?? '',
             ),
+            themeSeed: value['themeSeed'] as int?,
+            wallpaperPath: value['wallpaperPath'] as String?,
           ),
         ),
       );
@@ -91,6 +93,8 @@ class SharedPreferencesConversationPreferencesRepository
         'archived': entry.value.archived,
         'muted': entry.value.muted,
         'snoozedUntil': ?entry.value.snoozedUntil?.toIso8601String(),
+        'themeSeed': ?entry.value.themeSeed,
+        'wallpaperPath': ?entry.value.wallpaperPath,
       },
   });
 }

@@ -151,7 +151,7 @@ final class ConversationListServiceProvider
 }
 
 String _$conversationListServiceHash() =>
-    r'6a4575974684ebb6cfd18a925f286bef24d65f6a';
+    r'a42d93d3de0829207dc7809497b53cdcf12cb622';
 
 @ProviderFor(conversationDetailsService)
 final conversationDetailsServiceProvider =
@@ -827,6 +827,54 @@ final class SyncNotificationSettingsUseCaseProvider
 
 String _$syncNotificationSettingsUseCaseHash() =>
     r'82d4c8acf35760d1468679e9186bef29d3686c9e';
+
+@ProviderFor(updateChatThemeUseCase)
+final updateChatThemeUseCaseProvider = UpdateChatThemeUseCaseProvider._();
+
+final class UpdateChatThemeUseCaseProvider
+    extends
+        $FunctionalProvider<
+          UpdateChatThemeUseCase,
+          UpdateChatThemeUseCase,
+          UpdateChatThemeUseCase
+        >
+    with $Provider<UpdateChatThemeUseCase> {
+  UpdateChatThemeUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'updateChatThemeUseCaseProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$updateChatThemeUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<UpdateChatThemeUseCase> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  UpdateChatThemeUseCase create(Ref ref) {
+    return updateChatThemeUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(UpdateChatThemeUseCase value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<UpdateChatThemeUseCase>(value),
+    );
+  }
+}
+
+String _$updateChatThemeUseCaseHash() =>
+    r'c082e2e51e27b9c0b62af06d29cd19db7c78b52e';
 
 @ProviderFor(saveDraftUseCase)
 final saveDraftUseCaseProvider = SaveDraftUseCaseProvider._();

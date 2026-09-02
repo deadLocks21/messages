@@ -24,6 +24,12 @@ class ConversationDto {
   /// Fin de la mise en veille, `null` s'il n'y en a pas.
   final DateTime? snoozedUntil;
 
+  /// Graine du thème de discussion, `null` quand le fil suit l'appareil.
+  final int? themeSeed;
+
+  /// Fond d'écran du fil, dans le stockage de l'app.
+  final String? wallpaperPath;
+
   /// Ce fil notifie-t-il ? Calculé à la construction du DTO, pas à la lecture :
   /// une veille échue ne doit pas dépendre du moment où l'UI y jette un œil.
   final bool isSilenced;
@@ -51,6 +57,8 @@ class ConversationDto {
     this.isMuted = false,
     this.isBlocked = false,
     this.snoozedUntil,
+    this.themeSeed,
+    this.wallpaperPath,
     this.isSilenced = false,
     this.isGroup = false,
     this.draft,
@@ -74,6 +82,8 @@ class ConversationDto {
     isMuted: isMuted,
     isBlocked: isBlocked,
     snoozedUntil: snoozedUntil,
+    themeSeed: themeSeed,
+    wallpaperPath: wallpaperPath,
     isSilenced: isSilenced,
     isGroup: isGroup,
     draft: draft,

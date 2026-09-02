@@ -235,6 +235,61 @@ final class InMemoryContactCardProvider
 String _$inMemoryContactCardHash() =>
     r'09b783e113fc948d169cf1ad89695e08c808d3d1';
 
+/// Fond d'écran simulé. Exposé à part pour que les tests lisent ce qui a été
+/// rangé, et simulent une image illisible.
+
+@ProviderFor(inMemoryWallpaper)
+final inMemoryWallpaperProvider = InMemoryWallpaperProvider._();
+
+/// Fond d'écran simulé. Exposé à part pour que les tests lisent ce qui a été
+/// rangé, et simulent une image illisible.
+
+final class InMemoryWallpaperProvider
+    extends
+        $FunctionalProvider<
+          InMemoryWallpaperRepository,
+          InMemoryWallpaperRepository,
+          InMemoryWallpaperRepository
+        >
+    with $Provider<InMemoryWallpaperRepository> {
+  /// Fond d'écran simulé. Exposé à part pour que les tests lisent ce qui a été
+  /// rangé, et simulent une image illisible.
+  InMemoryWallpaperProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'inMemoryWallpaperProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$inMemoryWallpaperHash();
+
+  @$internal
+  @override
+  $ProviderElement<InMemoryWallpaperRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  InMemoryWallpaperRepository create(Ref ref) {
+    return inMemoryWallpaper(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(InMemoryWallpaperRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<InMemoryWallpaperRepository>(value),
+    );
+  }
+}
+
+String _$inMemoryWallpaperHash() => r'7d09a9ae6a4c31fbc5e7294d9de3c9fab4c2df23';
+
 /// Numéros bloqués simulés. Exposés à part pour que les tests lisent ce qui a
 /// été bloqué.
 

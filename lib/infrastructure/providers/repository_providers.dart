@@ -17,11 +17,13 @@ import 'package:messages/core/domain/services/notification.gateway.dart';
 import 'package:messages/core/domain/services/sms_permissions.service.dart';
 import 'package:messages/core/domain/services/reaction_preferences.repository.dart';
 import 'package:messages/core/domain/services/theme.repository.dart';
+import 'package:messages/core/domain/services/wallpaper.repository.dart';
 import 'package:messages/infrastructure/attachments/android.attachment.repository.dart';
 import 'package:messages/infrastructure/attachments/android.attachment_compressor.service.dart';
 import 'package:messages/infrastructure/attachments/android.attachment_opener.service.dart';
 import 'package:messages/infrastructure/attachments/android.attachment_picker.service.dart';
 import 'package:messages/infrastructure/attachments/android.mms_configuration.service.dart';
+import 'package:messages/infrastructure/attachments/android.wallpaper.repository.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment.repository.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_compressor.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
@@ -186,6 +188,14 @@ ContactRepository contactRepository(Ref ref) {
     return const FlutterContactsContactRepository();
   }
   return ref.watch(inMemoryContactsProvider);
+}
+
+@Riverpod(keepAlive: true)
+WallpaperRepository wallpaperRepository(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidWallpaperRepository(ref.watch(smsChannelProvider));
+  }
+  return ref.watch(inMemoryWallpaperProvider);
 }
 
 @Riverpod(keepAlive: true)

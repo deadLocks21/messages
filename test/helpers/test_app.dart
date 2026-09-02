@@ -8,6 +8,7 @@ import 'package:messages/core/domain/model/sms_access.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_opener.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.attachment_picker.service.dart';
 import 'package:messages/infrastructure/attachments/in_memory.media_downloader.service.dart';
+import 'package:messages/infrastructure/attachments/in_memory.wallpaper.repository.dart';
 import 'package:messages/infrastructure/attachments/in_memory.mms_configuration.service.dart';
 import 'package:messages/infrastructure/gif/in_memory.gif_catalog.service.dart';
 import 'package:messages/infrastructure/preferences/in_memory.emoji_history.repository.dart';
@@ -78,6 +79,10 @@ class TestDevice {
   /// Le repli des réactions, actif comme sur un téléphone neuf.
   final InMemoryReactionPreferencesRepository reactionPreferences =
       InMemoryReactionPreferencesRepository();
+
+  /// Le fond d'écran d'un fil : c'est là qu'un test lit l'image rangée, ou
+  /// simule une image illisible.
+  final InMemoryWallpaperRepository wallpaper = InMemoryWallpaperRepository();
 
   /// Les numéros bloqués du système : c'est là qu'un test lit ce qui a été
   /// bloqué, et y met de quoi vérifier que le fil disparaît de la liste.
@@ -185,6 +190,7 @@ Future<void> _pump(WidgetTester tester, TestDevice device, Widget child) async {
         inMemoryMediaDownloaderProvider.overrideWithValue(device.downloads),
         inMemoryContactCardProvider.overrideWithValue(device.contactCard),
         inMemoryBlockedNumbersProvider.overrideWithValue(device.blockedNumbers),
+        inMemoryWallpaperProvider.overrideWithValue(device.wallpaper),
       ],
       child: child,
     ),

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.role.RoleManager
 import android.content.Intent
 import android.provider.Settings
+import java.io.File
 import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Build
@@ -304,6 +305,13 @@ class SmsBridge(
                     )
                 )
 
+                "saveWallpaper" -> result.success(
+                    saveWallpaper(
+                        call.argument<String>("uri")!!,
+                        call.argument<String>("threadId")!!,
+                    )
+                )
+
                 "listBlockedNumbers" -> result.success(BlockedNumbers.list(activity))
 
                 "blockNumber" -> {
@@ -412,6 +420,27 @@ class SmsBridge(
                 ConversationShortcuts.idFor(threadId),
             )
         return runCatching { activity.startActivity(intent) }.isSuccess
+    }
+
+    /**
+     * Copie l'image choisie dans le stockage de l'app, et rend son chemin.
+     *
+     * On ne garde pas l'URI de la galerie : un `content://` ne survit ni au
+     * redémarrage — la permission de lecture est éphémère — ni à la photo
+     * qu'on supprime. Un fond d'écran doit tenir plus longtemps que ça.
+     *
+     * Un fichier par fil, écrasé à chaque changement : rien à nettoyer, et le
+     * chemin reste stable.
+     */
+    private fun saveWallpaper(uri: String, threadId: String): String? {
+        val directory = File(activity.filesDir, "wallpapers").apply { mkdirs() }
+        val file = File(directory, "thread_$threadId.jpg")
+        return runCatching {
+            activity.contentResolver.openInputStream(Uri.parse(uri))!!.use { input ->
+                file.outputStream().use(input::copyTo)
+            }
+            file.absolutePath
+        }.getOrNull()
     }
 
     private fun requestDefaultSmsApp(result: MethodChannel.Result) {

@@ -646,6 +646,54 @@ final class ContactRepositoryProvider
 
 String _$contactRepositoryHash() => r'6f7ff898ea8e721a2d8e0b00bdcd1191d8ffef85';
 
+@ProviderFor(wallpaperRepository)
+final wallpaperRepositoryProvider = WallpaperRepositoryProvider._();
+
+final class WallpaperRepositoryProvider
+    extends
+        $FunctionalProvider<
+          WallpaperRepository,
+          WallpaperRepository,
+          WallpaperRepository
+        >
+    with $Provider<WallpaperRepository> {
+  WallpaperRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'wallpaperRepositoryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$wallpaperRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<WallpaperRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  WallpaperRepository create(Ref ref) {
+    return wallpaperRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(WallpaperRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<WallpaperRepository>(value),
+    );
+  }
+}
+
+String _$wallpaperRepositoryHash() =>
+    r'113b40c6740b7b004d69224ffbbcef4584f3d1a6';
+
 @ProviderFor(blockedNumbersRepository)
 final blockedNumbersRepositoryProvider = BlockedNumbersRepositoryProvider._();
 

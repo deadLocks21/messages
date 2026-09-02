@@ -150,17 +150,20 @@ les seuls textes de l'app teintés par la palette primaire (`onAccentSoft`,
 
 L'app d'origine aligne quatre boutons ronds (Appeler, Vidéo, Infos contact,
 Rechercher) et cinq lignes (Thème, Mettre en veille, Notifications, Archiver,
-Bloquer et signaler comme spam). Deux de ces neuf actions n'existent pas ici,
-et une moitié d'une troisième :
+Bloquer et signaler comme spam). Une seule de ces neuf actions n'existe pas
+ici, et deux moitiés :
 
-- **Vidéo** et **Thème** : hors périmètre de l'app.
+- **Vidéo** : l'app ne passe pas d'appels.
+- Le **catalogue de fonds d'écran** de l'app d'origine (animaux, architecture,
+  noir et blanc…) : ce sont ses images. Il n'y a rien à reproduire, seulement à
+  ne pas prétendre — « Choisir une photo », lui, est là.
 - **Signaler comme spam** — la case du dialogue de blocage : elle envoie le
   numéro et les derniers messages à Google et aux opérateurs. Ce service
   n'existe que chez eux ; une case qui promettrait la même chose sans rien
   envoyer serait pire que son absence. Le blocage, lui, est là.
 
-Restent trois boutons ronds et quatre lignes, dans la forme et l'ordre de l'app
-d'origine. « Supprimer » n'y est pas : l'app d'origine le loge au menu « ⋮ »
+Restent trois boutons ronds et **cinq lignes**, dans la forme et l'ordre de
+l'app d'origine. « Supprimer » n'y est pas : l'app d'origine le loge au menu « ⋮ »
 (« Trash »), et nous aussi.
 
 ### Mettre en veille : une date, pas un booléen
@@ -230,6 +233,37 @@ Ce mode se déclare par `seedRecipients` : non nul ⇒ groupe. Les adresses
 arrivent brutes et c'est le carnet qui leur rend un nom, parce qu'une puce
 porte un nom et non un numéro. `StartConversationUseCase` prenait déjà une
 liste — c'est le seul endroit qui n'en passait qu'une.
+
+### Thème de discussion : une graine, pas une palette
+
+Ce qui est enregistré pour un fil, c'est **une couleur**. Tout le reste s'en
+déduit : l'app sait déjà semer ses cinq palettes tonales à partir d'une teinte —
+c'est ce qu'elle fait quand le système n'en expose aucune — et un thème de
+discussion n'est rien d'autre que ce même semis, avec une autre graine. Les tons
+relevés sur l'app d'origine s'y appliquent sans qu'on ait à les redire, et
+`ChatTheme` n'a qu'à reposer un `Theme` au-dessus du fil.
+
+Une différence avec le repli, découverte en la regardant : la recette d'Android
+(« tonal spot ») donne aux neutres une chroma de **4**, et un fil « violet »
+s'affichait gris. Le fond, les barres et les bulles reçues sont tous des
+neutres — c'est là que se voit un thème. `MessagesPalettes.seeded` prend donc
+une chroma de neutres en paramètre : 4 pour le repli, qui doit se comporter
+comme le système, 12 pour un thème de discussion. Le relevé de l'app d'origine
+donne raison à la valeur haute : ses propres « neutres » portent une chroma
+d'environ 28.
+
+Le **fond d'écran** est copié dans le stockage de l'app, un fichier par fil.
+On ne garde pas l'URI choisie : un `content://` de la galerie ne survit ni au
+redémarrage — la permission de lecture est éphémère — ni à la photo qu'on
+supprime. Sous les bulles, un voile à 55 % : une photo laissée nue rend
+illisibles les séparateurs de date et les horodatages, qui sont écrits sur le
+fond et n'ont pas de bulle pour les porter.
+
+`UpdateChatThemeUseCase` est séparé de `UpdateConversationFlagsUseCase` pour
+une raison précise : celui-ci republie les fils en sourdine à chaque écriture,
+parce que le récepteur en a besoin. Le thème ne regarde que l'écran — republier
+une liste de sourdines pour un changement de couleur serait du travail pour
+personne.
 
 ### Notifications : Android sait déjà régler une conversation
 

@@ -17,6 +17,7 @@ import 'package:messages/core/application/usecases/save_draft.usecase.dart';
 import 'package:messages/core/application/usecases/send_message.usecase.dart';
 import 'package:messages/core/application/usecases/start_conversation.usecase.dart';
 import 'package:messages/core/application/usecases/sync_notification_settings.usecase.dart';
+import 'package:messages/core/application/usecases/update_chat_theme.usecase.dart';
 import 'package:messages/core/application/usecases/update_conversation_flags.usecase.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/providers/repository_providers.dart';
@@ -150,6 +151,12 @@ SyncNotificationSettingsUseCase syncNotificationSettingsUseCase(Ref ref) =>
       notifications: ref.watch(notificationGatewayProvider),
       logger: ref.watch(loggerProvider),
     );
+
+@Riverpod(keepAlive: true)
+UpdateChatThemeUseCase updateChatThemeUseCase(Ref ref) => UpdateChatThemeUseCase(
+  preferences: ref.watch(conversationPreferencesRepositoryProvider),
+  logger: ref.watch(loggerProvider),
+);
 
 @Riverpod(keepAlive: true)
 SaveDraftUseCase saveDraftUseCase(Ref ref) =>

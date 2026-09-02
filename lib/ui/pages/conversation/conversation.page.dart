@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +29,7 @@ import 'package:messages/ui/providers/conversation_providers.dart';
 import 'package:messages/ui/providers/voice_recorder.provider.dart';
 import 'package:messages/ui/router/app_router.dart';
 import 'package:messages/ui/theme/app_colors.dart';
+import 'package:messages/ui/theme/chat_theme.widget.dart';
 import 'package:messages/ui/widgets/avatar.widget.dart';
 import 'package:messages/ui/widgets/content_panel.widget.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -170,8 +172,20 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     ref.invalidate(unreadConversationCountProvider);
   }
 
+  /// Le fil est rethémé **au-dessus** de tout ce qu'il peint : la barre, les
+  /// bulles, le champ et les panneaux lisent alors les couleurs du fil sans
+  /// rien savoir de son thème. Le `Builder` sert à ça — sans lui, `context`
+  /// serait celui d'avant le `Theme`.
   @override
   Widget build(BuildContext context) {
+    final conversation = ref.watch(conversationProvider(widget.threadId)).value;
+    return ChatTheme(
+      seed: conversation?.themeSeed,
+      child: Builder(builder: _scaffold),
+    );
+  }
+
+  Widget _scaffold(BuildContext context) {
     final colors = context.appColors;
     final conversationAsync = ref.watch(conversationProvider(widget.threadId));
     final timelineAsync = ref.watch(
@@ -196,8 +210,15 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       appBar: _appBar(context, conversation),
       // Le fil et son champ de rédaction vivent dans le même panneau, posé sur
       // le fond pêche : c'est la mise en page de l'app d'origine.
-      body: ContentPanel(
-        child: Column(
+      body: _Wallpaper(
+        path: conversation?.wallpaperPath,
+        child: ContentPanel(
+          // Le panneau s'efface devant le fond d'écran : sans ça, la photo
+          // choisie ne se verrait qu'autour du fil.
+          color: conversation?.wallpaperPath == null
+              ? null
+              : Colors.transparent,
+          child: Column(
           children: [
             Expanded(
               child: timelineAsync.when(
@@ -266,10 +287,12 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );
   }
+
 
   PreferredSizeWidget _appBar(
     BuildContext context,
@@ -657,6 +680,42 @@ class _Timeline extends StatelessWidget {
       key: revealedKey,
       color: context.appColors.accentSoft.withValues(alpha: 0.55),
       child: bubble,
+    );
+  }
+}
+
+/// La photo choisie pour le fil, sous les bulles.
+///
+/// Un voile la couvre à moitié : une photo laissée nue rendrait illisibles les
+/// séparateurs de date et les horodatages, qui sont écrits en gris sur le fond
+/// et n'ont pas de bulle pour les porter.
+class _Wallpaper extends StatelessWidget {
+  const _Wallpaper({required this.path, required this.child});
+
+  final String? path;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final file = path;
+    if (file == null) return child;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.file(
+          File(file),
+          fit: BoxFit.cover,
+          // La photo peut avoir été supprimée depuis : le fil se peint alors
+          // comme s'il n'y en avait jamais eu.
+          errorBuilder: (context, _, _) =>
+              ColoredBox(color: context.appColors.surface),
+        ),
+        ColoredBox(
+          color: context.appColors.surface.withValues(alpha: 0.55),
+        ),
+        child,
+      ],
     );
   }
 }

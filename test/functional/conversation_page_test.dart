@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/core/domain/model/sms_access.dart';
+import 'package:messages/core/domain/model/conversation_preference.dart';
 import 'package:messages/ui/pages/conversation/conversation.page.dart';
+import 'package:messages/ui/theme/app_colors.dart';
 
 import '../builders/builders.dart';
 import '../helpers/test_app.dart';
@@ -139,5 +141,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(device.store.messagesFor(threadId), isEmpty);
+  });
+
+  testWidgets('un fil thémé peint ses bulles à sa couleur, pas à celle de '
+      'l\'appareil', (tester) async {
+    final (device, threadId) = deviceWithThread();
+    await device.preferences.save(
+      ConversationPreference(threadId: threadId, themeSeed: 0xFF00696E),
+    );
+
+    await pumpPage(tester, ConversationPage(threadId: threadId), device: device);
+    final themed = tester
+        .element(find.text('Tu es dispo ce soir ?'))
+        .appColors
+        .accent;
+
+    await pumpPage(
+      tester,
+      ConversationPage(threadId: threadId),
+      device: deviceWithThread().$1,
+    );
+    final plain = tester
+        .element(find.text('Tu es dispo ce soir ?'))
+        .appColors
+        .accent;
+
+    expect(themed, isNot(plain));
   });
 }

@@ -130,6 +130,8 @@ class ConversationListService {
       isMuted: preference.muted,
       isBlocked: isBlocked,
       snoozedUntil: preference.snoozedUntil,
+      themeSeed: preference.themeSeed,
+      wallpaperPath: preference.wallpaperPath,
       isSilenced: preference.isSilencedAt(DateTime.now()),
       isGroup: conversation.isGroup,
       draft: draft,
