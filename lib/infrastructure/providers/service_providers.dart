@@ -63,6 +63,7 @@ ConversationTimelineService conversationTimelineService(Ref ref) =>
 @Riverpod(keepAlive: true)
 SearchService searchService(Ref ref) => SearchService(
   conversations: ref.watch(conversationListServiceProvider),
+  directory: ref.watch(contactDirectoryServiceProvider),
   messages: ref.watch(messageRepositoryProvider),
 );
 

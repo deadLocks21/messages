@@ -12,7 +12,9 @@ abstract interface class MessageRepository {
   Future<List<Message>> listForThread(String threadId, {int limit});
 
   /// Recherche plein texte dans le corps des messages (`body LIKE ?`).
-  Future<List<Message>> search(String query, {int limit});
+  /// Messages dont le texte contient [query]. Restreint à [threadId] quand il
+  /// est fourni — c'est la recherche « dans cette conversation ».
+  Future<List<Message>> search(String query, {int limit, String? threadId});
 
   Future<Message?> getById(String messageId);
 

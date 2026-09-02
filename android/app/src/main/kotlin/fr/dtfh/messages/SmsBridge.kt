@@ -181,6 +181,7 @@ class SmsBridge(
                     store.searchMessages(
                         call.argument<String>("query")!!,
                         call.argument<Int>("limit") ?: 50,
+                        call.argument<String>("threadId"),
                     )
                 )
 

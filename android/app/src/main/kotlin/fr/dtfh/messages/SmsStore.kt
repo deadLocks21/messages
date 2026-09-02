@@ -267,14 +267,31 @@ class SmsStore(private val context: Context) {
             .takeLast(limit)
     }
 
-    fun searchMessages(query: String, limit: Int): List<Map<String, Any?>> {
+    /**
+     * Recherche dans le texte des messages, tout le stock ou un seul fil.
+     *
+     * Le filtre par fil est passé au `ContentProvider` plutôt qu'appliqué au
+     * retour : chercher « ok » dans une conversation ne doit pas commencer par
+     * remonter les mille « ok » de toutes les autres pour n'en garder que deux.
+     */
+    fun searchMessages(
+        query: String,
+        limit: Int,
+        threadId: String? = null,
+    ): List<Map<String, Any?>> {
         val messages = mutableListOf<Map<String, Any?>>()
-        messages.addAll(mms.searchMessages(query, limit))
+        messages.addAll(mms.searchMessages(query, limit, threadId))
+        val selection = StringBuilder("${Telephony.Sms.BODY} LIKE ?")
+        val arguments = mutableListOf("%$query%")
+        if (threadId != null) {
+            selection.append(" AND ${Telephony.Sms.THREAD_ID} = ?")
+            arguments.add(threadId)
+        }
         query(
             Telephony.Sms.CONTENT_URI,
             MESSAGE_PROJECTION,
-            "${Telephony.Sms.BODY} LIKE ?",
-            arrayOf("%$query%"),
+            selection.toString(),
+            arguments.toTypedArray(),
             "${Telephony.Sms.DATE} DESC",
         ) { cursor ->
             while (cursor.moveToNext() && messages.size < limit) {

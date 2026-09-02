@@ -96,3 +96,94 @@ final class SearchResultsFamily extends $Family
   @override
   String toString() => r'searchResultsProvider';
 }
+
+/// Résultats dans un seul fil. Auto-dispose pour la même raison.
+
+@ProviderFor(threadSearchResults)
+final threadSearchResultsProvider = ThreadSearchResultsFamily._();
+
+/// Résultats dans un seul fil. Auto-dispose pour la même raison.
+
+final class ThreadSearchResultsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<MessageHitDto>>,
+          List<MessageHitDto>,
+          FutureOr<List<MessageHitDto>>
+        >
+    with
+        $FutureModifier<List<MessageHitDto>>,
+        $FutureProvider<List<MessageHitDto>> {
+  /// Résultats dans un seul fil. Auto-dispose pour la même raison.
+  ThreadSearchResultsProvider._({
+    required ThreadSearchResultsFamily super.from,
+    required (String, String) super.argument,
+  }) : super(
+         retry: null,
+         name: r'threadSearchResultsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$threadSearchResultsHash();
+
+  @override
+  String toString() {
+    return r'threadSearchResultsProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<List<MessageHitDto>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<MessageHitDto>> create(Ref ref) {
+    final argument = this.argument as (String, String);
+    return threadSearchResults(ref, argument.$1, argument.$2);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ThreadSearchResultsProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$threadSearchResultsHash() =>
+    r'c62801f1b87e23884ff9c23d237fe94f6e9cd551';
+
+/// Résultats dans un seul fil. Auto-dispose pour la même raison.
+
+final class ThreadSearchResultsFamily extends $Family
+    with
+        $FunctionalFamilyOverride<
+          FutureOr<List<MessageHitDto>>,
+          (String, String)
+        > {
+  ThreadSearchResultsFamily._()
+    : super(
+        retry: null,
+        name: r'threadSearchResultsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Résultats dans un seul fil. Auto-dispose pour la même raison.
+
+  ThreadSearchResultsProvider call(String threadId, String query) =>
+      ThreadSearchResultsProvider._(argument: (threadId, query), from: this);
+
+  @override
+  String toString() => r'threadSearchResultsProvider';
+}

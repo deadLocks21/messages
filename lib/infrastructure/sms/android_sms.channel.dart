@@ -92,10 +92,15 @@ class AndroidSmsChannel {
     return (raw ?? const []).map((e) => _message(_map(e))).toList();
   }
 
-  Future<List<Message>> searchMessages(String query, {int limit = 50}) async {
+  Future<List<Message>> searchMessages(
+    String query, {
+    int limit = 50,
+    String? threadId,
+  }) async {
     final raw = await _invoke<List<Object?>>('searchMessages', {
       'query': query,
       'limit': limit,
+      'threadId': ?threadId,
     });
     return (raw ?? const []).map((e) => _message(_map(e))).toList();
   }

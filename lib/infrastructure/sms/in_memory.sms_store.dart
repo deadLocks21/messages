@@ -105,10 +105,14 @@ class InMemorySmsStore implements SmsEventSource {
   Message? byId(String messageId) =>
       _messages.where((m) => m.id == messageId).firstOrNull;
 
-  List<Message> search(String query, {int limit = 50}) {
+  List<Message> search(String query, {int limit = 50, String? threadId}) {
     final needle = query.toLowerCase();
     final hits = _messages
-        .where((m) => m.body.toLowerCase().contains(needle))
+        .where(
+          (m) =>
+              m.body.toLowerCase().contains(needle) &&
+              (threadId == null || m.threadId == threadId),
+        )
         .toList()
       ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
     return hits.take(limit).toList();

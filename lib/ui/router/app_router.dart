@@ -5,6 +5,7 @@ import 'package:messages/infrastructure/providers/sms_access.provider.dart';
 import 'package:messages/ui/pages/archived/archived.page.dart';
 import 'package:messages/ui/pages/conversation/conversation.page.dart';
 import 'package:messages/ui/pages/conversation/conversation_details.page.dart';
+import 'package:messages/ui/pages/conversation/conversation_search.page.dart';
 import 'package:messages/ui/pages/conversations/conversations.page.dart';
 import 'package:messages/ui/pages/new_conversation/new_conversation.page.dart';
 import 'package:messages/ui/pages/search/search.page.dart';
@@ -23,6 +24,7 @@ abstract final class AppRoutes {
   static const settings = '/settings';
   static String thread(String id) => '/thread/$id';
   static String threadDetails(String id) => '/thread/$id/details';
+  static String threadSearch(String id) => '/thread/$id/search';
 }
 
 /// Router unique. Le `redirect` est piloté par l'accès aux SMS : sans droit de
@@ -99,6 +101,36 @@ GoRouter _buildRouter(Ref ref, ValueNotifier<int> refresh) {
       GoRoute(
         path: AppRoutes.conversations,
         builder: (_, _) => const ConversationsPage(),
+        routes: [
+          // Le fil est une **sous-route de la liste**, et pas sa sœur : y
+          // arriver par un `go` — c'est le cas quand la recherche d'un fil
+          // renvoie sur le message trouvé, deux écrans plus haut — doit
+          // laisser la liste dessous, sinon la conversation s'ouvre sans
+          // flèche de retour et l'app n'a plus de sortie.
+          GoRoute(
+            path: 'thread/:id',
+            // `extra` porte l'identifiant du message à révéler, quand on
+            // arrive depuis la recherche du fil.
+            builder: (_, st) => ConversationPage(
+              threadId: st.pathParameters['id']!,
+              revealMessageId: st.extra as String?,
+            ),
+            routes: [
+              // Sous-routes pour la même raison : quitter les détails doit
+              // ramener au fil, y compris par le bouton retour d'Android.
+              GoRoute(
+                path: 'details',
+                builder: (_, st) =>
+                    ConversationDetailsPage(threadId: st.pathParameters['id']!),
+              ),
+              GoRoute(
+                path: 'search',
+                builder: (_, st) =>
+                    ConversationSearchPage(threadId: st.pathParameters['id']!),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(path: AppRoutes.archived, builder: (_, _) => const ArchivedPage()),
       GoRoute(path: AppRoutes.search, builder: (_, _) => const SearchPage()),
@@ -108,20 +140,6 @@ GoRouter _buildRouter(Ref ref, ValueNotifier<int> refresh) {
         builder: (_, st) => NewConversationPage(forwardedBody: st.extra as String?),
       ),
       GoRoute(path: AppRoutes.settings, builder: (_, _) => const SettingsPage()),
-      GoRoute(
-        path: '/thread/:id',
-        builder: (_, st) => ConversationPage(threadId: st.pathParameters['id']!),
-        routes: [
-          // Sous-route et non route sœur : quitter les détails doit ramener au
-          // fil, y compris quand on y est entré par le bouton « retour »
-          // d'Android.
-          GoRoute(
-            path: 'details',
-            builder: (_, st) =>
-                ConversationDetailsPage(threadId: st.pathParameters['id']!),
-          ),
-        ],
-      ),
     ],
   );
 }

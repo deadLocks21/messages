@@ -16,8 +16,11 @@ class InMemoryMessageRepository implements MessageRepository {
       _store.messagesFor(threadId, limit: limit);
 
   @override
-  Future<List<Message>> search(String query, {int limit = 50}) async =>
-      _store.search(query, limit: limit);
+  Future<List<Message>> search(
+    String query, {
+    int limit = 50,
+    String? threadId,
+  }) async => _store.search(query, limit: limit, threadId: threadId);
 
   @override
   Future<Message?> getById(String messageId) async => _store.byId(messageId);

@@ -15,12 +15,17 @@ class SearchField extends StatelessWidget {
     required this.onBack,
     this.filterLabel,
     this.onClearFilter,
+    this.hintText = 'Rechercher des messages',
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClearQuery;
   final VoidCallback onBack;
+
+  /// Ce qu'annonce le champ vide. La recherche d'un fil ne cherche pas la
+  /// même chose que celle de la liste, et le dit.
+  final String hintText;
 
   /// Libellé du filtre actif, s'il y en a un.
   final String? filterLabel;
@@ -65,7 +70,7 @@ class SearchField extends StatelessWidget {
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
-                    hintText: 'Rechercher des messages',
+                    hintText: hintText,
                     hintStyle: TextStyle(color: colors.textMuted, fontSize: 17),
                   ),
                 ),

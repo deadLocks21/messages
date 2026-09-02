@@ -290,7 +290,7 @@ final class SearchServiceProvider
   }
 }
 
-String _$searchServiceHash() => r'e45923929c0d2c4064749123a8f1309ea6d1a238';
+String _$searchServiceHash() => r'518a8e6cc74de1f8fff150fad96e16d58de45312';
 
 @ProviderFor(sendMessageUseCase)
 final sendMessageUseCaseProvider = SendMessageUseCaseProvider._();

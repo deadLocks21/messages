@@ -109,4 +109,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('composerField')), findsOneWidget);
   });
+
+  testWidgets('chercher dans le fil, puis revenir sur le message trouvé', (
+    tester,
+  ) async {
+    final device = TestDevice(
+      contacts: [
+        Build.contact(displayName: 'Camille', addresses: ['0612345678']),
+      ],
+    );
+    final threadId = device.store.threadIdFor([Build.address('+33612345678')]);
+    for (final body in ['Bonjour', 'On se voit au cinéma ?', 'À demain']) {
+      device.store.insert(Build.message(threadId: threadId, body: body));
+    }
+
+    await pumpApp(tester, device: device);
+    await tester.tap(find.byKey(Key('conversationTile_$threadId')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('openThreadDetails')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('searchThread')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('searchField')), 'cinéma');
+    await tester.pumpAndSettle();
+
+    // Un seul message correspond, et la ligne dit qui l'a écrit.
+    expect(find.text('Camille'), findsOneWidget);
+    await tester.tap(find.textContaining('cinéma').last);
+    await tester.pumpAndSettle();
+
+    // On est revenu au fil — et non à l'écran de détails d'où la recherche
+    // avait été ouverte.
+    expect(find.byKey(const Key('composerField')), findsOneWidget);
+    expect(find.text('À demain'), findsOneWidget);
+
+    // Et la liste est toujours dessous : le fil garde une sortie, alors qu'on
+    // y est arrivé de deux écrans plus haut.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('startChat')), findsOneWidget);
+  });
 }

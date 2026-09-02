@@ -173,43 +173,56 @@ class _ConversationDetailsPageState
             const SizedBox(height: 16),
           ] else
             const SizedBox(height: 24),
-          if (sole != null) _actions(sole),
+          _actions(sole),
         ],
       ),
     );
   }
 
-  /// Les boutons ronds. Ils ne s'affichent qu'à deux : dans un groupe il n'y a
-  /// pas *un* numéro à appeler, ni *une* fiche à ouvrir.
-  Widget _actions(ParticipantDto sole) {
+  /// Les boutons ronds, à parts égales sur la largeur.
+  ///
+  /// « Rechercher » vaut pour tout le monde ; appeler et ouvrir une fiche
+  /// n'ont de sens qu'à deux — dans un groupe il n'y a pas *un* numéro à
+  /// appeler, ni *une* fiche à ouvrir.
+  Widget _actions(ParticipantDto? sole) {
+    final pills = <Widget>[
+      if (sole != null)
+        DetailsActionPill(
+          key: const Key('callParticipant'),
+          icon: Icons.call,
+          label: 'Appeler',
+          onTap: () => _call(sole.rawAddress),
+        ),
+      DetailsActionPill(
+        key: const Key('searchThread'),
+        icon: Icons.search,
+        label: 'Rechercher',
+        onTap: () => context.push(AppRoutes.threadSearch(widget.threadId)),
+      ),
+      if (sole != null)
+        sole.isKnown
+            ? DetailsActionPill(
+                key: const Key('openContactCard'),
+                icon: Icons.person,
+                label: 'Infos contact',
+                onTap: () => _openCard(sole.contactId!),
+              )
+            : DetailsActionPill(
+                key: const Key('addContact'),
+                icon: Icons.person_add,
+                label: 'Ajouter un contact',
+                onTap: () => _createCard(sole.rawAddress),
+              ),
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Expanded(
-            child: DetailsActionPill(
-              key: const Key('callParticipant'),
-              icon: Icons.call,
-              label: 'Appeler',
-              onTap: () => _call(sole.rawAddress),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: sole.isKnown
-                ? DetailsActionPill(
-                    key: const Key('openContactCard'),
-                    icon: Icons.person,
-                    label: 'Infos contact',
-                    onTap: () => _openCard(sole.contactId!),
-                  )
-                : DetailsActionPill(
-                    key: const Key('addContact'),
-                    icon: Icons.person_add,
-                    label: 'Ajouter un contact',
-                    onTap: () => _createCard(sole.rawAddress),
-                  ),
-          ),
+          for (var i = 0; i < pills.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(child: pills[i]),
+          ],
         ],
       ),
     );

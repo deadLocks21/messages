@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,9 +38,17 @@ import 'package:url_launcher/url_launcher.dart';
 /// L'ouverture marque le fil comme lu, et le brouillon en cours est restitué
 /// puis re-sauvegardé à la sortie.
 class ConversationPage extends ConsumerStatefulWidget {
-  const ConversationPage({super.key, required this.threadId});
+  const ConversationPage({
+    super.key,
+    required this.threadId,
+    this.revealMessageId,
+  });
 
   final String threadId;
+
+  /// Message sur lequel ouvrir le fil, quand on arrive de la recherche : il
+  /// est amené sous les yeux et teinté le temps qu'on le repère.
+  final String? revealMessageId;
 
   @override
   ConsumerState<ConversationPage> createState() => _ConversationPageState();
@@ -60,6 +70,20 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   /// quitte, et rien d'autre que cette page n'a à savoir qu'il est ouvert.
   ExpressionTab? _picker;
 
+  /// Message que la recherche a désigné, tant qu'il est encore teinté.
+  late String? _revealed = widget.revealMessageId;
+
+  /// Sa clé, pour l'amener sous les yeux : elle n'existe que s'il est construit.
+  final GlobalKey _revealKey = GlobalKey();
+
+  /// Ce qui efface la teinte, une fois le message repéré.
+  Timer? _fade;
+
+  /// Le fil n'est amené sur le message qu'**une fois**, à l'ouverture : un
+  /// rechargement (SMS reçu, accusé de remise) ne doit pas y ramener de force
+  /// quelqu'un qui a fait défiler depuis.
+  bool _revealDone = false;
+
   @override
   void initState() {
     super.initState();
@@ -68,11 +92,68 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _markRead());
   }
 
+  /// Amène le message désigné sous les yeux, puis efface sa teinte.
+  ///
+  /// En deux temps parce que la liste est bâtie à la demande : tant que le
+  /// message n'est pas construit, sa clé n'a pas de contexte et il n'y a rien
+  /// à faire défiler. On saute donc d'abord à sa hauteur *estimée* — le fil
+  /// tient en mémoire, l'index est connu — et on ajuste à la frame suivante,
+  /// quand il existe pour de bon. Quelques allers-retours suffisent, et le
+  /// compteur borne le cas où le message a disparu entre-temps.
+  Future<void> _reveal(ConversationTimelineDto timeline) async {
+    final id = _revealed;
+    if (id == null || _revealDone) return;
+    _revealDone = true;
+
+    final entries = timeline.entries;
+    final index = entries.indexWhere(
+      (e) => e is TimelineMessage && e.message.id == id,
+    );
+    if (index < 0) {
+      // Le message n'est plus là : mieux vaut ne rien teindre que teindre le
+      // voisin.
+      if (mounted) setState(() => _revealed = null);
+      return;
+    }
+
+    // `reverse: true` : le dernier message est en tête de liste.
+    final fromEnd = entries.length - 1 - index;
+    for (var attempt = 0; attempt < 6; attempt++) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || !_scroll.hasClients) return;
+
+      final target = _revealKey.currentContext;
+      if (target != null && target.mounted) {
+        await Scrollable.ensureVisible(
+          target,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 200),
+        );
+        break;
+      }
+      _scroll.jumpTo(
+        (_scroll.position.maxScrollExtent * fromEnd / entries.length).clamp(
+          0.0,
+          _scroll.position.maxScrollExtent,
+        ),
+      );
+    }
+
+    // La teinte dit « c'est celui-là » ; passé quelques secondes elle ne dit
+    // plus rien et gêne la lecture. Un `Timer` retenu et non un `delayed` :
+    // quitter le fil avant la fin laisserait sinon une minuterie derrière soi.
+    _fade = Timer(
+      const Duration(seconds: 3),
+      () => setState(() => _revealed = null),
+    );
+  }
+
   @override
   void dispose() {
     // Fire-and-forget : le fil est déjà en train de disparaître, personne
     // n'attend le résultat.
     _saveDraft.execute(widget.threadId, _composer.text);
+    _fade?.cancel();
     _composer.dispose();
     _scroll.dispose();
     super.dispose();
@@ -123,15 +204,21 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                 skipLoadingOnReload: true,
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(child: Text('Erreur : $error')),
-                data: (timeline) => timeline.isEmpty
-                    ? const _EmptyThread()
-                    : _Timeline(
-                        timeline: timeline,
-                        controller: _scroll,
-                        onLongPress: _onMessageAction,
-                        onReactionsTap: _onReactionsTap,
-                        onRetry: _resend,
-                      ),
+                data: (timeline) {
+                  if (timeline.isEmpty) return const _EmptyThread();
+                  // Le fil vient d'arriver : c'est le premier moment où l'on
+                  // sait à quel rang se trouve le message cherché.
+                  if (_revealed != null && !_revealDone) _reveal(timeline);
+                  return _Timeline(
+                    timeline: timeline,
+                    controller: _scroll,
+                    onLongPress: _onMessageAction,
+                    onReactionsTap: _onReactionsTap,
+                    onRetry: _resend,
+                    revealedId: _revealed,
+                    revealedKey: _revealKey,
+                  );
+                },
               ),
             ),
             // Une seule zone sûre pour tout le bas de l'écran : le champ et
@@ -511,6 +598,8 @@ class _Timeline extends StatelessWidget {
     required this.onLongPress,
     required this.onReactionsTap,
     required this.onRetry,
+    this.revealedId,
+    this.revealedKey,
   });
 
   final ConversationTimelineDto timeline;
@@ -518,6 +607,10 @@ class _Timeline extends StatelessWidget {
   final void Function(TimelineMessage entry, Rect anchor) onLongPress;
   final ValueChanged<MessageDto> onReactionsTap;
   final ValueChanged<MessageDto> onRetry;
+
+  /// Message désigné par la recherche, teinté le temps qu'on le repère.
+  final String? revealedId;
+  final GlobalKey? revealedKey;
 
   @override
   Widget build(BuildContext context) {
@@ -533,16 +626,37 @@ class _Timeline extends StatelessWidget {
         final entry = entries[entries.length - 1 - index];
         return switch (entry) {
           TimelineSeparator(:final at) => TimelineSeparatorLabel(at: at),
-          TimelineMessage() => MessageBubble(
-            entry: entry,
-            onLongPress: (anchor) => onLongPress(entry, anchor),
-            onReactionsTap: () => onReactionsTap(entry.message),
-            onRetry: entry.message.status.hasFailed
-                ? () => onRetry(entry.message)
-                : null,
+          TimelineMessage() => _maybeRevealed(
+            context,
+            entry,
+            MessageBubble(
+              entry: entry,
+              onLongPress: (anchor) => onLongPress(entry, anchor),
+              onReactionsTap: () => onReactionsTap(entry.message),
+              onRetry: entry.message.status.hasFailed
+                  ? () => onRetry(entry.message)
+                  : null,
+            ),
           ),
         };
       },
+    );
+  }
+
+  /// La bande teintée derrière le message que la recherche a désigné.
+  ///
+  /// Sur toute la largeur et non sur la bulle : c'est la ligne qu'on cherche
+  /// du regard en arrivant, pas la forme du message.
+  Widget _maybeRevealed(
+    BuildContext context,
+    TimelineMessage entry,
+    Widget bubble,
+  ) {
+    if (entry.message.id != revealedId) return bubble;
+    return Container(
+      key: revealedKey,
+      color: context.appColors.accentSoft.withValues(alpha: 0.55),
+      child: bubble,
     );
   }
 }

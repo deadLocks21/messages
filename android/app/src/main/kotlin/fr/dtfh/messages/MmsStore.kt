@@ -206,7 +206,11 @@ class MmsStore(private val context: Context) {
      * Le texte étant une *partie*, la recherche part de `content://mms/part` et
      * remonte aux messages, à l'inverse de la recherche SMS.
      */
-    fun searchMessages(needle: String, limit: Int): List<Map<String, Any?>> {
+    fun searchMessages(
+        needle: String,
+        limit: Int,
+        threadId: String? = null,
+    ): List<Map<String, Any?>> {
         val messageIds = LinkedHashSet<String>()
         resolver.query(
             PART_URI,
@@ -216,11 +220,20 @@ class MmsStore(private val context: Context) {
             arrayOf("text/plain", "%$needle%"),
             null,
         )?.use { cursor ->
-            while (cursor.moveToNext() && messageIds.size < limit) {
+            // Pas de plafond ici quand un fil est demandé : la limite porte
+            // sur les messages retenus, et on ne sait qu'après les avoir lus
+            // lesquels sont du bon fil.
+            while (cursor.moveToNext() && (threadId != null || messageIds.size < limit)) {
                 messageIds.add(cursor.getLong(0).toString())
             }
         }
-        return messageIds.mapNotNull { getMessage(ID_PREFIX + it) }
+        // Le fil ne se filtre pas dans `content://mms/part`, qui ne le porte
+        // pas : la recherche part des parties et remonte aux messages, c'est
+        // donc au retour qu'on trie.
+        return messageIds
+            .mapNotNull { getMessage(ID_PREFIX + it) }
+            .filter { threadId == null || it["threadId"] == threadId }
+            .take(limit)
     }
 
     fun deleteMessage(id: String): Int = resolver.delete(

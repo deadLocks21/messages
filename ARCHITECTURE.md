@@ -150,18 +150,16 @@ les seuls textes de l'app teintés par la palette primaire (`onAccentSoft`,
 
 L'app d'origine aligne quatre boutons ronds (Appeler, Vidéo, Infos contact,
 Rechercher) et cinq lignes (Thème, Mettre en veille, Notifications, Archiver,
-Bloquer et signaler comme spam). Deux de ces neuf actions n'existent pas ici, et
-une dixième — « Créer un groupe » — non plus :
+Bloquer et signaler comme spam). Trois de ces neuf actions n'existent pas ici,
+et une dixième — « Créer un groupe » — non plus :
 
 - **Vidéo** et **Thème** : hors périmètre de l'app.
-- **Rechercher** cherche *dans le fil* ; la nôtre cherche dans tout le stock.
-  Un bouton qui promet l'un et fait l'autre ment plus qu'il ne rend service.
 - **Bloquer et signaler comme spam** : c'est « Supprimer la conversation » qui
   prend sa place et sa couleur — la seule action de l'écran dont on ne revient
   pas.
 - **Créer un groupe** : le sélecteur de destinataires n'en compose qu'un.
 
-Restent deux boutons ronds et quatre lignes, dans la forme et l'ordre de l'app
+Restent trois boutons ronds et quatre lignes, dans la forme et l'ordre de l'app
 d'origine. Les lignes sont celles du menu « ⋮ », au même cas d'usage : archiver
 dépingle, et l'écran de détails le montre comme le menu.
 
@@ -191,6 +189,34 @@ en a deux (« Mettre en veille » et « Notifications ») : elle propose les dur
 quand le fil notifie, et le réveil quand il ne notifie plus. Le menu « ⋮ » sort
 par la même porte — un fil mis en veille jusqu'à 18 h n'est pas « en sourdine »,
 et pourtant c'est bien le réveiller qu'on veut lui proposer.
+
+### Chercher dans un fil : le filtre descend jusqu'au `ContentProvider`
+
+« Rechercher » est la recherche de l'écran d'accueil bornée à une conversation :
+ni filtres, ni fils dans les résultats — le fil est déjà choisi, il ne reste que
+des messages. Chaque ligne dit **qui** a écrit plutôt que d'où vient le message :
+dans un fil, c'est la seule chose qui distingue deux lignes.
+
+Le `threadId` est passé au stock et non appliqué au retour. Chercher « ok » dans
+une conversation ne doit pas commencer par remonter les mille « ok » de toutes
+les autres pour n'en garder que deux : côté SMS c'est un `AND thread_id = ?` de
+plus dans la sélection. Côté **MMS**, non : la recherche part de
+`content://mms/part`, qui ne porte pas le fil, et remonte aux messages — le tri
+s'y fait donc au retour, et le plafond ne s'applique qu'après.
+
+Un appui sur un résultat ramène au fil **sur le message**. La liste est bâtie à
+la demande : tant que le message n'est pas construit, sa clé n'a pas de contexte
+et il n'y a rien à faire défiler. On saute donc d'abord à sa hauteur *estimée*
+— le fil tient en mémoire, l'index est connu — puis on ajuste à la frame
+suivante, quand il existe pour de bon. Une bande teintée dit « c'est celui-là »
+pendant trois secondes ; c'est un `Timer` retenu et non un `delayed`, sinon
+quitter le fil laisse une minuterie derrière soi.
+
+Le fil est devenu une **sous-route de la liste** (`/` → `/thread/:id`) et non sa
+sœur. La recherche renvoie sur le fil deux écrans plus haut, par un `go` : sans
+la liste dessous, la conversation s'ouvrait sans flèche de retour et l'app
+n'avait plus de sortie. Les autres chemins vers un fil empilent (`push`) et ne
+changent pas.
 
 ### La fiche contact appartient à l'app Contacts
 

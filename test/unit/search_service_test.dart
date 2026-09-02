@@ -9,6 +9,8 @@ import 'package:messages/infrastructure/sms/in_memory.conversation.repository.da
 import 'package:messages/infrastructure/sms/in_memory.message.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 
+import 'package:messages/core/domain/model/enums.dart';
+
 import '../builders/builders.dart';
 import '../helpers/test_logger.dart';
 
@@ -20,13 +22,15 @@ void main() {
   setUp(() {
     store = InMemorySmsStore();
     contacts = InMemoryContactRepository();
+    final directory = ContactDirectoryService(contacts, logger: testLogger());
     service = SearchService(
       conversations: ConversationListService(
         conversations: InMemoryConversationRepository(store),
-        directory: ContactDirectoryService(contacts, logger: testLogger()),
+        directory: directory,
         preferences: InMemoryConversationPreferencesRepository(),
         drafts: InMemoryDraftRepository(),
       ),
+      directory: directory,
       messages: InMemoryMessageRepository(store),
     );
   });
@@ -79,6 +83,81 @@ void main() {
       seed();
 
       expect((await service.search('zzzz')).isEmpty, isTrue);
+    });
+  });
+
+  group('Recherche dans un fil', () {
+    /// Deux fils qui contiennent le même mot : c'est là qu'un filtre absent
+    /// se voit.
+    (String, String) seedTwoThreads() {
+      contacts.contacts.add(
+        Build.contact(displayName: 'Camille', addresses: ['0612345678']),
+      );
+      final camille = store.threadIdFor([Build.address('+33612345678')]);
+      final autre = store.threadIdFor([Build.address('+33698765432')]);
+      store.insert(
+        Build.message(
+          threadId: camille,
+          address: '+33612345678',
+          body: 'On se voit au cinéma ?',
+        ),
+      );
+      store.insert(
+        Build.message(
+          threadId: autre,
+          address: '+33698765432',
+          body: 'Le cinéma était complet',
+        ),
+      );
+      return (camille, autre);
+    }
+
+    test('ne rend que les messages du fil demandé', () async {
+      final (camille, _) = seedTwoThreads();
+
+      final hits = await service.searchInThread(camille, 'cinéma');
+
+      expect(hits, hasLength(1));
+      expect(hits.single.message.body, 'On se voit au cinéma ?');
+    });
+
+    test('la ligne dit qui a écrit, pas d\'où vient le message', () async {
+      final (camille, _) = seedTwoThreads();
+      store.insert(
+        Build.message(
+          threadId: camille,
+          address: '+33612345678',
+          direction: MessageDirection.outgoing,
+          body: 'Oui, quel cinéma ?',
+        ),
+      );
+
+      final hits = await service.searchInThread(camille, 'cinéma');
+      final authors = hits.map((h) => h.conversationTitle).toSet();
+
+      // Le fil est déjà choisi : ce qui reste à distinguer, c'est l'auteur.
+      expect(authors, {'Camille', 'Vous'});
+    });
+
+    test('une requête trop courte ne cherche pas', () async {
+      final (camille, _) = seedTwoThreads();
+
+      expect(await service.searchInThread(camille, 'c'), isEmpty);
+    });
+
+    test('une réaction n\'est pas un résultat', () async {
+      final (camille, _) = seedTwoThreads();
+      store.insert(
+        Build.message(
+          threadId: camille,
+          address: '+33612345678',
+          body: 'Liked “On se voit au cinéma ?”',
+        ),
+      );
+
+      // Personne n'a écrit cette phrase : elle transporte un cœur.
+      final hits = await service.searchInThread(camille, 'cinéma');
+      expect(hits, hasLength(1));
     });
   });
 }

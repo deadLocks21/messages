@@ -16,8 +16,8 @@ class AndroidMessageRepository implements MessageRepository {
       _channel.listMessages(threadId, limit: limit);
 
   @override
-  Future<List<Message>> search(String query, {int limit = 50}) =>
-      _channel.searchMessages(query, limit: limit);
+  Future<List<Message>> search(String query, {int limit = 50, String? threadId}) =>
+      _channel.searchMessages(query, limit: limit, threadId: threadId);
 
   @override
   Future<Message?> getById(String messageId) => _channel.getMessage(messageId);

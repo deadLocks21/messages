@@ -9,3 +9,11 @@ part 'search.provider.g.dart';
 @riverpod
 Future<SearchResultsDto> searchResults(Ref ref, String query) =>
     ref.watch(searchServiceProvider).search(query);
+
+/// Résultats dans un seul fil. Auto-dispose pour la même raison.
+@riverpod
+Future<List<MessageHitDto>> threadSearchResults(
+  Ref ref,
+  String threadId,
+  String query,
+) => ref.watch(searchServiceProvider).searchInThread(threadId, query);
