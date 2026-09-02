@@ -666,18 +666,40 @@ class MmsStore(private val context: Context) {
      * Écrit un MMS **reçu** dans le stock, et rend le message tel que l'app le
      * lira — l'exact pendant de `SmsStore.insertIncoming`.
      *
-     * Le fil est résolu par `Telephony.Threads.getOrCreateThreadId` sur la
-     * seule adresse de l'expéditeur : c'est ce qui range le MMS dans la même
-     * conversation que les SMS du même correspondant plutôt que dans un fil
-     * jumeau.
+     * Le fil est résolu par `Telephony.Threads.getOrCreateThreadId` sur **tous
+     * les participants** ([MmsParticipants]), pas sur le seul expéditeur : sur
+     * un MMS de groupe, ce dernier rangerait la réponse de quelqu'un à tout le
+     * monde dans le fil privé qu'on a avec lui, et la nôtre repartirait à lui
+     * seul. Le jeu passé ici est exactement celui que [sendMessage] passe à
+     * l'émission — c'est ce qui fait retomber sur le même `thread_id` plutôt
+     * que d'en créer un second pour le même groupe.
      */
     fun insertIncoming(
         sender: String,
         retrieved: MmsPduReader.Retrieved,
         subscriptionId: Int?,
     ): Map<String, Any?>? {
+        val self = SelfNumber.of(context, subscriptionId)
+        val participants = MmsParticipants.of(
+            sender = sender,
+            to = retrieved.to,
+            cc = retrieved.cc,
+            self = self,
+        )
+        if (participants.size > 1) {
+            // Un groupe dont on n'a pas su retirer notre propre numéro se
+            // rangera dans un fil différent de celui d'où l'on répond. Le
+            // symptôme — un fil en double — se voit ; la cause, elle, ne se
+            // lirait nulle part sans cette ligne. Le compte seulement : un
+            // journal n'a pas à porter de numéros.
+            Log.i(
+                MmsReception.TAG,
+                "MMS de groupe : ${participants.size} participants" +
+                    if (self == null) ", numéro de la ligne inconnu" else "",
+            )
+        }
         val threadId =
-            Telephony.Threads.getOrCreateThreadId(context, setOf(sender)).toString()
+            Telephony.Threads.getOrCreateThreadId(context, participants.toSet()).toString()
 
         val values = ContentValues().apply {
             put(Telephony.Mms.THREAD_ID, threadId.toLong())
@@ -707,6 +729,13 @@ class MmsStore(private val context: Context) {
 
         insertAddress(messageId, sender, ADDRESS_TYPE_FROM)
         insertAddress(messageId, SELF_ADDRESS, ADDRESS_TYPE_TO)
+        // Les co-destinataires ont droit à leur ligne, comme à l'émission : le
+        // stock est partagé, et une autre app SMS qui relit ce MMS n'a que ces
+        // lignes-là pour savoir que le message s'adressait à un groupe.
+        for (participant in participants) {
+            if (participant == sender) continue
+            insertAddress(messageId, participant, ADDRESS_TYPE_TO)
+        }
 
         var index = 0
         for (part in retrieved.parts) {

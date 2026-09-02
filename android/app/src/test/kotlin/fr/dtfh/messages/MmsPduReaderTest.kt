@@ -105,6 +105,98 @@ class MmsPduReaderTest {
         }
     }
 
+    // --------------------------------------------------------- destinataires
+
+    // Un MMS de groupe ne se distingue d'un tête-à-tête par rien d'autre que
+    // ses en-têtes d'adresses. Les perdre, c'est ranger la réponse de quelqu'un
+    // à tout le monde dans le fil privé qu'on a avec lui.
+
+    @Test
+    fun `un MMS de groupe rend tous ses destinataires`() {
+        val recipients = listOf("+33611111111", "+33622222222", "+33633333333")
+        val pdu = MmsPdu.compose(
+            transactionId = "T7",
+            recipients = recipients,
+            text = "On se retrouve où ?",
+            attachments = emptyList(),
+        )
+
+        val retrieved = MmsPduReader.readRetrieveConf(pdu)!!
+        // Ce que l'encodeur écrit destinataire par destinataire, le décodeur le
+        // rend dans le même ordre — et sans le `/TYPE=PLMN` que l'un ajoute.
+        assertEquals(recipients, retrieved.to)
+        assertEquals(emptyList<String>(), retrieved.cc)
+    }
+
+    @Test
+    fun `un destinataire unique reste un tete-a-tete`() {
+        val pdu = MmsPdu.compose(
+            transactionId = "T8",
+            recipients = listOf("+33612345678"),
+            text = "Bonjour",
+            attachments = emptyList(),
+        )
+
+        val retrieved = MmsPduReader.readRetrieveConf(pdu)!!
+        assertEquals(listOf("+33612345678"), retrieved.to)
+        assertEquals(emptyList<String>(), retrieved.cc)
+    }
+
+    @Test
+    fun `un Cc est un destinataire comme un autre`() {
+        // Construit à la main : notre encodeur n'écrit jamais de `Cc`, mais un
+        // terminal d'en face en pose, et il désigne un participant du fil.
+        val pdu = ByteArrayOutputStream().apply {
+            write(0x8C); write(0x84) // message-type = m-retrieve-conf
+            write(0x89); write(from("+33612345678/TYPE=PLMN"))
+            write(0x97); write(encodedString("+33611111111/TYPE=PLMN"))
+            write(0x82); write(encodedString("+33622222222"))
+        }.toByteArray()
+
+        val retrieved = MmsPduReader.readRetrieveConf(pdu)!!
+        assertEquals("+33612345678", retrieved.from)
+        assertEquals(listOf("+33611111111"), retrieved.to)
+        assertEquals(listOf("+33622222222"), retrieved.cc)
+    }
+
+    @Test
+    fun `un PDU coupe au milieu des To est abandonne, pas rendu a moitie`() {
+        val head = ByteArrayOutputStream().apply {
+            write(0x8C); write(0x84)
+            write(0x89); write(from("+33612345678/TYPE=PLMN"))
+            write(0x97); write(encodedString("+33611111111/TYPE=PLMN"))
+            write(0x97) // le champ du deuxième `To`…
+        }.toByteArray()
+        val second = encodedString("+33622222222/TYPE=PLMN")
+
+        // …dont la valeur annonce plus d'octets qu'il n'en reste. Rendre ici la
+        // liste à moitié remplie serait pire qu'abandonner : le message
+        // partirait dans un fil amputé d'un participant, sans que rien ne le
+        // dise.
+        val problems = mutableListOf<String>()
+        val cut = head + second.copyOfRange(0, second.size / 2)
+        assertNull(MmsPduReader.readRetrieveConf(cut) { problems.add(it) })
+
+        assertTrue(problems.single(), problems.single().startsWith("PDU tronqué"))
+    }
+
+    @Test
+    fun `une avalanche de destinataires est refusee`() {
+        // Rien n'empêche un PDU d'aligner des `To` jusqu'à épuisement de la
+        // mémoire : le plafond des en-têtes vaut pour eux aussi.
+        val pdu = ByteArrayOutputStream().apply {
+            write(0x8C); write(0x84)
+            write(0x89); write(from("+33612345678/TYPE=PLMN"))
+            repeat(4_000) {
+                write(0x97); write(encodedString("+3361111111100000000"))
+            }
+        }.toByteArray()
+
+        val problems = mutableListOf<String>()
+        assertNull(MmsPduReader.readRetrieveConf(pdu) { problems.add(it) })
+        assertTrue(problems.single(), problems.single().contains("destinataires"))
+    }
+
     // -------------------------------------------------------- cas de terrain
 
     @Test
@@ -349,14 +441,19 @@ class MmsPduReaderTest {
     private fun valueLength(value: ByteArray): ByteArray =
         byteArrayOf(value.size.toByte()) + value
 
-    /** `From` : longueur, jeton « adresse présente », puis l'adresse encodée. */
-    private fun from(address: String): ByteArray {
-        val encoded = ByteArrayOutputStream().apply {
+    /**
+     * Une chaîne précédée de sa longueur et de son jeu de caractères — la forme
+     * d'un `To` ou d'un `Cc`, là où le `From` a la sienne, plus alambiquée.
+     */
+    private fun encodedString(value: String): ByteArray = valueLength(
+        ByteArrayOutputStream().apply {
             write(0xEA) // charset UTF-8
-            write(address.toByteArray(Charsets.UTF_8))
+            write(value.toByteArray(Charsets.UTF_8))
             write(0)
         }.toByteArray()
-        val value = byteArrayOf(0x80.toByte()) + valueLength(encoded)
-        return valueLength(value)
-    }
+    )
+
+    /** `From` : longueur, jeton « adresse présente », puis l'adresse encodée. */
+    private fun from(address: String): ByteArray =
+        valueLength(byteArrayOf(0x80.toByte()) + encodedString(address))
 }

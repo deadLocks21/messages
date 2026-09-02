@@ -62,19 +62,10 @@ object NotificationSettings {
     fun nameFor(context: Context, address: String): String? {
         val raw = prefs(context).getString(KEY_NAMES, null) ?: return null
         return runCatching {
-            JSONObject(raw).optString(addressKey(address)).takeIf { it.isNotEmpty() }
+            // Les clés de l'annuaire sont celles que publie `Address.key` côté
+            // Dart : la normalisation doit être la même des deux côtés, d'où
+            // [AddressKey] plutôt qu'une copie de plus.
+            JSONObject(raw).optString(AddressKey.of(address)).takeIf { it.isNotEmpty() }
         }.getOrNull()
-    }
-
-    /**
-     * Même normalisation que `Address.key` côté Dart : les 9 derniers chiffres
-     * significatifs (`+33612345678` ≡ `0612345678`), ou l'adresse en majuscules
-     * pour un expéditeur alphanumérique. Les deux implémentations doivent rester
-     * alignées, sinon l'annuaire ne retrouve plus personne.
-     */
-    fun addressKey(raw: String): String {
-        val digits = raw.filter { it.isDigit() }
-        if (digits.isEmpty()) return raw.trim().uppercase()
-        return if (digits.length <= 9) digits else digits.takeLast(9)
     }
 }

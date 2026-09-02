@@ -22,7 +22,7 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 | **Réactions** | Appui long → sept emoji, ceux de Google Messages. Une réaction n'est pas un champ : c'est un **SMS**, dont le corps imite le tapback d'un iPhone (`Liked “Bonjour”`) pour que Google Messages le repose sur la bulle plutôt que de l'afficher en toutes lettres. À l'arrivée, le repli les décroche du fil : les six verbes d'iOS et leurs traductions, la forme emoji d'iOS 18, celle de Google Messages, et les retraits. Pas de cible retrouvée, pas de repli — le message reste la bulle qu'il est. |
 | **Vocaux** | Deux gestes sur le même disque : appui bref → panneau à trois états (invitation, enregistrement avec compteur et piste, relecture) ; appui **maintenu** → la barre « Faire glisser pour annuler », relâcher joint, glisser vers la corbeille annule, glisser vers le cadenas rend la main au panneau. Durée bornée au budget MMS de l'opérateur, suppression du bruit annoncée quand l'appareil la sert, envoi en MMS `audio/amr`. |
 | **Réception** | `SMS_DELIVER` → écriture dans le stock + notification + rafraîchissement live de l'UI. |
-| **Réception MMS** | `WAP_PUSH_DELIVER` → décodage de la notification de dépôt, téléchargement auprès du MMSC, décodage du PDU, écriture des trois tables `content://mms` + notification. Photo, GIF, vocal, PDF et vCard reçus s'affichent comme ceux qu'on envoie. |
+| **Réception MMS** | `WAP_PUSH_DELIVER` → décodage de la notification de dépôt, téléchargement auprès du MMSC, décodage du PDU, écriture des trois tables `content://mms` + notification. Photo, GIF, vocal, PDF et vCard reçus s'affichent comme ceux qu'on envoie. Un MMS **de groupe** se range dans le fil du groupe — le PDU est le seul endroit qui le dit. |
 | **Rédaction** | Sélecteur de contacts (nom ou numéro), numéro libre, **sélection multiple en puces** pour un groupe, brouillons persistés, transfert d'un message. |
 | **Notifications** | `MessagingStyle` (fil des derniers échanges, nom du contact), **raccourci de conversation** par fil — d'où la section « Conversations » du volet, les trois niveaux par fil et les bulles, **réponse directe** et **marquer comme lu** depuis le volet, groupement + résumé, sourdine par fil respectée, annulation quand le fil est lu dans l'app. Les **échecs d'envoi** ont leur propre canal. |
 | **Blocage** | « Bloquer ce numéro » écrit dans `BlockedNumberContract`, la liste du système partagée avec le composeur d'appel — d'où la promesse tenue sur les appels aussi. Le fil bloqué quitte la liste (et les non lues) pour l'écran **Spam et bloqués** ; les SMS suivants, eux, sont filtrés par la plateforme avant même d'arriver. |
@@ -33,8 +33,9 @@ absolus, `InMemory*` comme doublures de test. Détail dans
 Reste à faire : couvrir par des tests instrumentés le Kotlin qui touche au
 `ContentProvider` — `flutter_test` ne l'atteint pas. Ce qui s'en passe est déjà
 testé sur la JVM (`android/app/src/test/`, `./gradlew :app:testDebugUnitTest`) :
-le codec des PDU MMS en aller-retour de l'encodeur au décodeur, le découpage
-d'un SMS en segments, et la lecture des réactions par le récepteur qui notifie.
+le codec des PDU MMS en aller-retour de l'encodeur au décodeur, le calcul des
+participants d'un MMS reçu — celui qui décide de son fil —, le découpage d'un
+SMS en segments, et la lecture des réactions par le récepteur qui notifie.
 
 Hors périmètre : le **RCS** — d'où le détour par le texte pour les réactions,
 puisque Android n'ouvre pas sa pile RCS aux applications tierces.

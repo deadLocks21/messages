@@ -611,6 +611,66 @@ Ce que ce format réserve, et qu'on ne devine pas :
   explicitement à `com.android.phone` — sans quoi le téléchargement échoue sans
   rien dire.
 
+### Un MMS de groupe se range dans le fil du groupe
+
+Le PDU est le **seul** endroit où un MMS dit qu'il s'adresse à plusieurs
+personnes : ni l'intent `WAP_PUSH_DELIVER`, ni le MMSC, ni le provider ne le
+répètent. Un décodeur qui ne lit que le `From` rend donc un MMS de groupe
+indiscernable d'un tête-à-tête — et le fil se compose sur son expéditeur seul.
+À l'usage, la réponse de quelqu'un à tout le monde atterrit dans la
+conversation privée qu'on a avec lui, la nôtre repart vers lui seul, et de son
+côté cela ressemble à quelqu'un qui bascule en privé sans prévenir. Le symptôme
+n'a pas besoin qu'on crée un groupe pour apparaître : il suffit qu'on nous
+ajoute à un existant.
+
+- **`To` (`0x97`) et `Cc` (`0x82`) se répètent**, un en-tête par destinataire,
+  et ce sont de simples `encoded-string-value` — pas l'encodage à part du
+  `From`, avec sa longueur et son jeton « adresse présente ». Ils s'accumulent
+  donc dans deux listes (`Retrieved.to`, `Retrieved.cc`), sous le même plafond
+  d'octets que les en-têtes de parties : rien n'empêche un PDU d'aligner des
+  `To` jusqu'à épuisement de la mémoire.
+- **Le fil se compose sur `{expéditeur} ∪ To ∪ Cc \ soi`** (`MmsParticipants`),
+  jeu que `Telephony.Threads.getOrCreateThreadId` traduit en `thread_id`. Le
+  critère est qu'il rende **le même fil** que le jeu passé à l'émission par
+  `MmsStore.sendMessage` : s'ils divergent, le groupe se dédouble — un fil pour
+  ce qu'on reçoit, un autre pour ce qu'on envoie — et le défaut n'est que
+  déplacé. Les co-destinataires ont aussi leur ligne `Addr` (`type = 151`), le
+  stock étant partagé : sans elles, les autres apps SMS de l'appareil ne voient
+  pas davantage le groupe.
+- **Retirer notre propre numéro suppose de le connaître**, et l'appareil ne le
+  sait pas toujours : le MSISDN est provisionné par l'opérateur, pas gravé dans
+  la SIM. C'est déjà pourquoi le `From:` d'un envoi est laissé au MMSC.
+  `SelfNumber` interroge `SubscriptionManager.getPhoneNumber` (API 33+) puis
+  `TelephonyManager.line1Number` — les deux protégées par des permissions qui
+  lèvent volontiers, d'où un `null` assumé plutôt qu'une valeur devinée.
+- **Quand les deux se taisent**, une chose reste sûre : le MMSC nous a livré ce
+  message, donc nous figurons dans sa liste de destinataires. S'il n'y en a
+  qu'un, c'est nous — déduction, pas devinette — et le tête-à-tête reste celui
+  qu'il était. C'est ce qui évite de troquer le défaut réparé contre un pire :
+  sans cela, **tout** MMS reçu en privé sur un appareil qui ignore son numéro
+  irait dans un fil « lui + moi » séparé du fil de ses SMS. Au-delà d'un
+  destinataire, rien ne dit lequel est nous : le jeu est gardé **entier**. Une
+  adresse de trop fait un fil de plus — visible, et réparé dès que l'appareil
+  connaîtra son numéro ; une adresse retirée au hasard rangerait le message
+  dans le fil de quelqu'un d'autre.
+- **La comparaison porte sur les 9 derniers chiffres significatifs**
+  (`AddressKey`), sans quoi `+33612345678` et `0612345678` dans le même PDU
+  feraient deux participants pour une personne — un faux groupe. C'est la règle
+  d'`Address.key` côté Dart, dont `AddressKey` est le jumeau natif : une seule
+  implémentation ici, que le répertoire des notifications partage désormais,
+  parce que deux copies dérivent.
+
+Ce qui est **prouvé** tient sur la JVM (`MmsPduReaderTest`,
+`MmsParticipantsTest`) : que l'encodeur et le décodeur s'accordent sur les
+destinataires en aller-retour, qu'un `To` unique reste un tête-à-tête, qu'un
+PDU coupé au milieu de la liste soit abandonné plutôt que rendu à moitié, et
+que le jeu de participants calculé à la réception soit, aux formes près, celui
+que l'émission passe au provider. Ce qui reste une **hypothèse** est tout ce
+qui demande un opérateur : que `getOrCreateThreadId` rende bien le même
+`thread_id` pour ces deux jeux, et qu'un vrai Google Messages, chez le
+correspondant, reconstruise le même groupe à partir de ce qu'on émet. Ni l'un
+ni l'autre ne s'observe ici — l'émulateur n'a pas de MMSC.
+
 ### Trois décisions, et pourquoi
 
 - **Rien n'est écrit avant que le PDU soit descendu.** L'autre option — écrire
@@ -652,11 +712,11 @@ Ce que ce format réserve, et qu'on ne devine pas :
     Seul l'**hôte** du MMSC y figure : le reste de l'URL désigne un message
     précis, et un journal n'a pas à le porter.
 
-- L'expéditeur est rangé en `addr.type = 137` et soi-même en `151` — l'inverse
-  d'un sortant, et ce que `MmsStore.addressOf` attend déjà pour rendre le bon
-  interlocuteur. Le suffixe `/TYPE=PLMN` d'une adresse est retiré : il dit le
-  plan de numérotation, pas le correspondant, et le garder ferait deux fils
-  pour une même personne.
+- L'expéditeur est rangé en `addr.type = 137`, soi-même et les
+  co-destinataires en `151` — l'inverse d'un sortant, et ce que
+  `MmsStore.addressOf` attend déjà pour rendre le bon interlocuteur. Le suffixe
+  `/TYPE=PLMN` d'une adresse est retiré : il dit le plan de numérotation, pas
+  le correspondant, et le garder ferait deux fils pour une même personne.
 
 ## Envoyer un GIF : la taille se choisit, elle ne se rattrape pas
 

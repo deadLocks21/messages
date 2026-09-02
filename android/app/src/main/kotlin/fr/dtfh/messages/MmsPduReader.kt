@@ -34,6 +34,7 @@ object MmsPduReader {
     // d'une partie, plus bas : les deux tables numérotent indépendamment, et
     // 0x8E vaut ici « taille du message » là où il vaut « Content-Location »
     // dans une partie. Un décodeur qui les mélange lit du bruit.
+    private const val HEADER_CC = 0x82
     private const val HEADER_CONTENT_LOCATION = 0x83
     private const val HEADER_CONTENT_TYPE = 0x84
     private const val HEADER_DATE = 0x85
@@ -41,6 +42,7 @@ object MmsPduReader {
     private const val HEADER_MESSAGE_TYPE = 0x8C
     private const val HEADER_MESSAGE_SIZE = 0x8E
     private const val HEADER_SUBJECT = 0x96
+    private const val HEADER_TO = 0x97
     private const val HEADER_TRANSACTION_ID = 0x98
 
     /** En-têtes d'une **partie** (table des en-têtes WSP). */
@@ -82,6 +84,15 @@ object MmsPduReader {
     /** Un `M-Retrieve.conf` décodé : le message tel qu'il sera écrit au stock. */
     class Retrieved(
         val from: String?,
+        /**
+         * Les autres destinataires, dans l'ordre du PDU. C'est la **seule**
+         * chose qui distingue un MMS de groupe d'un tête-à-tête : sans eux, la
+         * réponse de quelqu'un à tout le monde se range dans le fil privé
+         * qu'on a avec lui.
+         */
+        val to: List<String>,
+        /** Destinataires en copie. Rares, mais participants au même titre. */
+        val cc: List<String>,
         /** En millisecondes — le PDU la porte en secondes, comme le provider. */
         val dateMillis: Long?,
         val subject: String?,
@@ -162,6 +173,8 @@ object MmsPduReader {
                 if (headers.hasBody) reader.readBody(onProblem) ?: return null else emptyList()
             return Retrieved(
                 from = headers.from,
+                to = headers.to,
+                cc = headers.cc,
                 dateMillis = headers.date?.times(1000L),
                 subject = headers.subject,
                 parts = parts,
@@ -192,6 +205,31 @@ object MmsPduReader {
         var date: Long? = null
         var messageSize: Long? = null
         var hasBody = false
+
+        /**
+         * Destinataires. `To` et `Cc` se **répètent** — un en-tête par adresse,
+         * là où `From` est unique — d'où des listes et non deux champs.
+         */
+        val to = mutableListOf<String>()
+        val cc = mutableListOf<String>()
+
+        /** Ce que les adresses ont déjà coûté, pour ne pas suivre un PDU menteur. */
+        private var addressBytes = 0
+
+        /**
+         * Retient une adresse, et dit si le budget tient encore.
+         *
+         * Rien n'empêche un PDU d'aligner des `To` jusqu'à épuisement de la
+         * mémoire : c'est le même garde-fou que sur les parties, appliqué à ce
+         * que les adresses accumulent. Les adresses vides sont écartées — elles
+         * ne désignent personne, et feraient un participant fantôme de plus.
+         */
+        fun accumulate(into: MutableList<String>, address: String): Boolean {
+            addressBytes += address.length
+            if (addressBytes > MAX_HEADERS_BYTES) return false
+            stripAddressType(address).takeIf { it.isNotEmpty() }?.let(into::add)
+            return true
+        }
     }
 
     /**
@@ -360,6 +398,20 @@ object MmsPduReader {
                     HEADER_MESSAGE_SIZE -> headers.messageSize = longInteger()
                     HEADER_DATE -> headers.date = longInteger()
                     HEADER_FROM -> headers.from = readFrom()
+                    // Contrairement au `From` et à son encodage à part, ce sont
+                    // de simples encoded-string-value. Les accumuler est la
+                    // seule façon de reconnaître un MMS de groupe : le PDU ne le
+                    // dit nulle part ailleurs.
+                    HEADER_TO, HEADER_CC -> {
+                        val into = if (field == HEADER_TO) headers.to else headers.cc
+                        if (!headers.accumulate(into, encodedStringValue())) {
+                            onProblem.problem(
+                                "adresses de destinataires au-delà de " +
+                                    "$MAX_HEADERS_BYTES octets à l'offset $position"
+                            )
+                            return null
+                        }
+                    }
                     HEADER_CONTENT_TYPE -> {
                         readContentType()
                         headers.hasBody = true
