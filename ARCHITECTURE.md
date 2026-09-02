@@ -150,14 +150,12 @@ les seuls textes de l'app teintés par la palette primaire (`onAccentSoft`,
 
 L'app d'origine aligne quatre boutons ronds (Appeler, Vidéo, Infos contact,
 Rechercher) et cinq lignes (Thème, Mettre en veille, Notifications, Archiver,
-Bloquer et signaler comme spam). Trois de ces neuf actions n'existent pas ici,
-et une dixième — « Créer un groupe » — non plus :
+Bloquer et signaler comme spam). Trois de ces neuf actions n'existent pas ici :
 
 - **Vidéo** et **Thème** : hors périmètre de l'app.
 - **Bloquer et signaler comme spam** : c'est « Supprimer la conversation » qui
   prend sa place et sa couleur — la seule action de l'écran dont on ne revient
   pas.
-- **Créer un groupe** : le sélecteur de destinataires n'en compose qu'un.
 
 Restent trois boutons ronds et quatre lignes, dans la forme et l'ordre de l'app
 d'origine. Les lignes sont celles du menu « ⋮ », au même cas d'usage : archiver
@@ -217,6 +215,19 @@ sœur. La recherche renvoie sur le fil deux écrans plus haut, par un `go` : san
 la liste dessous, la conversation s'ouvrait sans flèche de retour et l'app
 n'avait plus de sortie. Les autres chemins vers un fil empilent (`push`) et ne
 changent pas.
+
+### Créer un groupe : le même sélecteur, amorcé
+
+« Créer un groupe » rouvre le sélecteur de destinataires avec les
+interlocuteurs du fil **déjà dedans**, comme le « Add people » de l'app
+d'origine. C'est le même écran, dans un mode de plus : choisir n'ouvre plus un
+fil, ça pose une puce, et un bouton valide. Ailleurs — nouveau chat, transfert
+— choisir *est* valider, et il n'y a donc pas de bouton.
+
+Ce mode se déclare par `seedRecipients` : non nul ⇒ groupe. Les adresses
+arrivent brutes et c'est le carnet qui leur rend un nom, parce qu'une puce
+porte un nom et non un numéro. `StartConversationUseCase` prenait déjà une
+liste — c'est le seul endroit qui n'en passait qu'une.
 
 ### La fiche contact appartient à l'app Contacts
 

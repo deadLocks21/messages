@@ -162,4 +162,44 @@ void main() {
     expect(find.byKey(const Key('startChat')), findsOneWidget);
   });
 
+  testWidgets('créer un groupe depuis les détails d\'un fil', (tester) async {
+    phoneSurface(tester);
+    final device = TestDevice(
+      contacts: [
+        Build.contact(displayName: 'Camille', addresses: ['0612345678']),
+        Build.contact(displayName: 'Bruno', addresses: ['0698765432']),
+      ],
+    );
+    final threadId = device.store.threadIdFor([Build.address('+33612345678')]);
+    device.store.insert(Build.message(threadId: threadId, body: 'Coucou'));
+
+    await pumpApp(tester, device: device);
+    await tester.tap(find.byKey(Key('conversationTile_$threadId')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('openThreadDetails')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('createGroup')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Bruno'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmRecipients')));
+    await tester.pumpAndSettle();
+
+    // Le fil des deux est ouvert, et vide : un fil sans message n'existe pas
+    // encore dans le stock, c'est le premier envoi qui l'y inscrit.
+    expect(find.byKey(const Key('composerField')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('composerField')), 'À samedi');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('sendMessage')));
+    await tester.pumpAndSettle();
+
+    final group = device.store.conversations().firstWhere(
+      (c) => c.recipients.length == 2,
+    );
+    expect(group.recipients.map((a) => a.key).toSet(), {
+      '612345678',
+      '698765432',
+    });
+  });
 }
