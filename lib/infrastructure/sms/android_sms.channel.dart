@@ -86,6 +86,13 @@ class AndroidSmsChannel {
         .toList();
   }
 
+  /// Réglages de notification du fil, côté système.
+  Future<bool> openThreadNotificationSettings(String threadId) async =>
+      await _invoke<bool>('openThreadNotificationSettings', {
+        'threadId': threadId,
+      }) ??
+      false;
+
   // ---------------------------------------------------- numéros bloqués
 
   Future<List<Address>> listBlockedNumbers() async {

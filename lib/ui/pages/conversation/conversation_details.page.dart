@@ -256,6 +256,15 @@ class _ConversationDetailsPageState
               : 'Mettre en veille',
           onTap: conversation.isSilenced ? _wake : _snooze,
         ),
+        // Entre la veille et l'archivage, comme dans l'app d'origine — et
+        // comme elle, ça sort de l'app : Android sait déjà régler une
+        // conversation, et le refaire ici n'apprendrait rien à personne.
+        DetailsCardRow(
+          key: const Key('threadNotificationSettings'),
+          icon: Icons.notifications_none,
+          label: 'Notifications',
+          onTap: _openNotificationSettings,
+        ),
         DetailsCardRow(
           key: const Key('toggleArchived'),
           icon: conversation.isArchived
@@ -321,6 +330,13 @@ class _ConversationDetailsPageState
   }
 
   Future<void> _wake() => _flag((f) => f.wake(widget.threadId));
+
+  Future<void> _openNotificationSettings() async {
+    final opened = await ref
+        .read(notificationGatewayProvider)
+        .openThreadSettings(widget.threadId);
+    if (!opened) _announce('Réglages de notification indisponibles.');
+  }
 
   Future<void> _copy(String address) async {
     await Clipboard.setData(ClipboardData(text: address));

@@ -14,4 +14,17 @@ class InMemoryNotificationGateway implements NotificationGateway {
   @override
   Future<void> setDirectory(Map<String, String> namesByAddressKey) async =>
       directory = {...namesByAddressKey};
+
+  /// Fils dont on a demandé les réglages système, dans l'ordre.
+  final List<String> settingsOpened = [];
+
+  /// Simule un appareil sans écran de réglages par fil.
+  bool settingsAvailable = true;
+
+  @override
+  Future<bool> openThreadSettings(String threadId) async {
+    if (!settingsAvailable) return false;
+    settingsOpened.add(threadId);
+    return true;
+  }
 }

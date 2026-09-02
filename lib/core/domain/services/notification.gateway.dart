@@ -19,4 +19,11 @@ abstract interface class NotificationGateway {
   /// Annuaire minimal `clé d'adresse → nom affichable`, pour que la
   /// notification porte « Camille » et non « +33612345678 ».
   Future<void> setDirectory(Map<String, String> namesByAddressKey);
+
+  /// Ouvre les réglages de notification **du fil**, ceux du système.
+  ///
+  /// L'app ne les réimplémente pas : Android sait déjà régler une conversation
+  /// (prioritaire, silencieuse, pastille, bulle), et c'est là que l'app
+  /// d'origine envoie aussi. Rend `false` quand l'appareil n'a pas cet écran.
+  Future<bool> openThreadSettings(String threadId);
 }

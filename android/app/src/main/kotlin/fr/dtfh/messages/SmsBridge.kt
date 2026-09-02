@@ -3,6 +3,7 @@ package fr.dtfh.messages
 import android.app.Activity
 import android.app.role.RoleManager
 import android.content.Intent
+import android.provider.Settings
 import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Build
@@ -297,6 +298,12 @@ class SmsBridge(
                     result.success(null)
                 }
 
+                "openThreadNotificationSettings" -> result.success(
+                    openThreadNotificationSettings(
+                        call.argument<String>("threadId")!!,
+                    )
+                )
+
                 "listBlockedNumbers" -> result.success(BlockedNumbers.list(activity))
 
                 "blockNumber" -> {
@@ -382,6 +389,29 @@ class SmsBridge(
         pendingRoleResult?.success(access())
         pendingRoleResult = null
         return true
+    }
+
+    /**
+     * Ouvre les réglages de notification **du fil**, ceux d'Android.
+     *
+     * Il n'y a pas d'action dédiée : c'est `CHANNEL_NOTIFICATION_SETTINGS`
+     * plus un `EXTRA_CONVERSATION_ID`, l'identifiant du raccourci que la
+     * notification a publié. Le système affiche alors la page du fil — nom,
+     * pastille, Prioritaire / Par défaut / Silencieux — et retombe de lui-même
+     * sur celle du canal quand il ne connaît pas la conversation, c'est-à-dire
+     * tant que le fil n'a jamais notifié.
+     *
+     * Rend `true` si l'écran s'est ouvert.
+     */
+    private fun openThreadNotificationSettings(threadId: String): Boolean {
+        val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)
+            .putExtra(Settings.EXTRA_CHANNEL_ID, SmsNotifications.CHANNEL_ID)
+            .putExtra(
+                Settings.EXTRA_CONVERSATION_ID,
+                ConversationShortcuts.idFor(threadId),
+            )
+        return runCatching { activity.startActivity(intent) }.isSuccess
     }
 
     private fun requestDefaultSmsApp(result: MethodChannel.Result) {

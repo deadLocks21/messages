@@ -253,4 +253,38 @@ void main() {
     expect(await device.blockedNumbers.listAll(), isEmpty);
     expect(find.text('Bloquer ce numéro'), findsOneWidget);
   });
+
+  testWidgets('« Notifications » passe la main au système', (tester) async {
+    phoneSurface(tester);
+    final (device, threadId) = deviceWithNamedThread();
+
+    await pumpPage(
+      tester,
+      ConversationDetailsPage(threadId: threadId),
+      device: device,
+    );
+    await tester.tap(find.byKey(const Key('threadNotificationSettings')));
+    await tester.pumpAndSettle();
+
+    expect(device.notifications.settingsOpened, [threadId]);
+  });
+
+  testWidgets('sans écran de réglages, l\'appui le dit', (tester) async {
+    phoneSurface(tester);
+    final (device, threadId) = deviceWithNamedThread();
+    device.notifications.settingsAvailable = false;
+
+    await pumpPage(
+      tester,
+      ConversationDetailsPage(threadId: threadId),
+      device: device,
+    );
+    await tester.tap(find.byKey(const Key('threadNotificationSettings')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Réglages de notification indisponibles.'),
+      findsOneWidget,
+    );
+  });
 }

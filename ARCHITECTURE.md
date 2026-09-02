@@ -231,6 +231,30 @@ arrivent brutes et c'est le carnet qui leur rend un nom, parce qu'une puce
 porte un nom et non un numéro. `StartConversationUseCase` prenait déjà une
 liste — c'est le seul endroit qui n'en passait qu'une.
 
+### Notifications : Android sait déjà régler une conversation
+
+La ligne « Notifications » sort de l'app, comme dans l'app d'origine — dont le
+même appui ouvre `com.android.settings`. Réimplémenter prioritaire / silencieux
+/ pastille / bulle n'apprendrait rien à personne, et ne s'appliquerait à rien :
+ces réglages sont ceux du système.
+
+Encore faut-il qu'il y ait un fil à régler. Android ne connaît pas les fils
+d'une app de messagerie : il connaît des **raccourcis longue durée** portant
+une `Person`. Chaque notification en repose un (`pushDynamicShortcut`, qui gère
+la rotation quand le quota de l'appareil est atteint — les fils qui notifient
+sont ceux qui méritent leur place), et la notification s'y rattache par
+`setShortcutId` + `setLocusId`. Le volet range alors le message parmi les
+conversations, propose « Prioritaire / Par défaut / Silencieux » pour *ce*
+fil, et autorise les bulles.
+
+Il n'y a pas d'action dédiée pour ouvrir cette page : c'est
+`ACTION_CHANNEL_NOTIFICATION_SETTINGS` plus un `EXTRA_CONVERSATION_ID`,
+l'identifiant du raccourci. Le système montre la page du fil quand il a un
+canal pour lui — c'est-à-dire une fois la conversation réglée au moins une fois
+depuis le volet — et celle du canal sinon. Relevé sur l'émulateur : sans
+réglage préalable, on tombe bien sur la page du canal, et le volet, lui,
+propose déjà les trois niveaux du fil.
+
 ### Bloquer : la liste est celle du système, pas la nôtre
 
 `BlockedNumberContract` est la liste d'Android, partagée avec le composeur

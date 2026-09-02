@@ -16,4 +16,8 @@ class AndroidNotificationGateway implements NotificationGateway {
   @override
   Future<void> setDirectory(Map<String, String> namesByAddressKey) =>
       _channel.setNotificationDirectory(namesByAddressKey);
+
+  @override
+  Future<bool> openThreadSettings(String threadId) =>
+      _channel.openThreadNotificationSettings(threadId);
 }

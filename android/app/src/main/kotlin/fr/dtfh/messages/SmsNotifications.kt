@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.content.LocusIdCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
@@ -31,7 +32,8 @@ import androidx.core.app.RemoteInput
  * à l'utilisateur, et noie le message qui vient d'arriver.
  */
 object SmsNotifications {
-    private const val CHANNEL_ID = "sms"
+    /// Exposé : `SmsBridge` en a besoin pour ouvrir les réglages du canal.
+    const val CHANNEL_ID = "sms"
     private const val CHANNEL_NAME = "Messages SMS"
 
     /**
@@ -190,6 +192,11 @@ object SmsNotifications {
             }
         }
 
+        // Le raccourci fait de cette notification une *conversation* aux yeux
+        // d'Android : section dédiée du volet, bulles, et surtout des réglages
+        // de notification propres au fil — ceux que l'écran de détails ouvre.
+        val shortcutId = ConversationShortcuts.push(context, threadId, address, name)
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_chat)
             .setStyle(style)
@@ -198,6 +205,9 @@ object SmsNotifications {
             .setAutoCancel(true)
             .setGroup(GROUP_KEY)
             .setOnlyAlertOnce(!alert)
+            .setShortcutId(shortcutId)
+            .setLocusId(LocusIdCompat(shortcutId))
+            .addPerson(sender)
             .setContentIntent(openThreadIntent(context, threadId, address))
             .addAction(replyAction(context, threadId, address))
             .addAction(markReadAction(context, threadId))
