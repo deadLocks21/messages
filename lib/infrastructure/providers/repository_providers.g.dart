@@ -646,6 +646,54 @@ final class ContactRepositoryProvider
 
 String _$contactRepositoryHash() => r'6f7ff898ea8e721a2d8e0b00bdcd1191d8ffef85';
 
+@ProviderFor(blockedNumbersRepository)
+final blockedNumbersRepositoryProvider = BlockedNumbersRepositoryProvider._();
+
+final class BlockedNumbersRepositoryProvider
+    extends
+        $FunctionalProvider<
+          BlockedNumbersRepository,
+          BlockedNumbersRepository,
+          BlockedNumbersRepository
+        >
+    with $Provider<BlockedNumbersRepository> {
+  BlockedNumbersRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'blockedNumbersRepositoryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$blockedNumbersRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<BlockedNumbersRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  BlockedNumbersRepository create(Ref ref) {
+    return blockedNumbersRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(BlockedNumbersRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<BlockedNumbersRepository>(value),
+    );
+  }
+}
+
+String _$blockedNumbersRepositoryHash() =>
+    r'29d3b3f5c4f6c447dad82a54a59e991183f6626d';
+
 @ProviderFor(contactCardService)
 final contactCardServiceProvider = ContactCardServiceProvider._();
 

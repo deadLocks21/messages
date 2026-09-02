@@ -86,6 +86,22 @@ class AndroidSmsChannel {
         .toList();
   }
 
+  // ---------------------------------------------------- numéros bloqués
+
+  Future<List<Address>> listBlockedNumbers() async {
+    final raw = await _invoke<List<Object?>>('listBlockedNumbers');
+    return (raw ?? const [])
+        .map((e) => Address.tryParse(e as String?))
+        .whereType<Address>()
+        .toList();
+  }
+
+  Future<void> blockNumber(Address address) =>
+      _invoke<void>('blockNumber', {'address': address.raw});
+
+  Future<void> unblockNumber(Address address) =>
+      _invoke<void>('unblockNumber', {'address': address.raw});
+
   /// Rend `true` si des messages ont réellement basculé en « lu ».
   Future<bool> markThreadRead(String threadId) async =>
       await _invoke<bool>('markThreadRead', {'threadId': threadId}) ?? false;

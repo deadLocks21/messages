@@ -5,6 +5,7 @@ import 'package:messages/core/application/services/search.service.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/preferences/in_memory.conversation_preferences.repository.dart';
 import 'package:messages/infrastructure/preferences/in_memory.draft.repository.dart';
+import 'package:messages/infrastructure/sms/in_memory.blocked_numbers.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.conversation.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.message.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
@@ -29,6 +30,7 @@ void main() {
         directory: directory,
         preferences: InMemoryConversationPreferencesRepository(),
         drafts: InMemoryDraftRepository(),
+        blocked: InMemoryBlockedNumbersRepository(),
       ),
       directory: directory,
       messages: InMemoryMessageRepository(store),

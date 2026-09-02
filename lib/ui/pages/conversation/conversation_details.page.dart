@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:messages/core/application/dtos/conversation_details.dto.dart';
 import 'package:messages/core/application/usecases/update_conversation_flags.usecase.dart';
+import 'package:messages/core/domain/model/address.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/providers/repository_providers.dart';
 import 'package:messages/infrastructure/providers/service_providers.dart';
-import 'package:messages/ui/pages/conversation/widgets/conversation_menu.widget.dart';
+import 'package:messages/ui/pages/conversation/widgets/block.dialog.dart';
 import 'package:messages/ui/pages/conversation/widgets/details_action_pill.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/details_card.widget.dart';
 import 'package:messages/ui/pages/conversation/widgets/snooze.dialog.dart';
@@ -263,15 +264,17 @@ class _ConversationDetailsPageState
           label: conversation.isArchived ? 'Désarchiver' : 'Archiver',
           onTap: () => _flag((f) => f.toggleArchived(widget.threadId)),
         ),
-        // La ligne rouge de l'app d'origine est « Bloquer et signaler comme
-        // spam », que l'app ne sait pas faire. C'est « Supprimer » qui prend
-        // sa place : la seule action de cet écran dont on ne revient pas.
+        // La ligne rouge de l'app d'origine, moins « signaler comme spam » :
+        // ce service n'existe que chez Google. Supprimer reste au menu « ⋮ »,
+        // là où l'app d'origine le loge aussi.
         DetailsCardRow(
-          key: const Key('deleteThread'),
-          icon: Icons.delete_outline,
-          label: 'Supprimer la conversation',
-          color: colors.danger,
-          onTap: _delete,
+          key: const Key('toggleBlocked'),
+          icon: Icons.block,
+          label: conversation.isBlocked
+              ? 'Débloquer ce numéro'
+              : 'Bloquer ce numéro',
+          color: conversation.isBlocked ? null : colors.danger,
+          onTap: () => _toggleBlocked(details),
         ),
       ],
     );
@@ -356,15 +359,35 @@ class _ConversationDetailsPageState
     ref.invalidate(conversationsProvider);
   }
 
-  Future<void> _delete() async {
-    final confirmed = await ConversationMenu.confirmDelete(context);
-    if (confirmed != true || !mounted) return;
-    await ref.read(deleteConversationUseCaseProvider).execute(widget.threadId);
+  /// Bloquer ou débloquer les correspondants du fil.
+  ///
+  /// Bloquer se demande — c'est une porte qu'on ferme aussi aux appels ;
+  /// débloquer non, personne ne s'en plaint.
+  Future<void> _toggleBlocked(ConversationDetailsDto details) async {
+    final blocked = ref.read(blockedNumbersRepositoryProvider);
+    final addresses = [
+      for (final p in details.participants) Address.parse(p.rawAddress),
+    ];
+    if (addresses.isEmpty) return;
+
+    if (details.conversation.isBlocked) {
+      for (final address in addresses) {
+        await blocked.unblock(address);
+      }
+    } else {
+      final confirmed = await BlockDialog.confirm(
+        context,
+        details.conversation.title,
+      );
+      if (confirmed != true) return;
+      for (final address in addresses) {
+        await blocked.block(address);
+      }
+    }
     if (!mounted) return;
+    ref.invalidate(conversationDetailsProvider(widget.threadId));
+    ref.invalidate(conversationProvider(widget.threadId));
     ref.invalidate(conversationsProvider);
-    // Le fil dont on vient n'existe plus : on ne peut pas y revenir d'un
-    // `pop`, il faut repartir de la liste.
-    context.go(AppRoutes.conversations);
   }
 
   void _announce(String message) {

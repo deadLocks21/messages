@@ -222,4 +222,35 @@ void main() {
     // À plusieurs, il n'y a pas *un* numéro à appeler.
     expect(find.byKey(const Key('callParticipant')), findsNothing);
   });
+
+  testWidgets('bloquer un numéro se demande, débloquer non', (tester) async {
+    phoneSurface(tester);
+    final (device, threadId) = deviceWithNamedThread();
+
+    await pumpPage(
+      tester,
+      ConversationDetailsPage(threadId: threadId),
+      device: device,
+    );
+
+    await tester.tap(find.byKey(const Key('toggleBlocked')));
+    await tester.pumpAndSettle();
+    expect(find.text('Bloquer Camille ?'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('confirmBlock')));
+    await tester.pumpAndSettle();
+
+    // C'est la liste du système qui retient le numéro, pas un réglage à nous.
+    expect(
+      (await device.blockedNumbers.listAll()).single.key,
+      '612345678',
+    );
+    expect(find.text('Débloquer ce numéro'), findsOneWidget);
+
+    // Débloquer ne demande rien : personne ne s'en plaint.
+    await tester.tap(find.byKey(const Key('toggleBlocked')));
+    await tester.pumpAndSettle();
+    expect(await device.blockedNumbers.listAll(), isEmpty);
+    expect(find.text('Bloquer ce numéro'), findsOneWidget);
+  });
 }

@@ -153,6 +153,13 @@ object SmsNotifications {
         // vient déranger l'utilisateur.
         if (NotificationSettings.isMuted(context, threadId)) return
 
+        // Expéditeur bloqué. Depuis Android 7, la plateforme filtre elle-même
+        // les SMS des numéros bloqués et ne diffuse pas `SMS_DELIVER` : ce
+        // garde-fou ne devrait jamais servir. Il tient quand même la promesse
+        // du dialogue pour ce qui passerait à côté — un MMS, un OEM qui filtre
+        // autrement — et il coûte une lecture.
+        if (BlockedNumbers.isBlocked(context, address)) return
+
         ensureChannel(context)
 
         val name = NotificationSettings.nameFor(context, address) ?: address

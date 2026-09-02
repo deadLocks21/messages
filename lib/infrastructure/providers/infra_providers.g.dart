@@ -235,6 +235,64 @@ final class InMemoryContactCardProvider
 String _$inMemoryContactCardHash() =>
     r'09b783e113fc948d169cf1ad89695e08c808d3d1';
 
+/// Numéros bloqués simulés. Exposés à part pour que les tests lisent ce qui a
+/// été bloqué.
+
+@ProviderFor(inMemoryBlockedNumbers)
+final inMemoryBlockedNumbersProvider = InMemoryBlockedNumbersProvider._();
+
+/// Numéros bloqués simulés. Exposés à part pour que les tests lisent ce qui a
+/// été bloqué.
+
+final class InMemoryBlockedNumbersProvider
+    extends
+        $FunctionalProvider<
+          InMemoryBlockedNumbersRepository,
+          InMemoryBlockedNumbersRepository,
+          InMemoryBlockedNumbersRepository
+        >
+    with $Provider<InMemoryBlockedNumbersRepository> {
+  /// Numéros bloqués simulés. Exposés à part pour que les tests lisent ce qui a
+  /// été bloqué.
+  InMemoryBlockedNumbersProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'inMemoryBlockedNumbersProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$inMemoryBlockedNumbersHash();
+
+  @$internal
+  @override
+  $ProviderElement<InMemoryBlockedNumbersRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  InMemoryBlockedNumbersRepository create(Ref ref) {
+    return inMemoryBlockedNumbers(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(InMemoryBlockedNumbersRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<InMemoryBlockedNumbersRepository>(
+        value,
+      ),
+    );
+  }
+}
+
+String _$inMemoryBlockedNumbersHash() =>
+    r'9627061b42ed5126f703a8cbc6d6b29873e76bd1';
+
 /// Stock SMS simulé, monté avec les données de démonstration.
 
 @ProviderFor(inMemorySmsStore)

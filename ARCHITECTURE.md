@@ -150,16 +150,18 @@ les seuls textes de l'app teintés par la palette primaire (`onAccentSoft`,
 
 L'app d'origine aligne quatre boutons ronds (Appeler, Vidéo, Infos contact,
 Rechercher) et cinq lignes (Thème, Mettre en veille, Notifications, Archiver,
-Bloquer et signaler comme spam). Trois de ces neuf actions n'existent pas ici :
+Bloquer et signaler comme spam). Deux de ces neuf actions n'existent pas ici,
+et une moitié d'une troisième :
 
 - **Vidéo** et **Thème** : hors périmètre de l'app.
-- **Bloquer et signaler comme spam** : c'est « Supprimer la conversation » qui
-  prend sa place et sa couleur — la seule action de l'écran dont on ne revient
-  pas.
+- **Signaler comme spam** — la case du dialogue de blocage : elle envoie le
+  numéro et les derniers messages à Google et aux opérateurs. Ce service
+  n'existe que chez eux ; une case qui promettrait la même chose sans rien
+  envoyer serait pire que son absence. Le blocage, lui, est là.
 
 Restent trois boutons ronds et quatre lignes, dans la forme et l'ordre de l'app
-d'origine. Les lignes sont celles du menu « ⋮ », au même cas d'usage : archiver
-dépingle, et l'écran de détails le montre comme le menu.
+d'origine. « Supprimer » n'y est pas : l'app d'origine le loge au menu « ⋮ »
+(« Trash »), et nous aussi.
 
 ### Mettre en veille : une date, pas un booléen
 
@@ -228,6 +230,29 @@ Ce mode se déclare par `seedRecipients` : non nul ⇒ groupe. Les adresses
 arrivent brutes et c'est le carnet qui leur rend un nom, parce qu'une puce
 porte un nom et non un numéro. `StartConversationUseCase` prenait déjà une
 liste — c'est le seul endroit qui n'en passait qu'une.
+
+### Bloquer : la liste est celle du système, pas la nôtre
+
+`BlockedNumberContract` est la liste d'Android, partagée avec le composeur
+d'appel. En tenir une à nous aurait donné la moitié de ce que le dialogue
+promet — « vous ne recevrez plus ni appels ni messages » — et l'app SMS par
+défaut a justement le droit d'écrire dans celle du système. Nous le sommes.
+
+Ce qu'on découvre en l'essayant : **la plateforme filtre elle-même**. Depuis
+Android 7, un SMS venant d'un numéro bloqué ne donne pas lieu à `SMS_DELIVER` ;
+il n'entre pas dans le stock, et le garde-fou posé dans le notificateur ne sert
+jamais pour un SMS. Il reste pour ce qui passerait à côté — un MMS, un OEM qui
+filtre autrement — et il coûte une lecture.
+
+Bloquer ne supprime donc rien : le fil **existant** reste, dans « Spam et
+bloqués » plutôt que dans la liste principale, ce qui est exactement ce
+qu'annonce le dialogue. Le filtre `ConversationFilter.blocked` le sort de
+partout ailleurs, y compris des non lues — un fil bloqué qui ferait grossir la
+pastille de la liste serait un blocage à moitié.
+
+La comparaison se fait sur `Address.key` et non sur la forme brute : bloquer
+`+33612345678` doit sortir de la liste le fil ouvert sur `0612345678`, comme le
+fait la comparaison du système.
 
 ### La fiche contact appartient à l'app Contacts
 

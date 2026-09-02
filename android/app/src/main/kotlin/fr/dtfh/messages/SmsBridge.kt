@@ -297,6 +297,20 @@ class SmsBridge(
                     result.success(null)
                 }
 
+                "listBlockedNumbers" -> result.success(BlockedNumbers.list(activity))
+
+                "blockNumber" -> {
+                    requireDefaultSmsApp()
+                    BlockedNumbers.block(activity, call.argument<String>("address")!!)
+                    result.success(null)
+                }
+
+                "unblockNumber" -> {
+                    requireDefaultSmsApp()
+                    BlockedNumbers.unblock(activity, call.argument<String>("address")!!)
+                    result.success(null)
+                }
+
                 "checkAccess" -> result.success(access())
 
                 "requestDefaultSmsApp" -> requestDefaultSmsApp(result)

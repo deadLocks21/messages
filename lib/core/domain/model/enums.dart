@@ -34,7 +34,7 @@ enum MessageStatus {
 
 /// Onglet de la liste des conversations (Google Messages : « Tous » /
 /// « Non lus », plus l'écran « Archivées »).
-enum ConversationFilter { all, unread, archived }
+enum ConversationFilter { all, unread, archived, blocked }
 
 /// Mode de thème choisi par l'utilisateur (persisté). Mappé vers `ThemeMode`
 /// Flutter par `AppThemeData.toFlutterThemeMode`.

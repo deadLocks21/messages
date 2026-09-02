@@ -44,6 +44,7 @@ ConversationListService conversationListService(Ref ref) =>
       directory: ref.watch(contactDirectoryServiceProvider),
       preferences: ref.watch(conversationPreferencesRepositoryProvider),
       drafts: ref.watch(draftRepositoryProvider),
+      blocked: ref.watch(blockedNumbersRepositoryProvider),
     );
 
 @Riverpod(keepAlive: true)

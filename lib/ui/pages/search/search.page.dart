@@ -127,6 +127,10 @@ class _FilteredConversations extends ConsumerWidget {
                     ConversationFilter.unread => 'Tout est lu.',
                     ConversationFilter.archived =>
                       'Aucune conversation archivée.',
+                    // Pas de puce « bloquées » sur cet écran : le filtre
+                    // existe, mais il n'est proposé qu'ailleurs.
+                    ConversationFilter.blocked =>
+                      'Aucun numéro bloqué.',
                     ConversationFilter.all => 'Aucune conversation.',
                   },
                   textAlign: TextAlign.center,

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
 import 'package:messages/infrastructure/providers/sms_access.provider.dart';
 import 'package:messages/ui/pages/archived/archived.page.dart';
+import 'package:messages/ui/pages/blocked/blocked.page.dart';
 import 'package:messages/ui/pages/conversation/conversation.page.dart';
 import 'package:messages/ui/pages/conversation/conversation_details.page.dart';
 import 'package:messages/ui/pages/conversation/conversation_search.page.dart';
@@ -19,6 +20,7 @@ abstract final class AppRoutes {
   static const welcome = '/welcome';
   static const conversations = '/';
   static const archived = '/archived';
+  static const blocked = '/blocked';
   static const search = '/search';
   static const newConversation = '/new';
 
@@ -137,6 +139,7 @@ GoRouter _buildRouter(Ref ref, ValueNotifier<int> refresh) {
         ],
       ),
       GoRoute(path: AppRoutes.archived, builder: (_, _) => const ArchivedPage()),
+      GoRoute(path: AppRoutes.blocked, builder: (_, _) => const BlockedPage()),
       GoRoute(path: AppRoutes.search, builder: (_, _) => const SearchPage()),
       GoRoute(
         path: AppRoutes.newConversation,

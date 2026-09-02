@@ -22,6 +22,7 @@ import 'package:messages/infrastructure/preferences/in_memory.reaction_preferenc
 import 'package:messages/infrastructure/preferences/in_memory.theme.repository.dart';
 import 'package:messages/infrastructure/providers/infra_providers.dart';
 import 'package:messages/infrastructure/providers/repository_providers.dart';
+import 'package:messages/infrastructure/sms/in_memory.blocked_numbers.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 import 'package:messages/ui/router/app_router.dart';
 import 'package:messages/ui/theme/app_theme_data.dart';
@@ -77,6 +78,11 @@ class TestDevice {
   /// Le repli des réactions, actif comme sur un téléphone neuf.
   final InMemoryReactionPreferencesRepository reactionPreferences =
       InMemoryReactionPreferencesRepository();
+
+  /// Les numéros bloqués du système : c'est là qu'un test lit ce qui a été
+  /// bloqué, et y met de quoi vérifier que le fil disparaît de la liste.
+  final InMemoryBlockedNumbersRepository blockedNumbers =
+      InMemoryBlockedNumbersRepository();
 
   /// La fiche contact du système : c'est par elle qu'un test lit quelle fiche
   /// l'écran de détails a demandé d'ouvrir, ou simule un appareil sans app de
@@ -178,6 +184,7 @@ Future<void> _pump(WidgetTester tester, TestDevice device, Widget child) async {
         ),
         inMemoryMediaDownloaderProvider.overrideWithValue(device.downloads),
         inMemoryContactCardProvider.overrideWithValue(device.contactCard),
+        inMemoryBlockedNumbersProvider.overrideWithValue(device.blockedNumbers),
       ],
       child: child,
     ),

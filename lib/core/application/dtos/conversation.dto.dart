@@ -18,6 +18,9 @@ class ConversationDto {
   /// Sourdine sans échéance.
   final bool isMuted;
 
+  /// L'un des destinataires est dans la liste bloquée du système.
+  final bool isBlocked;
+
   /// Fin de la mise en veille, `null` s'il n'y en a pas.
   final DateTime? snoozedUntil;
 
@@ -46,6 +49,7 @@ class ConversationDto {
     this.isPinned = false,
     this.isArchived = false,
     this.isMuted = false,
+    this.isBlocked = false,
     this.snoozedUntil,
     this.isSilenced = false,
     this.isGroup = false,
@@ -68,6 +72,7 @@ class ConversationDto {
     isPinned: isPinned,
     isArchived: isArchived,
     isMuted: isMuted,
+    isBlocked: isBlocked,
     snoozedUntil: snoozedUntil,
     isSilenced: isSilenced,
     isGroup: isGroup,

@@ -95,6 +95,12 @@ class _AccountSheetBody extends StatelessWidget {
                   onTap: () => _go(context, AppRoutes.archived),
                 ),
                 CardRow(
+                  key: const Key('accountBlocked'),
+                  icon: Icons.block,
+                  label: 'Spam et bloqués',
+                  onTap: () => _go(context, AppRoutes.blocked),
+                ),
+                CardRow(
                   key: const Key('accountSettings'),
                   icon: Icons.settings_outlined,
                   label: 'Paramètres de l\'application Messages',

@@ -8,6 +8,7 @@ import 'package:messages/core/domain/model/conversation.dart';
 import 'package:messages/core/domain/model/conversation_preference.dart';
 import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/core/domain/model/reaction_codec.dart';
+import 'package:messages/core/domain/services/blocked_numbers.repository.dart';
 import 'package:messages/core/domain/services/conversation.repository.dart';
 import 'package:messages/core/domain/services/conversation_preferences.repository.dart';
 import 'package:messages/core/domain/services/draft.repository.dart';
@@ -23,16 +24,19 @@ class ConversationListService {
   final ContactDirectoryService _directory;
   final ConversationPreferencesRepository _preferences;
   final DraftRepository _drafts;
+  final BlockedNumbersRepository _blocked;
 
   const ConversationListService({
     required ConversationRepository conversations,
     required ContactDirectoryService directory,
     required ConversationPreferencesRepository preferences,
     required DraftRepository drafts,
+    required BlockedNumbersRepository blocked,
   }) : _conversations = conversations,
        _directory = directory,
        _preferences = preferences,
-       _drafts = drafts;
+       _drafts = drafts,
+       _blocked = blocked;
 
   Future<List<ConversationDto>> list({
     ConversationFilter filter = ConversationFilter.all,
@@ -43,6 +47,9 @@ class ConversationListService {
       for (final p in await _preferences.listAll()) p.threadId: p,
     };
     final drafts = await _drafts.listAll();
+    // Les clés et non les adresses : bloquer `+33612345678` doit sortir de la
+    // liste le fil ouvert sur `0612345678`.
+    final blocked = {for (final a in await _blocked.listAll()) a.key};
 
     final items = conversations
         .map(
@@ -51,6 +58,7 @@ class ConversationListService {
             directory,
             preferences[c.id] ?? ConversationPreference.none(c.id),
             drafts[c.id],
+            isBlocked: c.recipients.any((a) => blocked.contains(a.key)),
           ),
         )
         .where((dto) => _matches(dto, filter))
@@ -76,6 +84,7 @@ class ConversationListService {
     }
     final directory = await _directory.load();
     final preferences = await _preferences.listAll();
+    final blocked = {for (final a in await _blocked.listAll()) a.key};
     return _toDto(
       conversation,
       directory,
@@ -84,6 +93,7 @@ class ConversationListService {
               .firstOrNull ??
           ConversationPreference.none(threadId),
       await _drafts.get(threadId),
+      isBlocked: conversation.recipients.any((a) => blocked.contains(a.key)),
     );
   }
 
@@ -106,8 +116,9 @@ class ConversationListService {
     Conversation conversation,
     ContactDirectory directory,
     ConversationPreference preference,
-    String? draft,
-  ) {
+    String? draft, {
+    bool isBlocked = false,
+  }) {
     return ConversationDto(
       threadId: conversation.id,
       title: directory.titleFor(conversation.recipients),
@@ -117,6 +128,7 @@ class ConversationListService {
       isPinned: preference.pinned,
       isArchived: preference.archived,
       isMuted: preference.muted,
+      isBlocked: isBlocked,
       snoozedUntil: preference.snoozedUntil,
       isSilenced: preference.isSilencedAt(DateTime.now()),
       isGroup: conversation.isGroup,
@@ -175,10 +187,14 @@ class ConversationListService {
     return address.raw.trim().substring(0, 1).toUpperCase();
   }
 
+  /// Un fil bloqué sort de partout sauf de « Spam et bloqués » : ses messages
+  /// restent dans le stock, mais l'app cesse de les mettre sous les yeux.
   bool _matches(ConversationDto dto, ConversationFilter filter) => switch (filter) {
-    ConversationFilter.all => !dto.isArchived,
-    ConversationFilter.unread => !dto.isArchived && dto.hasUnread,
-    ConversationFilter.archived => dto.isArchived,
+    ConversationFilter.all => !dto.isArchived && !dto.isBlocked,
+    ConversationFilter.unread =>
+      !dto.isArchived && !dto.isBlocked && dto.hasUnread,
+    ConversationFilter.archived => dto.isArchived && !dto.isBlocked,
+    ConversationFilter.blocked => dto.isBlocked,
   };
 
   int _byPinnedThenDate(ConversationDto a, ConversationDto b) {

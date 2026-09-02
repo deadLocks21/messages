@@ -6,6 +6,7 @@ import 'package:messages/core/domain/model/enums.dart';
 import 'package:messages/infrastructure/contacts/in_memory.contact.repository.dart';
 import 'package:messages/infrastructure/preferences/in_memory.conversation_preferences.repository.dart';
 import 'package:messages/infrastructure/preferences/in_memory.draft.repository.dart';
+import 'package:messages/infrastructure/sms/in_memory.blocked_numbers.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.conversation.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.sms_store.dart';
 
@@ -17,6 +18,7 @@ void main() {
   late InMemoryContactRepository contacts;
   late InMemoryConversationPreferencesRepository preferences;
   late InMemoryDraftRepository drafts;
+  late InMemoryBlockedNumbersRepository blocked;
   late ConversationListService service;
 
   setUp(() {
@@ -24,11 +26,13 @@ void main() {
     contacts = InMemoryContactRepository();
     preferences = InMemoryConversationPreferencesRepository();
     drafts = InMemoryDraftRepository();
+    blocked = InMemoryBlockedNumbersRepository();
     service = ConversationListService(
       conversations: InMemoryConversationRepository(store),
       directory: ContactDirectoryService(contacts, logger: testLogger()),
       preferences: preferences,
       drafts: drafts,
+      blocked: blocked,
     );
   });
 
@@ -128,6 +132,40 @@ void main() {
       expect(preview.threadId, '');
       expect(preview.title, 'Camille');
       expect(preview.isGroup, isFalse);
+    });
+  });
+
+  group('Numéros bloqués', () {
+    test('un fil bloqué sort de la liste et passe dans « Spam et bloqués »', () async {
+      seedThread('+33612345678', DateTime(2026, 8, 25, 10));
+      seedThread('+33698765432', DateTime(2026, 8, 25, 11));
+
+      // La clé et non la forme : bloquer le national doit sortir le fil ouvert
+      // sur l'international.
+      await blocked.block(Build.address('0612345678'));
+
+      final all = await service.list();
+      expect(all.map((c) => c.title), ['06 98 76 54 32']);
+
+      final spam = await service.list(filter: ConversationFilter.blocked);
+      expect(spam.single.title, '06 12 34 56 78');
+      expect(spam.single.isBlocked, isTrue);
+    });
+
+    test('un fil bloqué ne compte pas non plus dans les non lues', () async {
+      seedThread('+33612345678', DateTime(2026, 8, 25, 10), read: false);
+      await blocked.block(Build.address('+33612345678'));
+
+      expect(await service.list(filter: ConversationFilter.unread), isEmpty);
+    });
+
+    test('débloquer le rend à la liste', () async {
+      seedThread('+33612345678', DateTime(2026, 8, 25, 10));
+      await blocked.block(Build.address('+33612345678'));
+      await blocked.unblock(Build.address('+33612345678'));
+
+      expect(await service.list(), hasLength(1));
+      expect(await service.list(filter: ConversationFilter.blocked), isEmpty);
     });
   });
 }

@@ -1,4 +1,5 @@
 import 'package:messages/core/domain/services/attachment.repository.dart';
+import 'package:messages/core/domain/services/blocked_numbers.repository.dart';
 import 'package:messages/core/domain/services/attachment_compressor.service.dart';
 import 'package:messages/core/domain/services/attachment_opener.service.dart';
 import 'package:messages/core/domain/services/attachment_picker.service.dart';
@@ -45,6 +46,7 @@ import 'package:messages/infrastructure/gif/klipy.gif_catalog.service.dart';
 import 'package:messages/infrastructure/preferences/shared_preferences.emoji_history.repository.dart';
 import 'package:messages/infrastructure/providers/infra_providers.dart';
 import 'package:messages/infrastructure/providers/logger_providers.dart';
+import 'package:messages/infrastructure/sms/android.blocked_numbers.repository.dart';
 import 'package:messages/infrastructure/sms/android.conversation.repository.dart';
 import 'package:messages/infrastructure/sms/android.message.repository.dart';
 import 'package:messages/infrastructure/sms/in_memory.conversation.repository.dart';
@@ -184,6 +186,14 @@ ContactRepository contactRepository(Ref ref) {
     return const FlutterContactsContactRepository();
   }
   return ref.watch(inMemoryContactsProvider);
+}
+
+@Riverpod(keepAlive: true)
+BlockedNumbersRepository blockedNumbersRepository(Ref ref) {
+  if (ref.watch(useNativeSmsStackProvider)) {
+    return AndroidBlockedNumbersRepository(ref.watch(smsChannelProvider));
+  }
+  return ref.watch(inMemoryBlockedNumbersProvider);
 }
 
 @Riverpod(keepAlive: true)
